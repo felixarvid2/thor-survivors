@@ -1,0 +1,67 @@
+name: Release
+
+# Build the APK and publish a GitHub release. Three ways in:
+#  - merge a notes file docs/releases/vX.Y.Z.md to main (creates or updates release vX.Y.Z),
+#  - push a tag like v1.0.0,
+#  - run it by hand (workflow_dispatch) with a tag name.
+# The release body is docs/releases/<tag>.md when that file exists.
+on:
+  push:
+    tags: ['v*']
+    branches: [main]
+    paths: ['docs/releases/v*.md']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (e.g. v1.0.0)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pick the tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            # A push to main that changed docs/releases/v*.md: release the newest changed notes file.
+            FILE=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- 'docs/releases/v*.md' | sort -V | tail -1)
+            TAG=$(basename "$FILE" .md)
+          fi
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then echo "Bad tag: '$TAG'"; exit 1; fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - name: Build and test
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          ./gradlew --no-daemon assembleDebug testDebugUnitTest
+      - name: Package
+        run: cp app/build/outputs/apk/debug/app-debug.apk "thor-survivors-${TAG}.apk"
+
+      - name: Release notes
+        run: |
+          {
+            echo "Ladda ner \`thor-survivors-${TAG}.apk\` nedan och installera den på AYN Thor (tillåt okända källor). Den installeras över tidigare versioner."
+            if [ -f "docs/releases/${TAG}.md" ]; then echo; cat "docs/releases/${TAG}.md"; fi
+          } > release-notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ASHFALL Lumen Tide ${{ env.TAG }}
+          files: thor-survivors-${{ env.TAG }}.apk
+          body_path: release-notes.md
+          overwrite_files: true
