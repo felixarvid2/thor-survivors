@@ -144,6 +144,9 @@ public class Phase11ShotsTest {
         h.eng.advance(1f / 60f);
         Shots.save(h.renderBottom(), "p11_shop_bottom.png");
         Shots.save(h.renderTop(), "p11_shop_top.png");
+        h.eng.focus = 11; // the second page
+        h.eng.advance(1f / 60f);
+        Shots.save(h.renderBottom(), "p11_shop_page2_bottom.png");
     }
 
     @Test

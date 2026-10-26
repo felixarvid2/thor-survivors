@@ -205,7 +205,7 @@ public final class Sim {
     /** Findable world items of an Ashfall run: not pickups (never condensed or despawned); {@link #FIND_R} walk-over. */
     public static final int MAX_FINDS = 6, FIND_WEAPON = 0, FIND_GEAR = 1;
     public static final float FIND_R = 32f;
-    private static final float[] FIND_DIST = {650f, 1000f, 1400f, 1850f, 2400f, 3000f};
+    private static final float[] FIND_DIST = {1300f, 1900f, 2600f, 3300f, 4100f, 5000f};
     private static final float FIND_APART = 150f;
     public final float[] findX = new float[MAX_FINDS], findY = new float[MAX_FINDS];
     public final int[] findKind = new int[MAX_FINDS];
@@ -275,7 +275,7 @@ public final class Sim {
     }
 
     /**
-     * 4 Weapon Caches and 2 Gear Lockers at about 650 .. 3000 u from the start, a pure function of the run seed (its own
+     * 4 Weapon Caches and 2 Gear Lockers at about 1300 .. 5000 u from the start, a pure function of the run seed (its own
      * Random, never the main one, so seeded runs stay identical). The nearest is always a cache; spots keep off blocked
      * tiles and 150 u apart.
      */
@@ -302,7 +302,7 @@ public final class Sim {
         for (int i = 0; i < MAX_FINDS; i++) {
             for (int attempt = 0; attempt < 400; attempt++) {
                 float a = fr.nextFloat() * 6.2831855f;
-                float r = FIND_DIST[i] + (attempt / 20) * 25f; // a crowded spot drifts slowly outwards
+                float r = FIND_DIST[i] + (attempt / 20) * 50f; // a crowded spot drifts slowly outwards
                 float x = (float) Math.cos(a) * r, y = (float) Math.sin(a) * r;
                 if (map.blocked(x, y) || map.blocked(x + 22f, y) || map.blocked(x - 22f, y)
                         || map.blocked(x, y + 22f) || map.blocked(x, y - 22f)) continue;
@@ -344,7 +344,7 @@ public final class Sim {
         if (findN == 0) return;
         if (!findHinted && time >= 3.0) {
             findHinted = true;
-            toast("Caches detected - follow the arrow", 0xFF39FF88);
+            toast("Caches detected - check the minimap", 0xFF39FF88);
         }
         for (int i = 0; i < findN; i++) {
             if (findTaken[i]) continue;

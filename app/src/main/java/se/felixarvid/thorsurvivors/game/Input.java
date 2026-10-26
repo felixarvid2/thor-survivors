@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public final class Input {
     public static final int UP = 0, DOWN = 1, LEFT = 2, RIGHT = 3;
+    /** Shoulder buttons L1 / R1 in the shop: flip the page. */
+    public static final int PAGE_PREV = 4, PAGE_NEXT = 5;
     public static final int CMD_NAV = 1, CMD_CONFIRM = 2, CMD_BACK = 3, CMD_START = 4, CMD_TAP = 5, CMD_AUTOPAUSE = 6;
     public static final float DEAD_ZONE = 0.15f;
 

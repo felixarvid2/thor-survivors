@@ -88,10 +88,18 @@ public final class InputRouter {
             case KeyEvent.KEYCODE_P:
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_START, 0, 0, 0);
                 return true;
-            case KeyEvent.KEYCODE_BUTTON_X:
-            case KeyEvent.KEYCODE_BUTTON_Y:
             case KeyEvent.KEYCODE_BUTTON_L1:
             case KeyEvent.KEYCODE_BUTTON_R1:
+                if (eng.phase == Engine.PH_SHOP) { // the salvage terminal: shoulder buttons flip the page
+                    if (down && e.getRepeatCount() == 0) {
+                        in.post(Input.CMD_NAV, code == KeyEvent.KEYCODE_BUTTON_L1 ? Input.PAGE_PREV : Input.PAGE_NEXT, 0, 0);
+                    }
+                    return true;
+                }
+                if (eng.phase == Engine.PH_PLAYING && down && e.getRepeatCount() == 0) in.dodgeReq = true;
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_X:
+            case KeyEvent.KEYCODE_BUTTON_Y:
             case KeyEvent.KEYCODE_BUTTON_L2:
             case KeyEvent.KEYCODE_BUTTON_R2:
                 // any face or shoulder button dodges while playing; elsewhere they are swallowed

@@ -50,6 +50,10 @@ public class FindsTest {
                     assertFalse(a.map.blocked(a.findX[i], a.findY[i]));
                     if (a.findKind[i] == Sim.FIND_WEAPON) weapons++;
                     float d0 = (float) Math.hypot(a.findX[i], a.findY[i]);
+                    assertTrue("far out: " + d0, d0 >= 1290f && d0 <= 5000f + 20 * 50f);
+                    float[] oc = {a.findX[i] + 22f, a.findX[i] - 22f, a.findX[i], a.findX[i]};
+                    float[] od = {a.findY[i], a.findY[i], a.findY[i] + 22f, a.findY[i] - 22f};
+                    for (int q = 0; q < 4; q++) assertFalse(a.map.blocked(oc[q], od[q]));
                     if (d0 < nd) {
                         nd = d0;
                         near = i;
@@ -62,6 +66,37 @@ public class FindsTest {
                 assertEquals(Sim.FIND_WEAPON, a.findKind[near]);
             }
         }
+    }
+
+    @Test
+    public void theNearestIsAboutTwiceAsFarAsBefore() throws Exception {
+        for (long seed = 1; seed <= 10; seed++) {
+            Sim a = sim("FLATS", seed);
+            float nd = Float.MAX_VALUE, fd = 0;
+            for (int i = 0; i < a.findN; i++) {
+                float d0 = (float) Math.hypot(a.findX[i], a.findY[i]);
+                nd = Math.min(nd, d0);
+                fd = Math.max(fd, d0);
+            }
+            assertTrue("nearest " + nd, nd >= 1290f && nd < 1600f);
+            assertTrue("farthest " + fd, fd >= 4990f);
+        }
+    }
+
+    @Test
+    public void theWorldWorksAtFiveThousandUnits() throws Exception {
+        Sim s = sim("FLATS", 3);
+        int open = 0;
+        for (int i = 0; i < 24; i++) {
+            double ang = i * Math.PI / 12;
+            float x = (float) Math.cos(ang) * 5000f, y = (float) Math.sin(ang) * 5000f;
+            if (!s.map.blocked(x, y)) open++;
+        }
+        assertTrue("open ground out there", open > 6);
+        s.px = 5000f;
+        s.py = -3000f;
+        for (int i = 0; i < 120; i++) s.update(DT, new Input());
+        assertFalse(Float.isNaN(s.px));
     }
 
     @Test

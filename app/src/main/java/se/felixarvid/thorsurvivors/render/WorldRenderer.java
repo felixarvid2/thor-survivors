@@ -2164,7 +2164,6 @@ public final class WorldRenderer {
                 c.drawRect(0, 0, w, h, fill);
             }
             drawBossBarTop(c, w, s);
-            if (ph == Engine.PH_PLAYING) topUi.drawFindArrow(c, w, h, s, sc, ks);
             drawToasts(c, w, h, s, dual);
         }
         if (menu) { // only without the UI art (the title screen is TopOverlay.drawMenu)
