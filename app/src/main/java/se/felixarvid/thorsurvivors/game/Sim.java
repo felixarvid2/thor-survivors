@@ -47,6 +47,9 @@ public final class Sim {
         /** Garlic / Soul Eater aura radius in world units (50 u x area); the renderer draws the aura with it. */
         public float auraRadius;
         public int pending, shotIndex, side;
+        /** Fusions.* id when this slot holds a weapon fusion (0 = none) and a timer for it. */
+        public int fusion;
+        public float aux;
     }
 
     public final GameData data;
@@ -118,6 +121,7 @@ public final class Sim {
     final EnemyAi ai = new EnemyAi(this);
     final BossAi boss = new BossAi(this, ai);
     final Elites elites = new Elites(this);
+    final Fusions fusions = new Fusions(this);
     /** Hero statuses from enemy hazards (design section 7): seconds left of Burn, Slow and Decay. */
     public float heroBurnT, heroSlowT, heroDecayT;
     private float statusAcc;
@@ -180,7 +184,7 @@ public final class Sim {
             Entities.K_OROLOGION, Entities.K_ROSARY, Entities.K_CLOVER};
     static final float DEST_CELL = 500f, DEST_R = 16f, DEST_CLEAR = 300f, PYLON_CELL = 2000f;
     /** Destructible kinds: the old brazier / candelabra (drops only), explosive barrel, supply chest, stim pylon. */
-    public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3;
+    public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3, DK_NEST = 4;
     /** Barrel blast (design 9.1): radius 80, 5P (50) to every enemy and to the hero if within range; the hero takes 15 (an approximation: 5P on the hero would be half its health). */
     public static final float BARREL_R = 80f, BARREL_DMG = 50f, BARREL_HERO_DMG = 10f;
     /** A stim pylon heals 30% of max HP when destroyed; it works again 60 s after its last use. */
@@ -188,6 +192,10 @@ public final class Sim {
     /** The destructibles of the cells around the player that are still standing (swap-remove compacted). */
     public final float[] destX = new float[MAX_DEST], destY = new float[MAX_DEST];
     public final byte[] destKind = new byte[MAX_DEST];
+    /** Hit points of a Lumen Nest (DK_NEST) and the seconds to its next hound pack, per destructible slot (see {@link Pois}). */
+    public final float[] destHp = new float[MAX_DEST], destT = new float[MAX_DEST];
+    /** Damage of a weapon hit on a nest; a barrel blast sets {@link #BARREL_DMG} while it breaks things. */
+    private float hitDestDmg = 10f;
     private final long[] destKey = new long[MAX_DEST];
     public int destN;
     public int destsBroken;
@@ -215,6 +223,81 @@ public final class Sim {
     private boolean findHinted;
     /** The Salvager (merchant) of the Ashfall stages; see {@link Merchant}. */
     public final Merchant merchant = new Merchant(this);
+    /** The events of minutes 20 to 30 (Signal Tower, Collapse, Surge, Beacon, Tide); see {@link Events}. */
+    public final Events events = new Events(this);
+    /** Hits the hero has taken this run (discrete hurtHero calls; the Collapse's Flawless bonus compares it). */
+    public int heroHits;
+    /** Outposts, nests, relay terminals, hazard fields and the vault of the Ashfall stages; see {@link Pois}. */
+    public final Pois pois = new Pois(this);
+
+    // ------------------------------------------------------------------ weapon fusions (design v1.3 section 1)
+
+    /** The fusion that can be made now (null = none), since when (run seconds, -1 = not ready), and the Arms Crates waiting to be opened. */
+    public WeaponDef fusionReady;
+    public double fuseReadySince = -1;
+    public int pendingArms;
+    /** K_CHEST pickup value of an elite's Arms Crate (a timed boss's chest carries its item count 1..3, a plain chest 0). */
+    public static final float ARMS_CRATE = -1f;
+    /** Seconds a pair must be ready before the FUSE level-up card may appear, and the least number of level-ups between two FUSE cards. */
+    public static final double FUSE_CARD_AFTER = 90.0;
+    public static final int FUSE_CARD_EVERY = 2;
+    private float fuseCheckT;
+    private int levelUpSeq, lastFuseCardSeq = -100;
+    /** The latest fusion made (for the chest line and the cards): its two parents as they were and the result. */
+    public WeaponDef lastFusedA, lastFusedB, lastFusedTo;
+    /** Chest table of an Arms Crate (elite drop from the 2nd elite): five items: fusion, evolution, a weapon level, then two random levels. */
+    static final Treasure ARMS_TREASURE =
+            new Treasure(new double[]{100, 0, 0}, 1, new String[]{Treasure.FUSION, Treasure.EVOLUTION, Treasure.EXISTING_WEAPON});
+
+    private void updateFusionReady(float dt) {
+        if ((fuseCheckT -= dt) > 0f) return;
+        fuseCheckT = 0.5f;
+        fusionReady = data.fusions.length == 0 ? null : inv.readyFusion(data.fusions, data.weapons);
+        if (fusionReady == null) fuseReadySince = -1;
+        else if (fuseReadySince < 0) fuseReadySince = time;
+    }
+
+    /** True when a fusion can be made now. */
+    public boolean fusionAvailable() {
+        return data.fusions.length > 0 && inv.readyFusion(data.fusions, data.weapons) != null;
+    }
+
+    /**
+     * Called for every level-up: when a pair has been ready for 90 s (no chest took it) and no FUSE card came in the last
+     * level-up, the last non-branch card becomes the gold FUSE card. It can be declined by picking another card.
+     */
+    public void addFuseCard(List<Offer> cards) {
+        levelUpSeq++;
+        if (fusionReady == null || fuseReadySince < 0 || time - fuseReadySince < FUSE_CARD_AFTER
+                || levelUpSeq - lastFuseCardSeq < FUSE_CARD_EVERY || cards.isEmpty()) return;
+        WeaponDef f = inv.readyFusion(data.fusions, data.weapons);
+        if (f == null) return;
+        Offer o = Offer.fuse(f, inv.weapons[inv.fuseA].def, inv.weapons[inv.fuseB].def);
+        int at = cards.size() - 1;
+        while (at > 0 && cards.get(at).kind == Offer.BRANCH) at--;
+        if (cards.get(at).kind == Offer.BRANCH) cards.add(o);
+        else cards.set(at, o);
+        lastFuseCardSeq = levelUpSeq;
+    }
+
+    /** Fuses the pair of {@code f}: frees a weapon slot, starts the fusion at its level and resets what depended on the slots. Returns false when the pair is not ready. */
+    public boolean fuseNow(WeaponDef f) {
+        if (!inv.canFuse(f, data.weapons)) return false;
+        int low = inv.fuseA;
+        lastFusedA = inv.weapons[inv.fuseA].def;
+        lastFusedB = inv.weapons[inv.fuseB].def;
+        lastFusedTo = f;
+        inv.fuse(f, data.weapons);
+        for (int i = projN - 1; i >= 0; i--) if (projs[i].kind == Entities.P_BOOK) removeProj(i); // orbiting drones belong to slot numbers that moved
+        strikeN = 0;
+        for (int i = low; i < weapons.length; i++) weapons[i].def = null; // fresh cooldowns for the slots that changed
+        fusionReady = null;
+        fuseReadySince = -1;
+        sound.emit(SoundEvents.EVOLUTION);
+        toast("FUSION: " + f.name, 0xFFFFD84A);
+        recomputeAll();
+        return true;
+    }
 
     private int lastRow = -1;
     private float spawnTimer;
@@ -267,6 +350,10 @@ public final class Sim {
         refreshDestructibles();
         placeFinds(seed == null ? 0L : seed);
         merchant.init(seed == null ? 0L : seed, hasFinds());
+        events.init(seed == null ? 0L : seed);
+        pois.init(seed == null ? 0L : seed, hasFinds());
+        destCx = Integer.MIN_VALUE; // list the destructibles again: the places add their own
+        refreshDestructibles();
     }
 
     /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
@@ -356,6 +443,11 @@ public final class Sim {
         }
     }
 
+    /** Tests: collects a find as walking over it does. */
+    public void collectFindForTest(int kind) {
+        collectFind(kind);
+    }
+
     private void collectFind(int kind) {
         sound.emit(SoundEvents.CHEST_OPEN);
         if (kind == FIND_GEAR) {
@@ -364,6 +456,20 @@ public final class Sim {
             return;
         }
         final int green = 0xFF39FF88;
+        WeaponDef fus = inv.readyFusion(data.fusions, data.weapons);
+        if (fus != null) { // a ready pair is fused, else a mastered weapon with its synergy passive evolves
+            fuseNow(fus);
+            toast("WEAPON CACHE: FUSION", green);
+            return;
+        }
+        int evo = inv.firstEvolvable(data.weapons);
+        if (evo >= 0) {
+            WeaponDef to = inv.evolve(evo, data.weapons);
+            sound.emit(SoundEvents.EVOLUTION);
+            recomputeAll();
+            toast("WEAPON CACHE: " + to.name, green);
+            return;
+        }
         java.util.List<Offer> cand = OfferGenerator.candidates(inv, data.weapons.values());
         java.util.ArrayList<Offer> fresh = new java.util.ArrayList<>(), up = new java.util.ArrayList<>();
         for (Offer o : cand) {
@@ -403,6 +509,7 @@ public final class Sim {
         PlayerStats old = stats;
         statsLevel = level;
         stats = PlayerStats.compute(inv, meta, extraLuck, hero, level, equip, data);
+        pois.applyBuff(stats);
         float nm = (float) stats.baseHp * (float) stats.maxHpMul;
         if (old != null) hp += Math.max(0, nm - maxHp);
         maxHp = nm;
@@ -413,6 +520,12 @@ public final class Sim {
 
     private static int behaviorOf(String key) {
         switch (key) {
+            case "STORMLASH": return B_WHIP;
+            case "FOUNDRY_SPILL": return B_WATER;
+            case "NEEDLE_CHOIR": return B_KNIFE;
+            case "MIASMA_CENSER": case "FARADAY_HALO": return B_BOOK;
+            case "RICOCHET_ORDNANCE": return B_CROSS;
+            case "KILN_BREATH": return B_GARLIC;
             case "WHIP": case "VAMPIRICA": return B_WHIP;
             case "MAGIC_MISSILE": case "HOLY_MISSILE": return B_MISSILE;
             case "KNIFE": case "THOUSAND": return B_KNIFE;
@@ -435,6 +548,7 @@ public final class Sim {
         w.level = s.level;
         w.behavior = behaviorOf(s.def.key);
         w.evo = s.def.evolution;
+        w.fusion = Fusions.idOf(s.def.key);
         Map<String, Double> m = s.def.statsAt(s.level);
         w.dmg = g(m, "power", 1) * 10f * (float) stats.might;
         w.interval = (float) Math.max(50, g(m, "interval", 1000)) / 1000f * (float) stats.cooldownMul;
@@ -445,7 +559,7 @@ public final class Sim {
         w.hasHitDelay = m.containsKey("hitBoxDelay");
         w.hitDelay = Math.max(0.05f, g(m, "hitBoxDelay", 500) / 1000f);
         w.auraRadius = 50f * w.area;
-        w.endless = s.def.key.equals("VESPERS");
+        w.endless = s.def.key.equals("VESPERS") || w.fusion == Fusions.CENSER || w.fusion == Fusions.FARADAY;
         w.knock = g(m, "knockback", 0.3f);
         w.critChance = (g(m, "critChance", 0) + (float) stats.critBonus) * (1f + (float) stats.luck);
         w.critMul = g(m, "critMul", 2);
@@ -476,6 +590,7 @@ public final class Sim {
         updateDodge(input, dt);
         movePlayer(dt);
         refreshDestructibles();
+        events.update(dt);
         updateWaves(dt);
         statusAcc += dt;
         if (statusAcc >= Status.PASS) { // one pass at 10 Hz: Burn, Frost, Electrify, Decay and the hero's statuses
@@ -500,7 +615,9 @@ public final class Sim {
         }
         updatePickups(dt);
         updateFinds();
+        updateFusionReady(dt);
         merchant.update();
+        pois.update(dt);
         updateVisuals(dt);
         if (freezeTimer > 0) freezeTimer -= dt;
         if (invuln > 0) invuln -= dt;
@@ -648,8 +765,10 @@ public final class Sim {
         return false;
     }
 
-    private void addDest(float x, float y, int kind, long key) {
+    void addDest(float x, float y, int kind, long key) {
         if (destN >= MAX_DEST || isBroken(key)) return;
+        destHp[destN] = Pois.NEST_HP;
+        destT[destN] = 2f;
         destX[destN] = x;
         destY[destN] = y;
         destKind[destN] = (byte) kind;
@@ -680,6 +799,7 @@ public final class Sim {
                 }
             }
         }
+        pois.addDests(cx, cy);
         if (!stage.destructible.equals("MIXED_MINES")) return;
         // stim pylons: rare, one per ~2000 x 2000 u
         int p0x = (int) Math.floor((cx - 2) * DEST_CELL / PYLON_CELL), p1x = (int) Math.floor((cx + 3) * DEST_CELL / PYLON_CELL);
@@ -702,15 +822,25 @@ public final class Sim {
         for (int i = destN - 1; i >= 0; i--) {
             if (i >= destN) continue; // a barrel chain removed several
             float dx = destX[i] - x, dy = destY[i] - y, rr = r + DEST_R;
-            if (dx * dx + dy * dy < rr * rr) breakDest(i);
+            if (dx * dx + dy * dy < rr * rr) strikeDest(i);
         }
+    }
+
+    /** A hit on destructible i: a nest loses hit points first, everything else breaks. */
+    private void strikeDest(int i) {
+        if (destKind[i] == DK_NEST && (destHp[i] -= hitDestDmg) > 0f) {
+            addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 50f, 0f, 0.12f, 0, false);
+            spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
+            return;
+        }
+        breakDest(i);
     }
 
     /** Same for a box centred on (cx, cy), w x h (the whip). */
     private void hitDestBox(float cx, float cy, float w, float h) {
         for (int i = destN - 1; i >= 0; i--) {
             if (i >= destN) continue;
-            if (Math.abs(destX[i] - cx) < w / 2f + DEST_R && Math.abs(destY[i] - cy) < h / 2f + DEST_R) breakDest(i);
+            if (Math.abs(destX[i] - cx) < w / 2f + DEST_R && Math.abs(destY[i] - cy) < h / 2f + DEST_R) strikeDest(i);
         }
     }
 
@@ -729,11 +859,14 @@ public final class Sim {
         brokenN = Math.min(broken.length, brokenN + 1);
         float x = destX[i], y = destY[i];
         int kind = destKind[i];
+        long key = destKey[i];
         destN--;
         destX[i] = destX[destN];
         destY[i] = destY[destN];
         destKey[i] = destKey[destN];
         destKind[i] = destKind[destN];
+        destHp[i] = destHp[destN];
+        destT[i] = destT[destN];
         destsBroken++;
         switch (kind) {
             case DK_BARREL:
@@ -748,6 +881,9 @@ public final class Sim {
                 break;
             case DK_PYLON:
                 usePylon(x, y);
+                break;
+            case DK_NEST:
+                pois.nestBroken(x, y, key);
                 break;
             default: // the old brazier / candelabra
                 sound.emit(SoundEvents.BRAZIER_BREAK);
@@ -779,6 +915,7 @@ public final class Sim {
         for (int q = 0; q < chainN; q++) {
             float bx = chainX[q], by = chainY[q];
             sound.emit(SoundEvents.BARREL_EXPLODE);
+            pois.onBlast(bx, by);
             addFx(Entities.FX_FLASH, bx, by - 10f, 170f, 0f, 0.35f, 0, false);
             addFx(Entities.FX_BLAST, bx, by, BARREL_R * 0.55f, 1f, 0.3f, 0, false);
             spark(bx, by - 10f, 0xFFFFA030, 14);
@@ -798,8 +935,10 @@ public final class Sim {
             if (hx * hx + hy * hy < BARREL_R * BARREL_R && invuln <= 0f) {
                 hurtHero(Math.max(1f, BARREL_HERO_DMG - (float) stats.armor), 0.5f, true, DMG_BLAST);
             }
+            hitDestDmg = BARREL_DMG;
             hitDest(bx, by, BARREL_R - DEST_R); // other barrels, chests and pylons inside the blast break too (and chain)
         }
+        hitDestDmg = 10f;
         chainN = 0;
         inChain = false;
     }
@@ -947,7 +1086,7 @@ public final class Sim {
 
     /** Multiplier on the light radius: 1, or 0.6 at the height of an ash storm. */
     public float lightRadiusMul() {
-        return 1f - STORM_LIGHT * stormLevel();
+        return (1f - STORM_LIGHT * stormLevel()) * events.lightMul();
     }
 
     private void updateWaves(float dt) {
@@ -961,20 +1100,90 @@ public final class Sim {
                 spawnAtRing(type(b), true, HALF_W + 100f);
             }
         }
-        updateElites();
+        updateTimedBosses();
+        if (!events.spawnsBlocked()) updateElites(); // the Tide's lull: nothing arrives
         if (stage.tentacleMinutes.length > 0) updateTentacles(dt);
-        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f);
-        if (spawnTimer >= row.frequencyMs) {
+        if (events.spawnsBlocked()) return;
+        // phase 13: a horde burst raises the minimum, shortens the tick and fills the field with its own (cheap) types
+        int horde = stage.hordeAt(time);
+        if (horde != hordeLast) {
+            hordeLast = horde;
+            if (horde >= 0) toast("SWARM INCOMING", 0xFFFF6A3D);
+        }
+        int minimum = row.minimum;
+        float freq = row.frequencyMs;
+        if (horde >= 0) {
+            minimum = Math.max(minimum, (int) stage.hordes[horde][2]);
+            freq = Math.min(freq, (float) stage.hordes[horde][3]);
+        }
+        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f) * events.spawnMul() * pois.spawnMul;
+        if (spawnTimer >= freq) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
             int each = WaveDirector.eachCount(row, enemyN);
             for (int i = 0; i < each; i++) spawnAtRing(type(row.enemies[i]), false, 0);
-            int extra = WaveDirector.topUpCount(row, enemyN);
+            boolean swarm = horde >= 0 && stage.hordeTypes.length > 0;
+            int extra = WaveDirector.topUpCount(minimum, swarm ? stage.hordeTypes.length : row.enemies.length, enemyN);
             for (int i = 0; i < extra; i++) {
-                spawnAtRing(type(row.enemies[rng.nextInt(row.enemies.length)]), false, 0);
+                String[] pool = swarm ? stage.hordeTypes : row.enemies;
+                spawnAtRing(type(pool[rng.nextInt(pool.length)]), false, 0);
             }
         }
     }
+
+    /** Colonists in the ring of {@link #requestHorde}. */
+    static final int HORDE_SIZE = 40;
+    /** Kind of the latest horde asked for ("TOWER", "BEACON", "TIDE"), and how many it brought (for tests). */
+    public String lastHordeKind = "";
+    public int lastHordeSize;
+
+    /**
+     * An event asks for a horde. The minimal version: a closing ring of {@link #HORDE_SIZE} colonists just outside the view with
+     * a 60 degree gap, through {@link #spawnAtRing} (so the 300 cap holds). The pacing chunk replaces the body, not the callers.
+     * Returns how many came.
+     */
+    public int requestHorde(String kind) {
+        lastHordeKind = kind;
+        lastHordeSize = 0;
+        EnemyType t = type("COLONIST");
+        if (t == null) return 0;
+        float gap = rng.nextFloat() * 6.2831855f, gapW = 1.05f, dist = HALF_W + 100f;
+        for (int i = 0; i < HORDE_SIZE; i++) {
+            float a = gap + gapW * 0.5f + (6.2831855f - gapW) * (i + 0.5f) / HORDE_SIZE;
+            int before = enemyN;
+            spawnAtRing(t, false, dist);
+            if (enemyN > before) {
+                Enemy e = enemies[enemyN - 1];
+                e.x = px + (float) Math.cos(a) * dist;
+                e.y = py + (float) Math.sin(a) * dist;
+                lastHordeSize++;
+            }
+        }
+        return lastHordeSize;
+    }
+
+    private int timedNext;
+    /** A timed boss whose second has passed by more than this (a test that jumps the clock) is skipped, not spawned late. */
+    static final float TIMED_LATE = 20f;
+
+    /**
+     * v1.3 timed bosses ({@code stage.timedAt/timedBoss}, ashfall_data.json {@code timedBosses}): each spawns once, on the
+     * ring, when its second is reached, through the same {@link #spawnAtRing} / {@link #onBossSpawn} as the wave-row bosses.
+     * They come between the row bosses (7:30, 12:30, 17:30, 22:30 and 26:30 / 27:30), so sub-minute scheduling lives here.
+     */
+    private void updateTimedBosses() {
+        while (timedNext < stage.timedAt.length && time >= stage.timedAt[timedNext]) {
+            int i = timedNext++;
+            if (time - stage.timedAt[i] > TIMED_LATE) continue;
+            spawnAtRing(type(stage.timedBoss[i]), true, HALF_W + 100f);
+        }
+    }
+
+    /** Tests: how many timed bosses of the stage have been handled (spawned or skipped). */
+    public int timedBossesDone() {
+        return timedNext;
+    }
+    private int hordeLast = -1;
 
     /** Ranged enemies alive (the cap of {@link #RANGED_CAP} keeps the enemy projectile budget). */
     int rangedAlive() {
@@ -1028,6 +1237,49 @@ public final class Sim {
         bannerName = e.type.nameUpper;
     }
 
+    /** True while a place acts (its update, {@link #poiSpawn}, its sparks): particles and first timers then draw from the places' own random, not {@link #rng}. */
+    boolean quietRng;
+
+    /** The random an enemy's first timers are drawn from: {@link #rng}, except while {@link #poiSpawn} runs (then the places' own). */
+    java.util.Random initRng() {
+        return quietRng ? pois.quiet() : rng;
+    }
+
+    /**
+     * An enemy of a place (outpost guard, nest hound) at (x, y), belonging to {@code poi}; an elite gets the elite stats (HP, damage,
+     * size, speed, XP from the data) without the escort. Never draws from {@link #rng}. Null when the pool is nearly full.
+     */
+    Enemy poiSpawn(EnemyType t, float x, float y, int poi, boolean elite, int mods) {
+        if (t == null || enemyN >= MAX_ENEMIES - 4) return null;
+        Enemy e = enemies[enemyN++];
+        boolean was = quietRng;
+        quietRng = true;
+        initEnemy(e, t, false);
+        quietRng = was;
+        e.x = x;
+        e.y = y;
+        e.poi = poi;
+        if (elite) {
+            e.elite = true;
+            e.mods = mods;
+            float dmgMul = (float) data.elite("damageMul", 1.5);
+            e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
+            e.power *= dmgMul;
+            e.shotMul *= dmgMul;
+            e.radius *= (float) data.elite("scale", 1.4);
+            e.speed *= (float) data.elite("speedMul", 0.9);
+            e.xp *= (float) data.elite("xpMul", 8);
+            if ((mods & Elites.M_ARMORED) != 0) {
+                e.armor = (float) data.elite("armor", Elites.FLAT_ARMOR);
+                e.kbMul = 0f;
+            }
+            e.mt0 = 1.5f;
+            e.mt1 = 2.5f;
+            e.mt2 = Elites.RAISE_EVERY * 0.5f;
+        }
+        return e;
+    }
+
     /** A summoned enemy near (x, y) (Vire raises colonists); false when the pool is full. */
     boolean spawnMinion(String key, float x, float y) {
         EnemyType t = type(key);
@@ -1074,21 +1326,28 @@ public final class Sim {
         e.flash = 0;
         e.softFlash = false;
         e.textSlot = -1;
-        e.anim = rng.nextFloat() * 6f;
+        e.anim = initRng().nextFloat() * 6f;
         e.clearTicks();
         e.clearHits();
         e.clearStatus();
         e.clearAi();
+        e.toBeacon = !boss && t.arch == EnemyDef.ARCH_CHASER && events.flagBeacon();
         // Ashfall bosses carry their final HP in the data; the Vampire Survivors ones get the old x3
         double hp = t.def.maxHp * 10.0 * (t.def.hpTimesLevel ? t.def.level : 1) * stage.enemyHealth
                 * (1 + stats.curse) * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
         if (boss && t.def.ashfallBoss) hp *= bossHpRamp(t.def.param("hpRamp", 0f), time);
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time); // phase 13: the HP of wave enemies grows with the run time
         e.hp = e.maxHp = (float) Math.max(1, hp);
         e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * stats.enemySpeed);
         e.power = (float) t.def.power;
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
         if (t.arch != EnemyDef.ARCH_CHASER) ai.init(e);
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) { // phase 13: contact and bolt damage grow with the run time too
+            float dm = (float) stage.dmgMul(time);
+            e.power *= dm;
+            e.shotMul = dm;
+        }
     }
 
     private void updateEnemies(float dt) {
@@ -1108,6 +1367,7 @@ public final class Sim {
                 if (!frozen) boss.tentacle(e, dt);
                 continue;
             }
+            if (e.sleeping) continue; // an outpost guard that has not woken: stands still
             if (d2 > RECYCLE_DIST * RECYCLE_DIST && e.type.arch != EnemyDef.ARCH_TENTACLE) { // far behind the player: recycle to the opposite edge
                 recycle(e, dx, dy, (float) Math.sqrt(d2));
                 continue;
@@ -1121,11 +1381,17 @@ public final class Sim {
             else moving = !frozen && !held;
             if (e.type.arch == EnemyDef.ARCH_CHASER) {
                 if (moving) {
-                    float d = (float) Math.sqrt(d2);
-                    if (d > 1f) {
+                    float tdx = dx, tdy = dy, d2t = d2;
+                    if (e.toBeacon) { // Defend the Beacon: 30% of the spawns walk to it and gnaw at it
+                        tdx = events.bx - e.x;
+                        tdy = events.by - e.y;
+                        d2t = tdx * tdx + tdy * tdy;
+                    }
+                    float d = (float) Math.sqrt(d2t);
+                    if (d > 1f && !(e.toBeacon && d < Events.BEACON_R * 0.8f)) {
                         float sp = ai.speedOf(e);
-                        e.x += dx / d * sp * dt;
-                        e.y += dy / d * sp * dt;
+                        e.x += tdx / d * sp * dt;
+                        e.y += tdy / d * sp * dt;
                     }
                 }
             } else if (!frozen && !stunned) {
@@ -1416,7 +1682,7 @@ public final class Sim {
         float best = 0;
         for (int i = 0; i < enemyN; i++) {
             Enemy e = enemies[i];
-            if (e.dead || e.stun > 0 || e.dormant) continue; // a stunned enemy cannot attack, a tentacle that still warns does not hurt
+            if (e.dead || e.stun > 0 || e.dormant || e.sleeping) continue; // a stunned enemy cannot attack, a tentacle that still warns does not hurt
             float dx = e.x - px, dy = e.y - py, rr = e.radius * 0.8f + PLAYER_R * 0.8f;
             if (dx * dx + dy * dy < rr * rr) best = Math.max(best, e.power * e.dmgMul); // Decay lowers what it deals
         }
@@ -1440,6 +1706,7 @@ public final class Sim {
 
     void hurtHero(float taken, float inv, boolean shake, int source) {
         taken *= (float) stats.damageTaken; // Riot Shield
+        heroHits++;
         dmgBy[source] += taken;
         hp -= taken;
         sound.emit(SoundEvents.PLAYER_HURT);
@@ -1502,7 +1769,7 @@ public final class Sim {
     // ------------------------------------------------------------------ damage & kills
 
     /** Set while a lightning strike deals its damage: those hits show a soft brighten instead of the white silhouette. */
-    private boolean softHit;
+    boolean softHit;
 
     public void hurt(Enemy e, float dmg, float chance, float critMul, float kx, float ky, float knock) {
         if (e.dead || e.dormant) return;
@@ -1554,6 +1821,7 @@ public final class Sim {
             kills++;
             sound.emit(SoundEvents.ENEMY_DEATH);
             if (e.type.arch == EnemyDef.ARCH_EXPLODER) ai.carrierBurst(e); // a spore carrier bursts when it dies
+            else if (e.type.arch == EnemyDef.ARCH_TENTACLE && e.type.def.param("blast", 0f) > 0f) boss.decoyBlast(e); // a Kade decoy explodes
             spark(e.x, e.y, e.type.gore, e.boss ? 24 : 7);
             addCorpse(e);
             drops(e);
@@ -1579,7 +1847,7 @@ public final class Sim {
     }
 
     private void drops(Enemy e) {
-        addPickup(Entities.K_GEM, e.x, e.y, e.xp);
+        addPickup(Entities.K_GEM, e.x, e.y, e.xp * events.xpMul());
         if (e.elite) eliteRewards(e);
         if (e.boss) bossRewards(e);
         else if (e.type.arch == EnemyDef.ARCH_TENTACLE && e.cnt == 1 && !seedDropped && rng.nextFloat() < 0.25f) {
@@ -1590,7 +1858,8 @@ public final class Sim {
             }
         }
         if (e.boss) {
-            addPickup(Entities.K_CHEST, e.x, e.y, 0);
+            // v1.3 timed bosses: the chest always holds 1..3 items (the value is the count), see openChest
+            addPickup(Entities.K_CHEST, e.x, e.y, e.type.def.ashfallBoss && e.type.pattern >= 6 ? 1 + rng.nextInt(3) : 0);
             return;
         }
         if (rng.nextFloat() < 0.035f + 0.02f * (float) stats.luck) {
@@ -1864,6 +2133,8 @@ public final class Sim {
                 break;
             case Entities.K_CHEST:
                 pendingChests++;
+                if (p.value >= 1f && bossChestN < bossChestQ.length) bossChestQ[bossChestN++] = Math.round(p.value); // a timed boss's chest: item count
+                else if (p.value < -0.5f) pendingArms++; // an elite's Arms Crate (ARMS_CRATE)
                 break;
             case Entities.K_EQUIP: {
                 int code = (int) (p.value + 0.5f);
@@ -1931,6 +2202,7 @@ public final class Sim {
     private void eliteRewards(Enemy e) {
         sound.emit(SoundEvents.ELITE_DIE);
         eliteKilled++;
+        if (eliteKilled >= 2 && time >= 300.0) addPickup(Entities.K_CHEST, e.x + 36f, e.y + 8f, ARMS_CRATE); // Arms Crate, next to the gear crate
         if (!data.baseItems.isEmpty()) {
             dropEquipment(e.x, e.y, data.baseItems.get(rng.nextInt(data.baseItems.size())), rollRarity());
         }
@@ -1946,6 +2218,7 @@ public final class Sim {
     private void bossRewards(Enemy e) {
         EquipDef u = e.type.def.ashfallBoss ? data.uniqueBySource.get(e.type.def.key) : null;
         if (u != null && equip.def[u.slot] != u) dropEquipment(e.x + 34f, e.y + 6f, u, Equipment.UNIQUE);
+        if (e.type.def.ashfallBoss && e.type.pattern >= 6) timedBossRewards(e);
         if (e.type.pattern == 5 && !firstKilled) {
             firstKilled = true;
             winDelay = 2.2f;
@@ -1953,6 +2226,33 @@ public final class Sim {
             screenFlash = Math.max(screenFlash, 0.5f);
             toast("THE FIRST IS DEAD  -  GOLD x2", 0xFF39FF88);
         }
+    }
+
+    /**
+     * v1.3 timed bosses: besides the chest (1..3 items), a Rare crate of the fixed slot in the data {@code gearSlot} (Brood Mother
+     * Neck, Frozen Welder Ring, Hale Head, Overseer Gloves, Kade Body; the base item of that slot is random) and a pile of
+     * gems worth {@code xpPileLevels} levels (1.5).
+     */
+    private void timedBossRewards(Enemy e) {
+        EnemyDef d = e.type.def;
+        int slot = Math.round(d.param("gearSlot", -1f));
+        int n = 0;
+        for (int i = 0; i < data.baseItems.size(); i++) if (data.baseItems.get(i).slot == slot) n++;
+        if (n > 0) {
+            int pick = rng.nextInt(n);
+            for (int i = 0; i < data.baseItems.size(); i++) {
+                if (data.baseItems.get(i).slot != slot || pick-- > 0) continue;
+                dropEquipment(e.x - 34f, e.y + 6f, data.baseItems.get(i), Equipment.RARE);
+                break;
+            }
+        }
+        int gems = 5;
+        float each = (float) (xpNeed * d.param("xpPileLevels", 1.5f) / gems);
+        for (int k = 0; k < gems; k++) {
+            float a = k * 6.2831855f / gems;
+            addPickup(Entities.K_GEM, e.x + (float) Math.cos(a) * 26f, e.y + (float) Math.sin(a) * 18f, each);
+        }
+        toast(d.name.toUpperCase(java.util.Locale.ROOT) + " DEFEATED", 0xFFFFA58A);
     }
 
     /** Gold the run pays out: doubled when The First was killed. */
@@ -2078,7 +2378,7 @@ public final class Sim {
         float dmgMul = (float) data.elite("damageMul", 1.5);
         e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
         e.power *= dmgMul;
-        e.shotMul = dmgMul;
+        e.shotMul *= dmgMul;
         e.radius *= (float) data.elite("scale", 1.4);
         e.speed *= (float) data.elite("speedMul", 0.9);
         e.xp *= (float) data.elite("xpMul", 8);
@@ -2172,6 +2472,23 @@ public final class Sim {
         }
     }
 
+    /**
+     * A pinned summon of a boss (egg, guard, decoy): an ARCH_TENTACLE type placed at (x, y) with its warning ring first
+     * (data {@code warn}); null when the pool is nearly full. Lives and ends in {@link BossAi#tentacle}.
+     */
+    Enemy spawnPinned(String key, float x, float y) {
+        EnemyType t = type(key);
+        if (t == null || enemyN >= MAX_ENEMIES - 6) return null;
+        Enemy e = enemies[enemyN++];
+        initEnemy(e, t, false);
+        e.x = e.ax = x;
+        e.y = e.ay = y;
+        e.ai = BossAi.T_WARN;
+        e.aiT = e.tele = e.teleMax = t.def.param("warn", 0.8f);
+        e.dormant = true;
+        return e;
+    }
+
     /** Tests and screenshot tools: a tentacle wave as the hazard makes it. */
     public void tentacleWaveForTest(int count, float radius, boolean hazard) {
         tentacleWave(count, radius, hazard);
@@ -2195,6 +2512,9 @@ public final class Sim {
             case Offer.BRANCH:
                 if (main != null) main.pick(o.branchIdx, o.newLevel);
                 break;
+            case Offer.FUSE:
+                if (!fuseNow(o.def)) gold += 25; // the pair is gone (stale card): pay the salvage instead
+                return;
             default:
                 gold += 25;
         }
@@ -2203,10 +2523,29 @@ public final class Sim {
 
     /** Used when the stage has no treasure table at or before the current minute: one evolution, else one upgrade. */
     private static final Treasure DEFAULT_TREASURE =
-            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.EVOLUTION});
+            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.FUSION, Treasure.EVOLUTION});
+
+    /**
+     * The chest of a v1.3 timed boss: always 1..3 items (its pickup carries the count): a fusion, else an evolution, then
+     * upgrades of owned weapons.
+     */
+    private static final Treasure BOSS_TREASURE =
+            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.FUSION, Treasure.EVOLUTION, Treasure.EXISTING_WEAPON});
+    private final int[] bossChestQ = new int[8];
+    private int bossChestN, forcedItems;
 
     /** Opens one pending chest with the stage's treasure table for the current minute. Returns text lines. */
     public String[] openChest() {
+        if (bossChestN > pendingChests) bossChestN = pendingChests; // a test that dropped pending chests by hand
+        if (bossChestN > 0) { // a timed boss's chest first
+            forcedItems = bossChestQ[--bossChestN];
+            return openChest(BOSS_TREASURE);
+        }
+        if (pendingArms > pendingChests - bossChestN) pendingArms = Math.max(0, pendingChests - bossChestN);
+        if (pendingArms > 0) { // an elite's Arms Crate: fusion, evolution, a weapon level
+            pendingArms--;
+            return openChest(ARMS_TREASURE);
+        }
         Treasure t = stage.treasureAt(time);
         return openChest(t != null ? t : DEFAULT_TREASURE);
     }
@@ -2224,9 +2563,20 @@ public final class Sim {
         pendingChests--;
         sound.emit(SoundEvents.CHEST_OPEN);
         java.util.ArrayList<String> lines = new java.util.ArrayList<>();
-        int n = rng.nextDouble() * 100 < t.chances[0] ? 5 : rng.nextDouble() * 100 < t.chances[1] ? 3 : 1;
+        int n = forcedItems > 0 ? forcedItems : rng.nextDouble() * 100 < t.chances[0] ? 5 : rng.nextDouble() * 100 < t.chances[1] ? 3 : 1;
+        forcedItems = 0;
         for (int i = 0; i < n; i++) {
             String type = t.prizeAt(i);
+            if (Treasure.FUSION.equals(type)) { // FUSION first; with no pair ready the slot tries EVOLUTION, then a level
+                WeaponDef f = inv.readyFusion(data.fusions, data.weapons);
+                if (f != null) {
+                    String a = inv.weapons[inv.fuseA].def.name, b = inv.weapons[inv.fuseB].def.name;
+                    fuseNow(f);
+                    lines.add("FUSION! " + a + " + " + b + " -> " + f.name);
+                    continue;
+                }
+                type = Treasure.EVOLUTION;
+            }
             if (Treasure.EVOLUTION.equals(type)) {
                 int slot = inv.firstEvolvable(data.weapons);
                 if (slot >= 0) {
@@ -2308,7 +2658,7 @@ public final class Sim {
                     if (w.cd < 0) w.cd = w.interval;
                     return;
                 }
-                w.pending = w.amount;
+                w.pending = w.fusion == Fusions.NEEDLE ? 1 : w.amount; // Needle Choir fires its whole fan at once
                 w.shotIndex = 0;
                 w.shotCd = dt; // the first shot goes out this very frame
                 w.phase = rng.nextFloat();
@@ -2327,7 +2677,7 @@ public final class Sim {
         }
     }
 
-    private Enemy nearest(float maxDist) {
+    Enemy nearest(float maxDist) {
         Enemy best = null;
         float bd = maxDist * maxDist;
         for (int i = 0; i < enemyN; i++) {
@@ -2365,12 +2715,14 @@ public final class Sim {
         return n == 0 ? null : enemies[pickBuf[rng.nextInt(n)]];
     }
 
-    private Projectile newProj(int kind, int slot, WeaponState w) {
+    Projectile newProj(int kind, int slot, WeaponState w) {
         if (projN >= MAX_PROJ) return null;
         Projectile p = projs[projN++];
         p.kind = kind;
         p.slot = slot;
-        p.evo = w.evo;
+        p.evo = w.evo || w.fusion != 0;
+        p.fusion = w.fusion;
+        p.aux = p.aux2 = p.blastR = 0f;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 2f;
         p.radius = 10f;
@@ -2402,6 +2754,7 @@ public final class Sim {
         p.sub = sub;
         p.slot = 255;
         p.evo = false;
+        p.fusion = 0;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 1f;
         p.radius = 8f;
@@ -2442,6 +2795,7 @@ public final class Sim {
                 break;
             }
             case B_KNIFE: {
+                if (w.fusion == Fusions.NEEDLE) { fusions.needles(w, slot); break; }
                 Projectile p = newProj(Entities.P_KNIFE, slot, w);
                 if (p == null) return;
                 sound.emit(SoundEvents.KNIFE);
@@ -2499,6 +2853,7 @@ public final class Sim {
                 p.life = p.maxLife = 3f;
                 p.hitsLeft = 100000;
                 p.spin = 10f;
+                if (w.fusion == Fusions.ORDNANCE) p.blastR = Fusions.BLAST_R * w.area;
                 break;
             }
             case B_FIRE: {
@@ -2559,9 +2914,11 @@ public final class Sim {
             if (e.dead) continue;
             if (Math.abs(e.x - cx) < W / 2f + e.radius && Math.abs(e.y - cy) < H / 2f + e.radius) {
                 hurt(e, w.dmg, w.critChance, w.critMul, side, 0, w.knock);
+                if (w.fusion == Fusions.STORM) fusions.slashHit(w, e);
                 hits++;
             }
         }
+        if (w.fusion == Fusions.STORM) fusions.slashEnd(w);
         if (w.evo && hits > 0) leech(w, Math.min(3f, hits * w.dmg * 0.08f));
     }
 
@@ -2592,7 +2949,7 @@ public final class Sim {
         }
     }
 
-    private void strike(WeaponState w, float tx, float ty) {
+    void strike(WeaponState w, float tx, float ty) {
         float r = 25f * w.area;
         lastAttack = tNow;
         sound.emit(SoundEvents.LIGHTNING);
@@ -2613,6 +2970,7 @@ public final class Sim {
     }
 
     private void garlic(WeaponState w, int slot, float dt) {
+        if (w.fusion == Fusions.KILN) fusions.kiln(w, dt);
         w.cd -= dt;
         if (w.cd > 0) return;
         w.cd += Math.max(0.15f, w.hasHitDelay ? w.hitDelay : w.interval);
@@ -2630,7 +2988,7 @@ public final class Sim {
             if (d2 < rr * rr) {
                 float d = (float) Math.sqrt(d2) + 0.01f;
                 hurt(e, w.dmg, 0, 1, dx / d, dy / d, Math.max(0.15f, w.knock));
-                applyStatus(e, Entities.ST_DECAY, w.evo ? 2 : 1, w.dmg, 0f); // Toxic Vent: Decay
+                applyStatus(e, w.fusion == Fusions.KILN ? Entities.ST_BURN : Entities.ST_DECAY, w.evo ? 2 : 1, w.dmg, 0f); // Toxic Vent: Decay (Kiln Breath: Burn)
                 e.kbMul = Math.min(3f, e.kbMul + 0.1f); // every tick lowers its knockback resistance
                 hits++;
             }
@@ -2667,6 +3025,7 @@ public final class Sim {
             p.hitsLeft = 1 << 30;
             p.x = px + (float) Math.cos(p.orbitAngle) * p.orbitRadius;
             p.y = py + (float) Math.sin(p.orbitAngle) * p.orbitRadius;
+            if (w.fusion != 0) fusions.setupBook(w, p, i);
         }
     }
 
@@ -2682,6 +3041,7 @@ public final class Sim {
             Projectile p = projs[i];
             p.life -= dt;
             if (p.life <= 0) {
+                if (p.fusion != 0) fusions.expire(p);
                 if (p.blast > 0f && main != null) main.explode(p); // grenades, bomblets, the slug's end of range
                 removeProj(i);
                 continue;
@@ -2730,6 +3090,7 @@ public final class Sim {
                 default:
                     break;
             }
+            if (p.fusion != 0 && fusions.update(p, dt)) { removeProj(i); continue; }
             // off-screen culling (books and puddles stay; the cross dies by lifetime)
             if (p.kind != Entities.P_BOOK && p.kind != Entities.P_PUDDLE && p.kind != Entities.P_CROSS) {
                 float dx = p.x - px, dy = p.y - py;
@@ -2759,6 +3120,7 @@ public final class Sim {
                     applyStatus(e, Entities.ST_DECAY, 1, p.dmg, 0f);
                     applyStatus(e, Entities.ST_FROST, e.frost < 1 ? 1 : 0, p.dmg, 0f);
                 }
+                if (p.fusion != 0) fusions.onHit(p, e);
                 if (main != null && (p.kind == Entities.P_MAIN || p.sub != Entities.SUB_NONE)) main.onHit(p, e);
                 if (p.kind == Entities.P_FIRE || p.kind == Entities.P_AXE) { // a small burst where it hits
                     addFx(Entities.FX_BLAST, e.x, e.y, p.kind == Entities.P_FIRE ? 34f : 24f, p.kind == Entities.P_FIRE ? 1f : 0f, 0.28f, 0, p.evo);
@@ -2793,6 +3155,7 @@ public final class Sim {
     }
 
     void spark(float x, float y, int color, int count) {
+        java.util.Random rng = quietRng ? pois.quiet() : this.rng;
         for (int i = 0; i < count; i++) {
             Particle q = parts[partHead];
             partHead = (partHead + 1) % MAX_PART;

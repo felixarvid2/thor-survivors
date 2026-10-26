@@ -104,6 +104,14 @@ ICONS = {
     "MAGNET": "meshy/icons/signal_pendant", "LUCK": "meshy/icons/crystal_lumen",
     "GROWTH": "meshy/icons/bio_focus", "GREED": "meshy/icons/keycard", "CURSE": "meshy/icons/crystal_void",
     "REVIVAL": "meshy/icons/skill_phase_shift",
+    # weapon fusions (ashfall_data.json "fusions"): an existing icon of a parent tinted toward the fusion's element (source, (r, g, b))
+    "STORMLASH": ("meshy/icons/skill_vibro_slash", (90, 200, 255)),
+    "FOUNDRY_SPILL": ("meshy/icons/skill_coolant_flush", (255, 140, 40)),
+    "NEEDLE_CHOIR": ("meshy/icons/skill_spore_dart", (255, 215, 90)),
+    "MIASMA_CENSER": ("meshy/icons/skill_spore_burst", (120, 255, 150)),
+    "RICOCHET_ORDNANCE": ("meshy/icons/skill_minefield", (255, 120, 90)),
+    "FARADAY_HALO": ("meshy/icons/skill_energy_shield", (190, 140, 255)),
+    "KILN_BREATH": ("meshy/icons/skill_heat_vent", (255, 70, 40)),
     # main weapons, branches (ids from ashfall_data.json mainWeapons) and hero portraits (HERO_<hero>)
     "HAMMER": "meshy/icons/hydraulic_hammer", "PISTOLS": "meshy/icons/twin_pistols",
     "CASTER": "meshy/icons/skill_spore_burst",
@@ -138,7 +146,11 @@ FRAMES = {"frame_common": "common", "frame_magic": "magic", "frame_rare": "rare"
 # boss spawn banner portraits (flux/bosses), key = the enemy key; the Ashfall bosses and the picture that suits each
 PORTRAIT_PX = 192
 PORTRAITS = {"boss_CARGO_LOADER": "drowned_engine", "boss_SLAGBORN": "pyre_warden", "boss_VIRE_AWAKENED": "vire",
-             "boss_SMELTER_FOREMAN": "foreman_dray", "boss_THE_FIRST": "the_first"}
+             "boss_SMELTER_FOREMAN": "foreman_dray", "boss_THE_FIRST": "the_first",
+             # v1.3 timed bosses (the Overseer wears the red visor of Security Chief Holm)
+             "boss_BROOD_MOTHER": "brood_mother", "boss_FROZEN_WELDER": "frozen_welder",
+             "boss_COMMANDANT_HALE": "commandant_hale", "boss_OVERSEER_UNIT_7": "security_chief_holm",
+             "boss_GOVERNOR_KADE": "governor_kade"}
 # gem crystals (transparent icons, trimmed): key -> (source, px)
 GEMS = {"crystal_lumen": 64, "crystal_void": 64, "crystal_ember": 64}
 
@@ -279,7 +291,15 @@ def build_images(manifest, sizes):
     # ---- icons + gems
     pk = Packer(1024)
     for key, src in ICONS.items():
+        tint = None
+        if isinstance(src, tuple):
+            src, tint = src
         im = Image.open(os.path.join(AI, src + ".webp")).convert("RGBA").resize((ICON_PX, ICON_PX), Image.LANCZOS)
+        if tint:  # blend 40% of the colour over the colour channels, keep the alpha
+            a = im.getchannel("A")
+            colour = Image.new("RGBA", im.size, tint + (255,))
+            im = Image.blend(im, colour, 0.4)
+            im.putalpha(a)
         im = rounded(im)
         px, py = pk.place(im)
         images["icon." + key] = {"sheet": "ashfall/icons.webp", "rect": [px, py, ICON_PX, ICON_PX],

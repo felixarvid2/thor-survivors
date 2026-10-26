@@ -30,6 +30,8 @@ public final class GameData {
     public static final String[] HERO_ORDER = {"BASTION", "SPECTRE", "XENOMANT"};
 
     public final Map<String, WeaponDef> weapons = new LinkedHashMap<>();
+    /** The weapon fusions (ashfall_data.json "fusions", also in {@link #weapons}) in file order; empty without the overlay. */
+    public WeaponDef[] fusions = new WeaponDef[0];
     public final Map<String, StageDef> stages = new LinkedHashMap<>();
     public final Map<String, EnemyDef> enemies = new HashMap<>();
     public final Map<String, ItemDef> items = new HashMap<>();
@@ -79,6 +81,18 @@ public final class GameData {
                 PowerUpDef p = powerUps.get(id);
                 if (p != null) powerUps.put(id, p.withName(o.optString("name", p.name)));
             }
+        }
+        JSONObject fu = root.optJSONObject("fusions");
+        if (fu != null) {
+            List<WeaponDef> list = new ArrayList<>();
+            Iterator<String> it = fu.keys();
+            while (it.hasNext()) {
+                String key = it.next();
+                WeaponDef f = parseFusion(key, fu.getJSONObject(key));
+                weapons.put(key, f);
+                list.add(f);
+            }
+            fusions = list.toArray(new WeaponDef[0]);
         }
         JSONObject en = root.optJSONObject("enemies");
         if (en != null) {
@@ -151,12 +165,29 @@ public final class GameData {
         }
     }
 
+    /** A fusion: `rows` like a base weapon (row 0 the level 1 block, later rows deltas), `parents` the two base weapon keys. */
+    private static WeaponDef parseFusion(String key, JSONObject o) throws JSONException {
+        List<Map<String, Double>> rows = numericRows(o.getJSONArray("rows"));
+        return new WeaponDef(key, o.optString("name", key), o.optString("description", ""), null, null, false, false,
+                (int) Math.max(1, o.optDouble("rarity", 1)), rows, strings(o.optJSONArray("parents")));
+    }
+
     /** Design section 4: stats in the VS units of the ZOMBIE row (hp 1.0 = one Z), archetype and its numbers. */
     private static EnemyDef parseAshfallEnemy(String key, JSONObject o) {
         return new EnemyDef(key, o.optString("name", key), o.optDouble("maxHp", 1), o.optDouble("speed", 100),
                 o.optDouble("power", 10), o.optDouble("knockback", 1), o.optDouble("xp", 1), 1, o.optDouble("scale", 1),
                 1, false, EnemyDef.archOf(o.optString("archetype", "CHASER")), o.optString("sprite", ""),
                 numbers(o.optJSONObject("params")), o.optBoolean("boss", false));
+    }
+
+    private static double[][] curve(JSONArray a) throws JSONException {
+        if (a == null) return new double[0][];
+        double[][] c = new double[a.length()][2];
+        for (int i = 0; i < c.length; i++) {
+            c[i][0] = a.getJSONArray(i).getDouble(0) * 60.0;
+            c[i][1] = a.getJSONArray(i).getDouble(1);
+        }
+        return c;
     }
 
     private static StageDef parseOverlayStage(String key, JSONObject o) throws JSONException {
@@ -181,6 +212,21 @@ public final class GameData {
             sd.xpFadeTo = fade.optDouble("to", 0);
             sd.xpFadeEnd = fade.optDouble("end", 1);
         }
+        sd.hpCurve = curve(o.optJSONArray("hpCurve")); // [[minute, multiplier], ...]
+        sd.dmgCurve = curve(o.optJSONArray("dmgCurve"));
+        JSONObject hd = o.optJSONObject("hordes");
+        if (hd != null) {
+            sd.hordeTypes = strings(hd.optJSONArray("types")).toArray(new String[0]);
+            JSONArray bursts = hd.optJSONArray("bursts");
+            sd.hordes = new double[bursts == null ? 0 : bursts.length()][4];
+            for (int i = 0; i < sd.hordes.length; i++) {
+                JSONObject b = bursts.getJSONObject(i);
+                sd.hordes[i][0] = b.getDouble("at");
+                sd.hordes[i][1] = b.optDouble("length", 18);
+                sd.hordes[i][2] = b.optDouble("minimum", 250);
+                sd.hordes[i][3] = b.optDouble("frequency", 300);
+            }
+        }
         JSONObject tn = o.optJSONObject("tentacles");
         if (tn != null) {
             JSONArray mins = tn.optJSONArray("minutes");
@@ -190,6 +236,24 @@ public final class GameData {
             sd.tentacleEvery = (float) tn.optDouble("every", 4);
             sd.tentacleCount = tn.optInt("count", 3);
             sd.tentacleRadius = (float) tn.optDouble("radius", 400);
+        }
+        JSONArray tb = o.optJSONArray("timedBosses");
+        if (tb != null) {
+            sd.timedAt = new int[tb.length()];
+            sd.timedBoss = new String[tb.length()];
+            for (int i = 0; i < tb.length(); i++) {
+                sd.timedAt[i] = tb.getJSONObject(i).optInt("t", 0);
+                sd.timedBoss[i] = tb.getJSONObject(i).optString("boss", "");
+            }
+        }
+        JSONArray ev = o.optJSONArray("events");
+        if (ev != null) {
+            sd.eventAt = new int[ev.length()];
+            sd.eventId = new String[ev.length()];
+            for (int i = 0; i < ev.length(); i++) {
+                sd.eventAt[i] = ev.getJSONObject(i).optInt("at", 0);
+                sd.eventId[i] = ev.getJSONObject(i).optString("id", "");
+            }
         }
         return sd;
     }

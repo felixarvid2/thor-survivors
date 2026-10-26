@@ -146,6 +146,7 @@ public final class TopOverlay {
         else if (ph == Engine.PH_CHEST) { t1 = "SUPPLY CACHE"; col = Skin.LUMEN; }
         else if (ph == Engine.PH_EQUIP) { t1 = "NEW EQUIPMENT"; col = Skin.GOLD; }
         else if (ph == Engine.PH_MERCHANT) { t1 = "SALVAGER"; col = AMBER; }
+        else if (ph == Engine.PH_TERMINAL) { t1 = "RELAY TERMINAL"; col = Skin.COOL; }
         else if (e.resultWin) { t1 = "VICTORY"; col = Skin.LUMEN; }
         else { t1 = "YOU DIED"; col = 0xFFE04A32; }
         if (ph == Engine.PH_MERCHANT) sub = "TRADE ON THE BOTTOM SCREEN";
@@ -209,6 +210,11 @@ public final class TopOverlay {
 
     /** The ash storm warning: a hazard-edged band that fades out. */
     public void drawStormBanner(Canvas c, int w, int h, float elapsed, float ks) {
+        drawEventBanner(c, w, h, elapsed, ks, "ASH STORM", 0xFF6A2A);
+    }
+
+    /** The banner of a minute 20-30 event (same band as the storm's): title in {@code color}, fades out at 3.5 s. */
+    public void drawEventBanner(Canvas c, int w, int h, float elapsed, float ks, String title, int color) {
         k.u = ks;
         float a = Math.min(1f, (3.5f - elapsed) * 1.5f);
         int ai = (int) (255 * a);
@@ -220,7 +226,7 @@ public final class TopOverlay {
             k.stripe(c, 0, bot - 8f * ks, w, bot, false);
         }
         k.tp.setLetterSpacing(0.1f);
-        k.shadowed(c, "ASH STORM", w / 2f, top + 58f * ks, 52f * ks, ai << 24 | 0xFF6A2A, Paint.Align.CENTER);
+        k.shadowed(c, title, w / 2f, top + 58f * ks, 52f * ks, ai << 24 | (color & 0xFFFFFF), Paint.Align.CENTER);
         k.tp.setLetterSpacing(0f);
     }
 }

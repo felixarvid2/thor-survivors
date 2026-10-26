@@ -19,11 +19,22 @@ public final class WeaponDef {
     public final boolean powerUp;
     public final boolean evolution;
     public final int rarity;
+    /** A weapon fusion (ashfall_data.json "fusions"): levelable once owned, never offered as a new weapon; {@link #parents} are the two base weapon keys. */
+    public final boolean fusion;
+    public final List<String> parents;
     private final List<Map<String, Double>> rows;
     private final List<Map<String, Double>> cumulative = new ArrayList<>();
 
     public WeaponDef(String key, String name, String description, String evoInto, List<String> evoSynergy,
                      boolean powerUp, boolean evolution, int rarity, List<Map<String, Double>> rows) {
+        this(key, name, description, evoInto, evoSynergy, powerUp, evolution, rarity, rows, null);
+    }
+
+    /** {@code parents} non-null makes this a fusion of those two base weapons. */
+    public WeaponDef(String key, String name, String description, String evoInto, List<String> evoSynergy,
+                     boolean powerUp, boolean evolution, int rarity, List<Map<String, Double>> rows, List<String> parents) {
+        this.fusion = parents != null;
+        this.parents = parents == null ? Collections.<String>emptyList() : parents;
         this.key = key;
         this.name = name;
         this.description = description;
@@ -45,7 +56,7 @@ public final class WeaponDef {
 
     /** A copy with another display name and description (the Ashfall overlay); stats and ids are shared. */
     public WeaponDef withText(String newName, String newDescription) {
-        return new WeaponDef(key, newName, newDescription, evoInto, evoSynergy, powerUp, evolution, rarity, rows);
+        return new WeaponDef(key, newName, newDescription, evoInto, evoSynergy, powerUp, evolution, rarity, rows, fusion ? parents : null);
     }
 
     public int maxLevel() {

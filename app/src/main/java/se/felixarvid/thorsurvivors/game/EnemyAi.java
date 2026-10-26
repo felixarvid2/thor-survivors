@@ -44,7 +44,7 @@ final class EnemyAi {
     }
 
     private float rnd(float a, float b) {
-        return a + s.rng.nextFloat() * (b - a);
+        return a + s.initRng().nextFloat() * (b - a);
     }
 
     /** First timers of a freshly spawned non-chaser. */
@@ -52,8 +52,8 @@ final class EnemyAi {
         EnemyDef d = e.type.def;
         switch (e.type.arch) {
             case EnemyDef.ARCH_PACK:
-                e.weaveT = s.rng.nextFloat() * e.type.phaseLen;
-                e.shots = s.rng.nextInt(5);
+                e.weaveT = s.initRng().nextFloat() * e.type.phaseLen;
+                e.shots = s.initRng().nextInt(5);
                 break;
             case EnemyDef.ARCH_RANGED:
             case EnemyDef.ARCH_FLIER:
@@ -98,7 +98,7 @@ final class EnemyAi {
     static final float ASH_SLOW = 0.8f;
 
     float speedOf(Enemy e) {
-        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f);
+        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul() * s.pois.enemySpeedMul;
     }
 
     void walkTo(Enemy e, float dt, float dx, float dy, float d, float factor) {
@@ -565,7 +565,7 @@ final class EnemyAi {
             if (h.kind == Entities.HZ_BOMB) continue; // the afterglow of a blast: nothing more happens
             if (h.kind == Entities.HZ_LANE) {
                 h.ang += h.spin * dt;
-                if (s.ended == 0 && s.invuln <= 0f && laneHits(h)) s.areaDamage(h.dps * dt);
+                if (h.dps > 0f && s.ended == 0 && s.invuln <= 0f && laneHits(h)) s.areaDamage(h.dps * dt);
                 continue;
             }
             if (h.kind == Entities.HZ_ASH) { // Ashwalker Treads: the ash slows the enemies standing in it, 10 Hz
@@ -582,7 +582,7 @@ final class EnemyAi {
             }
             float dx = s.px - h.x, dy = s.py - h.y, rr = h.r + Sim.PLAYER_R * 0.4f;
             if (dx * dx + dy * dy < rr * rr && s.ended == 0) heroInside(h, dt);
-            if (h.kind == Entities.HZ_CLOUD && (h.acc += dt) >= Status.PASS) { // the cloud hurts every enemy in it, 10 Hz
+            if (h.kind == Entities.HZ_CLOUD && h.variant != Entities.CV_HERO && (h.acc += dt) >= Status.PASS) { // the cloud hurts every enemy in it, 10 Hz
                 h.acc -= Status.PASS;
                 h.n++;
                 int n = s.query(h.x, h.y, h.r + 30f);
@@ -614,10 +614,45 @@ final class EnemyAi {
     private void detonate(Hazard h) {
         float dx = s.px - h.x, dy = s.py - h.y, rr = h.r + Sim.PLAYER_R * 0.4f;
         boolean inside = dx * dx + dy * dy < rr * rr;
-        if (inside && s.invuln <= 0f && s.ended == 0) {
+        boolean vulnerable = s.invuln <= 0f; // checked before the blast's own damage starts the invulnerability
+        if (inside && s.invuln <= 0f && s.ended == 0 && h.dps > 0f) { // dps 0: a pure marker (Overseer's drone spots)
             s.hurtHero(Math.max(1f, h.dps - (float) s.stats.armor), 0.4f, true, Sim.DMG_AREA);
         }
         switch (h.variant) {
+            case Entities.BV_SPORE: // Brood Mother: a burst that leaves a cloud (w radius, spin seconds, acc damage per second) for the hero only
+                s.addFx(Entities.FX_SPORE, h.x, h.y, h.r, 0f, 0.5f, 0, false);
+                s.spark(h.x, h.y - 8f, 0xFF90E040, 8);
+                s.sound.emit(SoundEvents.CARRIER_BURST);
+                if (h.w > 0f) {
+                    Hazard c = addHazard(Entities.HZ_CLOUD, h.x, h.y, h.w, h.spin, h.acc, 0f);
+                    if (c != null) c.variant = Entities.CV_HERO;
+                }
+                break;
+            case Entities.BV_FROST: // Frozen Welder: the ring stuns the hero for 0.4 s and leaves a frost patch (w radius, spin seconds)
+                s.addFx(Entities.FX_SLAM, h.x, h.y, h.r, 0f, 0.5f, 0, false);
+                s.spark(h.x, h.y - 8f, 0xFFB8F0FF, 10);
+                s.sound.emit(SoundEvents.BOSS_SLAM);
+                s.screenShake(0.2f);
+                if (inside && vulnerable && s.ended == 0) s.stunHero(h.acc);
+                if (h.w > 0f) addHazard(Entities.HZ_FROST, h.x, h.y, h.w, h.spin, 0f, 0f);
+                break;
+            case Entities.BV_RUBBLE: // Collapse / Slag Rain: the impact hurts the enemies under it too and leaves a slow patch for the hero
+            case Entities.BV_SLAGRAIN:
+                s.addFx(h.variant == Entities.BV_RUBBLE ? Entities.FX_SLAM : Entities.FX_BLAST, h.x, h.y, h.r * 0.9f, 1f, 0.35f, 0, false);
+                s.spark(h.x, h.y - 8f, h.variant == Entities.BV_RUBBLE ? 0xFFB08850 : 0xFFFFA030, 8);
+                s.sound.emit(h.variant == Entities.BV_RUBBLE ? SoundEvents.CRATE_BREAK : SoundEvents.BARREL_EXPLODE);
+                s.screenShake(0.12f);
+                int nq = s.query(h.x, h.y, h.r + 30f);
+                for (int k = 0; k < nq; k++) {
+                    Enemy en = s.enemies[s.qbuf[k]];
+                    float ex = en.x - h.x, ey = en.y - h.y, er = h.r + en.radius * 0.5f;
+                    if (!en.dead && ex * ex + ey * ey < er * er) s.hurt(en, h.dps, 0f, 1f, 0f, 0f, 0f);
+                }
+                if (h.w > 0f && s.hazN < Sim.MAX_HAZ - Events.HAZ_RESERVE) {
+                    Hazard p = addHazard(Entities.HZ_FROST, h.x, h.y, h.w, h.spin, 0f, 0f);
+                    if (p != null) p.variant = 1; // rubble: drawn dark, slows the hero like a frost patch
+                }
+                break;
             case Entities.BV_STOMP:
                 s.addFx(Entities.FX_SLAM, h.x, h.y, h.r, 0f, 0.5f, 0, false);
                 s.screenShake(0.35f);

@@ -18,10 +18,12 @@ import se.felixarvid.thorsurvivors.game.Elites;
 import se.felixarvid.thorsurvivors.game.Engine;
 import se.felixarvid.thorsurvivors.game.Entities;
 import se.felixarvid.thorsurvivors.game.Equipment;
+import se.felixarvid.thorsurvivors.game.Events;
 import se.felixarvid.thorsurvivors.game.Input;
 import se.felixarvid.thorsurvivors.game.Inventory;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
+import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.Offer;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas;
@@ -226,6 +228,10 @@ public final class PanelRenderer {
                 if (compact) dimOverlay(c, w, h, 0x99000000);
                 merchant(c, w, h);
                 break;
+            case Engine.PH_TERMINAL:
+                if (compact) dimOverlay(c, w, h, 0x99000000);
+                terminal(c, w, h);
+                break;
             case Engine.PH_RESULT:
                 if (compact) dimOverlay(c, w, h, 0xAA000000);
                 result(c, w, h);
@@ -401,6 +407,23 @@ public final class PanelRenderer {
             c.drawRoundRect(r, s * 0.1f, s * 0.1f, fill);
         }
         frame(c, gold ? "frame_unique" : lit ? "frame_rare" : "frame_common", x, y, s);
+    }
+
+    /** The small gold "F" on the weapon slot of a fusion. */
+    private void fusionPip(Canvas c, float x, float y, float sz) {
+        r.set(x, y, x + sz, y + sz);
+        fill.setColor(GOLD);
+        c.drawRoundRect(r, sz * 0.25f, sz * 0.25f, fill);
+        k.text(c, "F", x + sz / 2f, y + sz * 0.8f, sz * 0.85f, 0xFF1A1208, Paint.Align.CENTER);
+    }
+
+    /** Parent A + parent B, an arrow, the fusion: the fusion line of a chest and the FUSE card; {@code sz} is the tile size, it needs about 4.2 x sz of width. */
+    private void fusionTrio(Canvas c, WeaponDef a, WeaponDef b, WeaponDef to, float x, float y, float sz) {
+        weaponTile(c, a, x, y, sz, a.evolution, true);
+        k.text(c, "+", x + sz * 1.3f, y + sz * 0.72f, sz * 0.7f, GOLD, Paint.Align.CENTER);
+        weaponTile(c, b, x + sz * 1.6f, y, sz, b.evolution, true);
+        arrow(c, x + sz * 3.05f, y + sz / 2f, sz * 0.22f, true, GOLD);
+        weaponTile(c, to, x + sz * 3.4f, y, sz, true, false);
     }
 
     private void levelPips(Canvas c, float x, float y, float w, int level, int max, int color) {
@@ -719,10 +742,11 @@ public final class PanelRenderer {
                 Inventory.Slot sl = weapons ? inv.weapons[i] : inv.passives[i];
                 int max = sl.def.maxLevel();
                 boolean full = sl.level >= max;
-                weaponTile(c, sl.def, sx, y, slot, sl.def.evolution, full);
+                weaponTile(c, sl.def, sx, y, slot, sl.def.evolution || sl.def.fusion, full);
                 cornerText(c, sl.def.evolution ? "EVO" : full ? "MAX" : cs((weapons ? 8 : 20) + i, "", sl.level, ""), sx, y, slot,
                         sl.def.evolution || full ? 22f * u : 26f * u, sl.def.evolution || full ? GOLD : TEXT);
                 if (!sl.def.evolution) levelPips(c, sx + 3f * u, y + slot + 5f * u, slot - 6f * u, sl.level, max, full ? GOLD : Skin.ORANGE);
+                if (sl.def.fusion) fusionPip(c, sx + 5f * u, y + 5f * u, slot * 0.3f);
             } else {
                 k.slotWell(c, sx, y, slot);
             }
@@ -805,6 +829,8 @@ public final class PanelRenderer {
         }
         minimapFinds(c, s, cx, cy, kk, side);
         minimapMerchant(c, s, cx, cy, kk, side);
+        minimapEvents(c, s, cx, cy, kk, side);
+        minimapPois(c, s, cx, cy, kk, side);
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -861,6 +887,37 @@ public final class PanelRenderer {
         }
     }
 
+    /**
+     * The Signal Tower (cyan, green while it is being captured) and the Beacon (gold): a pulsing ring with a progress arc
+     * (capture progress, time held) around a dot; clamped to the edge when far. The only indicator of these events (no arrows on the top screen).
+     */
+    private void minimapEvents(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        Events ev = s.events;
+        if (ev.towerOn) minimapRing(c, s, cx, cy, kk, side, ev.tx, ev.ty, ev.towerFrac(), ev.towerCapturing ? 0xFF39FF88 : 0xFF4FD8FF);
+        if (ev.beaconOn) minimapRing(c, s, cx, cy, kk, side, ev.bx, ev.by, ev.beaconTimeFrac(), ev.beaconFrac() > 0.35f ? 0xFFFFD84A : 0xFFFF4A32);
+    }
+
+    private void minimapRing(Canvas c, Sim s, float cx, float cy, float kk, float side, float wx, float wy, float frac, int col) {
+        float u = k.u, lim = side / 2 - 22f * u;
+        float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
+        float dx = Math.max(-lim, Math.min(lim, (wx - s.px) * kk)), dy = Math.max(-lim, Math.min(lim, (wy - s.py) * kk));
+        float mx = cx + dx, my = cy + dy, z = 20f * u * pulse;
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeCap(Paint.Cap.BUTT);
+        stroke.setStrokeWidth(8f * u);
+        stroke.setColor(0xFF05080A);
+        c.drawCircle(mx, my, z, stroke);
+        stroke.setStrokeWidth(3f * u);
+        stroke.setColor((col & 0xFFFFFF) | 0x66000000);
+        c.drawCircle(mx, my, z, stroke); // the pulsing ring
+        r.set(mx - z, my - z, mx + z, my + z);
+        stroke.setStrokeWidth(5.5f * u);
+        stroke.setColor(col);
+        c.drawArc(r, -90f, 360f * Math.max(0.02f, Math.min(1f, frac)), false, stroke); // the progress arc
+        fill.setColor(col);
+        c.drawCircle(mx, my, z * 0.35f, fill);
+    }
+
     /** The Salvager: a pulsing amber ring with a dot inside the range, an amber triangle clamped to the edge beyond it. */
     private void minimapMerchant(Canvas c, Sim s, float cx, float cy, float kk, float side) {
         Merchant m = s.merchant;
@@ -897,6 +954,115 @@ public final class PanelRenderer {
         c.drawPath(path, stroke);
         fill.setColor(AMBER);
         c.drawPath(path, fill);
+    }
+
+    private static final int POI_ORANGE = 0xFFFF8A2A, POI_GREY = 0xFF6E7378, POI_GREEN = 0xFF39FF88, POI_BLUE = 0xFF40A8FF, POI_GOLD = 0xFFFFD84A;
+
+    /** A diamond (or a square) marker of the places, black outlined; one path reused. */
+    private void poiMark(Canvas c, float mx, float my, float z, int color, boolean square) {
+        path.rewind();
+        if (square) {
+            path.addRect(mx - z * 0.8f, my - z * 0.8f, mx + z * 0.8f, my + z * 0.8f, Path.Direction.CW);
+        } else {
+            path.moveTo(mx, my - z);
+            path.lineTo(mx + z * 0.8f, my);
+            path.lineTo(mx, my + z);
+            path.lineTo(mx - z * 0.8f, my);
+            path.close();
+        }
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeJoin(Paint.Join.ROUND);
+        stroke.setStrokeWidth(4f * k.u);
+        stroke.setColor(0xFF05080A);
+        c.drawPath(path, stroke);
+        fill.setColor(color);
+        c.drawPath(path, fill);
+    }
+
+    /**
+     * The places (minimap only): outposts as orange squares (grey once cleared; clamped to the edge so they can be found), nests as
+     * pulsing green dots, relay terminals as blue diamonds (used ones are not shown), the vault as a gold diamond once found.
+     */
+    private void minimapPois(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        Pois p = s.pois;
+        if (!p.enabled) return;
+        float u = k.u, lim = side / 2 - 20f * u, pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 5.0);
+        for (int i = 0; i < p.outN; i++) {
+            float dx = (p.outX[i] - s.px) * kk, dy = (p.outY[i] - s.py) * kk;
+            dx = Math.max(-lim, Math.min(lim, dx));
+            dy = Math.max(-lim, Math.min(lim, dy));
+            poiMark(c, cx + dx, cy + dy, 11f * u, p.outCleared[i] ? POI_GREY : POI_ORANGE, true);
+        }
+        for (int i = 0; i < s.destN; i++) {
+            if (s.destKind[i] != Sim.DK_NEST) continue;
+            float dx = (s.destX[i] - s.px) * kk, dy = (s.destY[i] - s.py) * kk;
+            if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
+            fill.setColor(0xFF05080A);
+            c.drawCircle(cx + dx, cy + dy, 10f * u * pulse, fill);
+            fill.setColor(POI_GREEN);
+            c.drawCircle(cx + dx, cy + dy, 7f * u * pulse, fill);
+        }
+        for (int i = 0; i < p.termN; i++) {
+            if (p.termUsed(i)) continue;
+            float dx = (p.termX[i] - s.px) * kk, dy = (p.termY[i] - s.py) * kk;
+            if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
+            poiMark(c, cx + dx, cy + dy, 10f * u, POI_BLUE, false);
+        }
+        if (p.hasVault && p.vaultFound && p.vaultState != Pois.V_DONE) {
+            float dx = (p.vaultX - s.px) * kk, dy = (p.vaultY - s.py) * kk;
+            dx = Math.max(-lim, Math.min(lim, dx));
+            dy = Math.max(-lim, Math.min(lim, dy));
+            poiMark(c, cx + dx, cy + dy, 12f * u * pulse, POI_GOLD, false);
+        }
+    }
+
+    // ---- the Relay Terminal: three buff cards (gain in green, cost in red), DECLINE below
+
+    private static final String[] GAIN_LINE = new String[Pois.BUFFS], COST_LINE = new String[Pois.BUFFS];
+
+    static {
+        for (int i = 0; i < Pois.BUFFS; i++) {
+            GAIN_LINE[i] = "+  " + Pois.BUFF_GAIN[i];
+            COST_LINE[i] = "-  " + Pois.BUFF_COST[i];
+        }
+    }
+
+    private void terminal(Canvas c, int w, int h) {
+        Sim s = eng.sim;
+        if (s == null) return;
+        Pois p = s.pois;
+        float u = k.u;
+        float[] cl = column(w, h, 1100f * u);
+        float x = cl[0], cw = cl[1];
+        k.plate(c, x, 16f * u, x + cw, 150f * u, 0x28102840, Skin.EDGE, 3f * u);
+        k.rivets(c, x, 16f * u, x + cw, 150f * u, 11f * u, 3f * u);
+        k.text(c, "RELAY TERMINAL", x + 30f * u, 84f * u, 62f * u, Skin.COOL, Paint.Align.LEFT);
+        k.body(c, "CHOOSE ONE  -  THE GAIN AND ITS COST BOTH LAST 5 MINUTES", x + 30f * u, 124f * u, 24f * u, DIM, Paint.Align.LEFT);
+        int n = Pois.CARDS;
+        float by = h - 102f * u, stripY = by - 62f * u, top = 172f * u, gap = 14f * u;
+        float ch = Math.min(250f * u, (stripY - gap - top - (n - 1) * gap) / n);
+        for (int i = 0; i < n; i++) {
+            float y = top + i * (ch + gap);
+            boolean f = eng.focus == i;
+            int b = p.cardBuff[i];
+            k.plate(c, x, y, x + cw, y + ch, f ? 0x4440D8FF : 0, f ? Skin.COOL : Skin.EDGE, f ? 5f * u : 2f * u);
+            if (f) k.focusMarks(c, x, y, x + cw, y + ch);
+            hit(x, y, x + cw, y + ch, i, 0);
+            float is = ch - 36f * u, ix = x + 18f * u, iy = y + 18f * u;
+            k.slotWell(c, ix, iy, is);
+            k.glyph(c, b == Pois.B_OVERCLOCK ? Skin.G_FIRE : b == Pois.B_REINFORCE ? Skin.G_ARMORED : b == Pois.B_LENS ? Skin.G_FROST : Skin.G_BOLT,
+                    ix + is / 2, iy + is / 2, is * 0.36f, Skin.COOL);
+            float tx = ix + is + 22f * u, titleSize = Math.min(44f * u, ch * 0.22f);
+            k.text(c, Pois.BUFF_NAME[b], tx, y + 14f * u + titleSize, titleSize, 0xFFFFF4E6, Paint.Align.LEFT);
+            k.text(c, "5 MIN", x + cw - 24f * u, y + 14f * u + titleSize, titleSize * 0.7f, Skin.COOL, Paint.Align.RIGHT);
+            float ls = Math.min(34f * u, ch * 0.17f);
+            k.body(c, GAIN_LINE[b], tx, y + ch * 0.62f, ls, Skin.GOOD, Paint.Align.LEFT);
+            k.body(c, COST_LINE[b], tx, y + ch * 0.86f, ls, Skin.BAD, Paint.Align.LEFT);
+        }
+        k.plate(c, x, stripY, x + cw, stripY + 52f * u, 0x28104030, Skin.EDGE, 2f * u);
+        k.body(c, "TAP A CARD, TAP AGAIN TO CHOOSE    |    D-PAD + A    |    B = DECLINE", w / 2f, stripY + 34f * u, 24f * u, DIM, Paint.Align.CENTER);
+        k.button(c, x, by, x + cw, by + 80f * u, "DECLINE", eng.focus == n);
+        hit(x, by, x + cw, by + 80f * u, n, 0);
     }
 
     private void hudStrip(Canvas c, int w, int h) {
@@ -990,14 +1156,21 @@ public final class PanelRenderer {
             float y = top + i * (ch + gap);
             boolean f = i == eng.focus;
             boolean branch = o.kind == Offer.BRANCH; // the Main card: gold frame and the hero's portrait
-            int tint = branch ? 0x30FFD84A : 0;
-            if (f) tint = branch ? 0x55FFB020 : 0x44FF8A2A;
-            k.plate(c, x, y, x + cw, y + ch, tint, f ? Skin.ORANGE : branch ? GOLD : Skin.EDGE, f ? 5f * u : branch ? 4f * u : 2f * u);
-            if (branch) k.rivets(c, x, y, x + cw, y + ch, 10f * u, 3f * u);
+            boolean fuse = o.kind == Offer.FUSE; // the FUSE card: gold frame, both parents, an arrow and the fusion
+            boolean gold = branch || fuse;
+            int tint = gold ? 0x30FFD84A : 0;
+            if (f) tint = gold ? 0x55FFB020 : 0x44FF8A2A;
+            k.plate(c, x, y, x + cw, y + ch, tint, f ? Skin.ORANGE : gold ? GOLD : Skin.EDGE, f ? 5f * u : gold ? 4f * u : 2f * u);
+            if (gold) k.rivets(c, x, y, x + cw, y + ch, 10f * u, 3f * u);
             if (f) k.focusMarks(c, x, y, x + cw, y + ch);
             hit(x, y, x + cw, y + ch, i, 0);
             float is = ch - 36f * u;
-            if (branch) {
+            float iconW = is;
+            if (fuse) {
+                float ts = Math.min(is * 0.8f, (cw * 0.42f) / 4.4f);
+                fusionTrio(c, o.partA, o.partB, o.def, x + 18f * u, y + (ch - ts) / 2f, ts);
+                iconW = ts * 4.4f;
+            } else if (branch) {
                 iconKey(c, o.key(), x + 18f * u, y + 18f * u, is, true, true);
                 if (s != null && s.hero != null) {
                     float ps = Math.min(is * 0.62f, 100f * u);
@@ -1012,7 +1185,7 @@ public final class PanelRenderer {
                 k.slotWell(c, x + 18f * u, y + 18f * u, is);
                 k.glyph(c, o.kind == Offer.HEAL ? Skin.G_DECAY : Skin.G_BOLT, x + 18f * u + is / 2, y + ch / 2, is * 0.36f, o.kind == Offer.HEAL ? Skin.GOOD : GOLD);
             }
-            float tx = x + 18f * u + is + 22f * u;
+            float tx = x + 18f * u + iconW + 22f * u;
             float titleSize = Math.min(46f * u, ch * 0.23f);
             k.text(c, o.title(), tx, y + 14f * u + titleSize, titleSize, 0xFFFFF4E6, Paint.Align.LEFT);
             String tag;
@@ -1021,12 +1194,13 @@ public final class PanelRenderer {
                 case Offer.NEW_WEAPON: case Offer.NEW_PASSIVE: tag = "NEW"; tagCol = Skin.LUMEN; break;
                 case Offer.HEAL: case Offer.GOLD: tag = ""; break;
                 case Offer.BRANCH: tag = TIER_TAG[o.newLevel - 1]; break;
+                case Offer.FUSE: tag = "FUSE"; break;
                 default: tag = o.newLevel >= o.def.maxLevel() ? cs(81 + i, "LV ", o.newLevel, "  MAX") : cs(81 + i, "LV ", o.newLevel, "");
             }
             k.text(c, tag, x + cw - 24f * u, y + 14f * u + titleSize, titleSize * 0.8f, tagCol, Paint.Align.RIGHT);
             // level pips of the weapon or passive: the level this card brings is the lit orange one
             if (o.def != null && o.kind != Offer.NEW_WEAPON && o.kind != Offer.NEW_PASSIVE || o.kind == Offer.NEW_WEAPON || o.kind == Offer.NEW_PASSIVE) {
-                if (o.def != null) {
+                if (o.def != null && !fuse) {
                     int max = o.def.maxLevel();
                     float pw = Math.min(180f * u, max * 22f * u);
                     float py = y + ch - 22f * u;
@@ -1038,7 +1212,8 @@ public final class PanelRenderer {
             }
             float lineH = Math.min(34f * u, ch * 0.17f) * 1.16f;
             float dTop = y + 14f * u + titleSize + 14f * u + lineH * 0.7f;
-            int maxLines = Math.max(1, Math.min(3, (int) ((ch - (dTop - y) - 26f * u) / lineH) + 1));
+            int maxLines = Math.max(1, Math.min(3, (int) ((ch - (dTop - y) - (o.partner ? 56f : 26f) * u) / lineH) + 1));
+            if (o.partner) k.text(c, "FUSION PARTNER", tx, y + ch - 20f * u, Math.min(26f * u, ch * 0.13f), GOLD, Paint.Align.LEFT);
             k.wrap(c, describe(i, o), tx, dTop, x + cw - tx - 30f * u, lineH, maxLines, Math.min(34f * u, ch * 0.17f), 0xFFC9BFB0);
         }
         k.body(c, "TAP A CARD    |    D-PAD / STICK + A", w / 2f, h - 30f * u, 24f * u, DIM, Paint.Align.CENTER);
@@ -1078,7 +1253,7 @@ public final class PanelRenderer {
         k.well(c, x + cw - 300f * u, 34f * u, x + cw - 24f * u, 134f * u, 6f * u);
         k.body(c, "GOLD", x + cw - 40f * u, 62f * u, 22f * u, DIM, Paint.Align.RIGHT);
         k.text(c, cs(153, "", s.gold, ""), x + cw - 40f * u, 120f * u, 58f * u, GOLD, Paint.Align.RIGHT);
-        int n = Merchant.SLOTS;
+        int n = m.cards();
         float by = h - 102f * u, stripY = by - 62f * u, top = 172f * u, gap = 14f * u;
         float ch = Math.min(250f * u, (stripY - gap - top - (n - 1) * gap) / n);
         for (int i = 0; i < n; i++) {
@@ -1090,6 +1265,8 @@ public final class PanelRenderer {
             float is = ch - 36f * u, ix = x + 18f * u, iy = y + 18f * u;
             if (i == Merchant.SLOT_OFFER && m.offer.def != null) {
                 weaponTile(c, m.offer.def, ix, iy, is, false, false);
+            } else if (i == Merchant.SLOT_FUSE && m.kitDef != null) {
+                weaponTile(c, m.kitDef, ix, iy, is, true, false);
             } else if (i == Merchant.SLOT_GEAR && m.gearDef != null) {
                 itemTile(c, m.gearDef, m.gearRar, ix, iy, is, null, u);
             } else {
@@ -1593,10 +1770,19 @@ public final class PanelRenderer {
         float step = Math.min(66f * u, (bot - top) / Math.max(1, lines.length));
         for (int i = 0; i < lines.length; i++) {
             String ln = lines[i];
-            boolean evo = ln.startsWith("EVO") || ln.contains("->") && i > 0 && lines[i - 1].startsWith("EVO");
+            boolean fusionLine = ln.startsWith("FUSION!");
+            boolean evo = fusionLine || ln.startsWith("EVO") || ln.contains("->") && i > 0 && lines[i - 1].startsWith("EVO");
             boolean goldLine = ln.startsWith("+");
             float y = top + i * step;
             k.plate(c, x, y, x + cw, y + step - 8f * u, evo ? 0x40FF5AD8 : goldLine ? 0x30FFD84A : 0, evo ? 0xFFFF9AF0 : goldLine ? GOLD : Skin.EDGE, 2f * u);
+            Sim fs = eng.sim;
+            if (fusionLine && fs != null && fs.lastFusedTo != null) { // the three icons at the left, the text in the rest
+                float ts = step - 16f * u, iw = ts * 4.4f;
+                fusionTrio(c, fs.lastFusedA, fs.lastFusedB, fs.lastFusedTo, x + 14f * u, y + 4f * u, ts);
+                k.fit(c, ln, x + iw + 14f * u + (cw - iw - 14f * u) / 2f, y + (step - 8f * u) * 0.68f, Math.min(36f * u, step * 0.5f), cw - iw - 50f * u,
+                        0xFFFFD84A, Paint.Align.CENTER);
+                continue;
+            }
             k.fit(c, ln, w / 2f, y + (step - 8f * u) * 0.68f, Math.min(42f * u, step * 0.62f), cw - 40f * u,
                     evo ? 0xFFFF9AF0 : goldLine ? GOLD : TEXT, Paint.Align.CENTER);
         }

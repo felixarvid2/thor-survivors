@@ -16,7 +16,7 @@ import java.util.Random;
  */
 public final class Engine {
     public static final int PH_MENU = 0, PH_SHOP = 1, PH_PLAYING = 2, PH_LEVELUP = 3, PH_PAUSED = 4, PH_CHEST = 5,
-            PH_RESULT = 6, PH_EQUIP = 7, PH_MERCHANT = 8;
+            PH_RESULT = 6, PH_EQUIP = 7, PH_MERCHANT = 8, PH_TERMINAL = 9;
     public static final int MENU_START = 0, MENU_STAGE = 1, MENU_HERO = 2, MENU_WEAPON = 3, MENU_SHOP = 4,
             MENU_MUSIC = 5, MENU_SFX = 6, MENU_LIGHT = 7, MENU_COUNT = 8;
 
@@ -158,6 +158,7 @@ public final class Engine {
                 focus = 0;
             } else if (s.equipN > 0) openEquip();
             else if (s.merchant.wantsOpen()) openMerchant();
+            else if (s.pois.wantsTerminal()) openTerminal();
         }
     }
 
@@ -167,6 +168,7 @@ public final class Engine {
         int offerLevel = s.level - s.pendingLevelUps + 1;
         offers = OfferGenerator.generate(s.inv, data.weapons.values(), s.stats.luck, rng,
                 s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, offerLevel);
+        s.addFuseCard(offers);
         phase = PH_LEVELUP;
         focus = 0;
     }
@@ -176,6 +178,14 @@ public final class Engine {
         sim.merchant.opened();
         merchantTapped = false;
         phase = PH_MERCHANT;
+        focus = 0;
+    }
+
+    /** The hero stood on a Relay Terminal long enough: the choose-one screen pauses the run on the bottom screen. */
+    private void openTerminal() {
+        sim.pois.opened();
+        merchantTapped = false;
+        phase = PH_TERMINAL;
         focus = 0;
     }
 
@@ -254,8 +264,10 @@ public final class Engine {
                         break;
                     }
                     boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus
-                            || phase == PH_MERCHANT && c[2] < Merchant.SLOTS && (c[2] != focus || !merchantTapped);
-                    if (phase == PH_MERCHANT) merchantTapped = c[2] < Merchant.SLOTS;
+                            || phase == PH_MERCHANT && c[2] < sim.merchant.cards() && (c[2] != focus || !merchantTapped)
+                            || phase == PH_TERMINAL && c[2] < Pois.CARDS && (c[2] != focus || !merchantTapped);
+                    if (phase == PH_MERCHANT) merchantTapped = c[2] < sim.merchant.cards();
+                    else if (phase == PH_TERMINAL) merchantTapped = c[2] < Pois.CARDS;
                     focus = c[2];
                     if (phase == PH_SHOP && focus < shopKeys.size()) shopPage = focus / SHOP_PAGE;
                     if (!pick) confirm(c[3]);
@@ -277,7 +289,8 @@ public final class Engine {
             case PH_SHOP: return shopKeys.size() + 1;
             case PH_LEVELUP: return offers.size();
             case PH_EQUIP: return 2;
-            case PH_MERCHANT: return Merchant.SLOTS + 1; // three cards and LEAVE
+            case PH_MERCHANT: return sim.merchant.cards() + 1; // the cards (three, four with the Fuse Kit) and LEAVE
+            case PH_TERMINAL: return Pois.CARDS + 1; // the three buff cards and DECLINE
             case PH_PAUSED: return 2;
             default: return 1;
         }
@@ -305,13 +318,14 @@ public final class Engine {
             case PH_PAUSED:
             case PH_EQUIP:
             case PH_MERCHANT:
+            case PH_TERMINAL:
                 if (dir == Input.UP || dir == Input.LEFT) f = (f + n - 1) % n;
                 else f = (f + 1) % n;
                 break;
             default:
         }
         focus = f;
-        if (phase == PH_MERCHANT) merchantTapped = false; // moving the focus with the pad: a tap focuses first again
+        if (phase == PH_MERCHANT || phase == PH_TERMINAL) merchantTapped = false; // moving the focus with the pad: a tap focuses first again
         if (phase != PH_PLAYING && phase != PH_CHEST && phase != PH_RESULT && (f != before || changed)) {
             sound.emit(SoundEvents.UI_MOVE);
         }
@@ -446,7 +460,7 @@ public final class Engine {
                 else quitRun();
                 break;
             case PH_MERCHANT:
-                if (f >= Merchant.SLOTS) {
+                if (f >= sim.merchant.cards()) {
                     resume();
                 } else {
                     Merchant m = sim.merchant;
@@ -457,6 +471,11 @@ public final class Engine {
                         ok = false;
                     }
                 }
+                break;
+            case PH_TERMINAL:
+                if (f < Pois.CARDS) sim.pois.pick(f);
+                else sim.pois.declined();
+                resume();
                 break;
             case PH_EQUIP:
                 answerEquip(f == 1); // card 0 = Keep, card 1 = Replace
@@ -501,6 +520,7 @@ public final class Engine {
             case PH_PAUSED: resume(); break;
             case PH_EQUIP: answerEquip(false); break; // B = keep what you wear
             case PH_MERCHANT: resume(); break; // B = leave the stall
+            case PH_TERMINAL: sim.pois.declined(); resume(); break; // B = decline: the terminal stays unused
             case PH_RESULT: phase = PH_MENU; focus = 0; break;
             default:
         }

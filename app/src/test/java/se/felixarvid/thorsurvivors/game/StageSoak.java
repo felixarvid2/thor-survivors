@@ -45,7 +45,7 @@ public final class StageSoak {
         /** Level and kills at 5, 10 ... 30 minutes, the time any weapon first became an evolution (-1 = never), the weapons and main branch tiers at the end, worn gear points. */
         public final int[] lvlAt = new int[6], killsAt = new int[6];
         public final long[] xpAt = new long[6];
-        public double firstEvo = -1;
+        public double firstEvo = -1, firstFuse = -1;
         public String weaponsEnd = "", mainEnd = "", slotsEnd = "";
         public float gearPoints;
         /** Mean pickups and gems on the field over minutes 25 to 30 (sampled twice a second). */
@@ -83,6 +83,7 @@ public final class StageSoak {
 
     private static int score(Offer o) {
         switch (o.kind) {
+            case Offer.FUSE: return 7;
             case Offer.BRANCH: return 6;
             case Offer.NEW_WEAPON: return 5;
             case Offer.WEAPON_LEVEL: return 4;
@@ -105,6 +106,9 @@ public final class StageSoak {
         return false;
     }
 
+    /** False: runs without the minute 20-30 events (their Tide adds elites and hordes on top of the schedules). */
+    public static boolean withEvents = true;
+
     public static Result run(String stage, String hero, String policy, long seed, double limit) throws Exception {
         GameData d = data();
         Result r = new Result();
@@ -118,6 +122,8 @@ public final class StageSoak {
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), hero, seed);
         s.findN = 0; // the soak measures the balance without the map finds (they depend on where the bot wanders)
         s.merchant.enabled = false; // nor the Salvager: the headless Sim never pauses for a shop, and a purchase would change the balance numbers
+        if (!withEvents) s.events.enabled = false; // schedule tests (EliteTest) measure the plain elite timer without the Tide's extra elites
+        s.pois.enabled = false; // nor the places: a relay terminal screen never closes headless, and vents/nests depend on where the bot wanders
         Random rng = new Random(seed * 7919 + 1);
         Input in = new Input();
         float dt = 1f / 60f;
@@ -216,7 +222,7 @@ public final class StageSoak {
                 float qd = 1e18f;
                 for (int i = 0; i < s.pickN; i++) {
                     Entities.Pickup pk = s.picks[i];
-                    if (pk.kind != Entities.K_EQUIP) continue;
+                    if (pk.kind != Entities.K_EQUIP && !(pk.kind == Entities.K_CHEST && pk.value != 0f)) continue; // gear crates and an elite's Arms Crate
                     float dx = pk.x - s.px, dy = pk.y - s.py, q = dx * dx + dy * dy;
                     if (q < qd && q < 500f * 500f) {
                         qd = q;
@@ -253,6 +259,7 @@ public final class StageSoak {
                 if (!naked) {
                     List<Offer> o = OfferGenerator.generate(s.inv, d.weapons.values(), s.stats.luck, rng,
                             s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, lvl);
+                    s.addFuseCard(o);
                     Offer pick = o.get(0);
                     int bestScore = -1;
                     for (Offer c : o) {
@@ -289,6 +296,7 @@ public final class StageSoak {
                 for (int l = 1; l < s.level; l++) tot += Progression.xpToNext(l);
                 r.xpAt[m] = tot;
             }
+            if (r.firstFuse < 0) for (int i = 0; i < s.inv.weaponCount; i++) if (s.inv.weapons[i].def.fusion) r.firstFuse = s.time;
             if (r.firstEvo < 0) for (int i = 0; i < s.inv.weaponCount; i++) if (s.inv.weapons[i].def.evolution) r.firstEvo = s.time;
             s.sound.clear();
             if (TRACE_FROM >= 0 && s.time >= TRACE_FROM && s.time <= TRACE_FROM + 40 && step % 30 == 0) {
@@ -425,7 +433,7 @@ public final class StageSoak {
         long t0 = System.nanoTime();
         Result r = run(stage, hero, policy, seed, limit);
         System.out.println(r + "  [" + (System.nanoTime() - t0) / 1_000_000_000L + " s wall]");
-        System.out.println("  lvlAt " + java.util.Arrays.toString(r.lvlAt) + " killsAt " + java.util.Arrays.toString(r.killsAt) + " xpAt " + java.util.Arrays.toString(r.xpAt) + " firstEvo " + (int) r.firstEvo
+        System.out.println("  lvlAt " + java.util.Arrays.toString(r.lvlAt) + " killsAt " + java.util.Arrays.toString(r.killsAt) + " xpAt " + java.util.Arrays.toString(r.xpAt) + " firstEvo " + (int) r.firstEvo + " firstFuse " + (int) r.firstFuse
                 + " slots [" + r.slotsEnd + "] weapons " + r.weaponsEnd + " tiers " + r.mainEnd + " gear " + r.gearPoints + String.format(" lateGems %.0f latePick %.0f", r.lateGems, r.latePick));
         System.out.println("  elites at " + r.eliteAt + " bosses " + r.bossLog + " ttk " + r.bossTtk + " firstHpLeft " + r.firstHpLeft);
     }
