@@ -147,4 +147,38 @@ public class EngineSoundTest {
         e.advance(1f / 60f);
         assertEquals(SoundEvents.UI_MOVE, drain(e.sound)[0]);
     }
+
+    @Test
+    public void shopPagesFlipWithSidewaysMovesShouldersAndTaps() throws Exception {
+        Engine e = in(menu(), Engine.PH_SHOP);
+        int n = e.shopKeys.size(), page = Engine.SHOP_PAGE;
+        e.focus = 1; // row 0, right column of page 1
+        e.input.post(Input.CMD_NAV, Input.RIGHT, 0, 0);
+        e.advance(1f / 60f);
+        assertEquals(page, e.focus);
+        assertEquals(1, e.shopPage);
+        e.input.post(Input.CMD_NAV, Input.LEFT, 0, 0);
+        e.advance(1f / 60f);
+        assertEquals(1, e.focus);
+        e.input.post(Input.CMD_NAV, Input.PAGE_NEXT, 0, 0);
+        e.advance(1f / 60f);
+        assertEquals(1 + page, e.focus);
+        e.input.post(Input.CMD_NAV, Input.PAGE_PREV, 0, 0);
+        e.advance(1f / 60f);
+        assertEquals(1, e.focus);
+        e.focus = page + 7; // bottom row of page 2: down goes to BACK, up returns to that page
+        e.input.post(Input.CMD_NAV, Input.DOWN, 0, 0);
+        e.advance(1f / 60f);
+        assertEquals(n, e.focus);
+        e.input.post(Input.CMD_NAV, Input.UP, 0, 0);
+        e.advance(1f / 60f);
+        assertEquals(page + 6, e.focus);
+        e.focus = 2; // tap NEXT, then PREV
+        e.input.post(Input.CMD_TAP, Engine.PH_SHOP, n + 2, 0);
+        e.advance(1f / 60f);
+        assertEquals(2 + page, e.focus);
+        e.input.post(Input.CMD_TAP, Engine.PH_SHOP, n + 1, 0);
+        e.advance(1f / 60f);
+        assertEquals(2, e.focus);
+    }
 }

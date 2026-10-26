@@ -55,11 +55,10 @@ public class MerchantShotsTest {
         Shots h = new Shots();
         Sim s = arrived(h);
         Merchant m = s.merchant;
-        // far away: the amber arrow on the top edge, the amber marker on the minimap
+        // far away: the amber marker on the minimap (no arrow on the top screen)
         m.x = s.px + 760f;
         m.y = s.py - 120f;
         frames(h, 3);
-        Shots.save(h.renderTop(), "merchant_arrow_top.png");
         Shots.save(h.renderBottom(), "merchant_minimap_bottom.png");
         // in view: the technician with its ring, light and label
         m.x = s.px + 170f;

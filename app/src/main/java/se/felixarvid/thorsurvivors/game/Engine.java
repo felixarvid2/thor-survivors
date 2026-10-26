@@ -51,6 +51,10 @@ public final class Engine {
     public List<String> stageKeys = new ArrayList<>();
     public List<String> starters = new ArrayList<>();
     public List<String> shopKeys = new ArrayList<>();
+    /** The salvage terminal shows this many power-ups per page (2 columns x 4 rows). */
+    public static final int SHOP_PAGE = 8;
+    /** The shown shop page; the focus decides it, except on BACK where it stays. */
+    public volatile int shopPage;
     /** Shop texts per power-up, built in init (no string building while drawing). */
     public final java.util.Map<String, Describe.PowerUpText> shopText = new java.util.HashMap<>();
 
@@ -245,10 +249,15 @@ public final class Engine {
             case Input.CMD_TAP:
                 if (c[1] == phase) {
                     // first tap on a tile only focuses it (the shop and the Salvager); LEAVE acts at once
+                    if (phase == PH_SHOP && c[2] > shopKeys.size()) { // PREV / NEXT page buttons: ids n+1, n+2
+                        shopFlip(c[2] == shopKeys.size() + 1 ? -1 : 1);
+                        break;
+                    }
                     boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus
                             || phase == PH_MERCHANT && c[2] < Merchant.SLOTS && (c[2] != focus || !merchantTapped);
                     if (phase == PH_MERCHANT) merchantTapped = c[2] < Merchant.SLOTS;
                     focus = c[2];
+                    if (phase == PH_SHOP && focus < shopKeys.size()) shopPage = focus / SHOP_PAGE;
                     if (!pick) confirm(c[3]);
                 }
                 break;
@@ -288,11 +297,9 @@ public final class Engine {
                 }
                 break;
             case PH_SHOP:
-                if (dir == Input.LEFT) f--;
-                else if (dir == Input.RIGHT) f++;
-                else if (dir == Input.UP) f -= 2;
-                else f += 2;
-                f = Math.max(0, Math.min(n - 1, f));
+                if (f < n - 1) shopPage = f / SHOP_PAGE; // the focus may have been set directly
+                f = shopNav(dir, f, n - 1);
+                if (f < n - 1) shopPage = f / SHOP_PAGE; // n counts BACK as well
                 break;
             case PH_LEVELUP:
             case PH_PAUSED:
@@ -306,6 +313,57 @@ public final class Engine {
         focus = f;
         if (phase == PH_MERCHANT) merchantTapped = false; // moving the focus with the pad: a tap focuses first again
         if (phase != PH_PLAYING && phase != PH_CHEST && phase != PH_RESULT && (f != before || changed)) {
+            sound.emit(SoundEvents.UI_MOVE);
+        }
+    }
+
+    /**
+     * Shop focus move on a page of 2 columns x 4 rows. Left past the first column / right past the last flips the page,
+     * down from the bottom row goes to BACK, up from BACK to the page's bottom row; L1 / R1 flip the page.
+     */
+    private int shopNav(int dir, int f, int items) {
+        int pages = (items + SHOP_PAGE - 1) / SHOP_PAGE;
+        if (f >= items) { // BACK
+            if (dir == Input.UP) {
+                int last = Math.min(items - 1, shopPage * SHOP_PAGE + SHOP_PAGE - 2);
+                return Math.max(0, last);
+            }
+            if (dir == Input.PAGE_PREV || dir == Input.PAGE_NEXT) {
+                int pg = Math.max(0, Math.min(pages - 1, shopPage + (dir == Input.PAGE_NEXT ? 1 : -1)));
+                return pg * SHOP_PAGE;
+            }
+            return f;
+        }
+        int pg = f / SHOP_PAGE, l = f % SHOP_PAGE, col = l % 2, row = l / 2;
+        switch (dir) {
+            case Input.LEFT:
+                if (col == 1) return f - 1;
+                if (pg > 0) return Math.min(items - 1, (pg - 1) * SHOP_PAGE + row * 2 + 1);
+                return f;
+            case Input.RIGHT:
+                if (col == 0 && f + 1 < items && f + 1 < (pg + 1) * SHOP_PAGE) return f + 1;
+                if (col == 1 && pg < pages - 1) return Math.min(items - 1, (pg + 1) * SHOP_PAGE + row * 2);
+                return f;
+            case Input.UP:
+                return row > 0 ? f - 2 : f;
+            case Input.DOWN:
+                return row < 3 && f + 2 < items ? f + 2 : items;
+            case Input.PAGE_PREV:
+                return pg > 0 ? f - SHOP_PAGE : f;
+            case Input.PAGE_NEXT:
+                return pg < pages - 1 ? Math.min(items - 1, f + SHOP_PAGE) : f;
+            default:
+                return f;
+        }
+    }
+
+    /** A touch on PREV / NEXT: the focus moves to the same slot on the other page. */
+    private void shopFlip(int d) {
+        int items = shopKeys.size();
+        int f = shopNav(d < 0 ? Input.PAGE_PREV : Input.PAGE_NEXT, focus, items);
+        if (f != focus) {
+            focus = f;
+            if (f < items) shopPage = f / SHOP_PAGE;
             sound.emit(SoundEvents.UI_MOVE);
         }
     }
@@ -353,6 +411,7 @@ public final class Engine {
                 else if (f == MENU_SHOP) {
                     phase = PH_SHOP;
                     focus = 0;
+                    shopPage = 0;
                 }
                 break;
             case PH_SHOP:

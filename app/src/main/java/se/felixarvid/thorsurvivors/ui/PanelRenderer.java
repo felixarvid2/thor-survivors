@@ -826,7 +826,7 @@ public final class PanelRenderer {
      * clamped to the edge and pointing outward toward it beyond it.
      */
     private void minimapFinds(Canvas c, Sim s, float cx, float cy, float kk, float side) {
-        float u = k.u, lim = side / 2 - 12f * u;
+        float u = k.u, lim = side / 2 - 20f * u;
         float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
         for (int i = 0; i < s.findN; i++) {
             if (s.findTaken[i]) continue;
@@ -845,15 +845,15 @@ public final class PanelRenderer {
                 float ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
                 float t = Math.min(Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(ux),
                         Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(uy));
-                float mx = cx + ux * t, my = cy + uy * t;
-                path.moveTo(mx + ux * z * 1.3f, my + uy * z * 1.3f);
-                path.lineTo(mx - ux * z * 0.7f + nx * z, my - uy * z * 0.7f + ny * z);
-                path.lineTo(mx - ux * z * 0.7f - nx * z, my - uy * z * 0.7f - ny * z);
+                float mx = cx + ux * t, my = cy + uy * t, az = z * 1.7f; // the edge arrow is larger than the in-range diamond
+                path.moveTo(mx + ux * az * 1.3f, my + uy * az * 1.3f);
+                path.lineTo(mx - ux * az * 0.7f + nx * az, my - uy * az * 0.7f + ny * az);
+                path.lineTo(mx - ux * az * 0.7f - nx * az, my - uy * az * 0.7f - ny * az);
             }
             path.close();
             stroke.setStyle(Paint.Style.STROKE);
             stroke.setStrokeJoin(Paint.Join.ROUND);
-            stroke.setStrokeWidth(3.5f * u);
+            stroke.setStrokeWidth(4.5f * u);
             stroke.setColor(0xFF05080A);
             c.drawPath(path, stroke);
             fill.setColor(col);
@@ -865,7 +865,7 @@ public final class PanelRenderer {
     private void minimapMerchant(Canvas c, Sim s, float cx, float cy, float kk, float side) {
         Merchant m = s.merchant;
         if (!m.present) return;
-        float u = k.u, lim = side / 2 - 12f * u;
+        float u = k.u, lim = side / 2 - 20f * u;
         float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
         float dx = (m.x - s.px) * kk, dy = (m.y - s.py) * kk, z = 11f * u * pulse;
         stroke.setStyle(Paint.Style.STROKE);
@@ -885,14 +885,14 @@ public final class PanelRenderer {
         float ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
         float t = Math.min(Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(ux),
                 Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(uy));
-        float mx = cx + ux * t, my = cy + uy * t;
+        float mx = cx + ux * t, my = cy + uy * t, az = z * 1.7f;
         path.rewind();
-        path.moveTo(mx + ux * z * 1.3f, my + uy * z * 1.3f);
-        path.lineTo(mx - ux * z * 0.7f + nx * z, my - uy * z * 0.7f + ny * z);
-        path.lineTo(mx - ux * z * 0.7f - nx * z, my - uy * z * 0.7f - ny * z);
+        path.moveTo(mx + ux * az * 1.3f, my + uy * az * 1.3f);
+        path.lineTo(mx - ux * az * 0.7f + nx * az, my - uy * az * 0.7f + ny * az);
+        path.lineTo(mx - ux * az * 0.7f - nx * az, my - uy * az * 0.7f - ny * az);
         path.close();
         stroke.setStrokeJoin(Paint.Join.ROUND);
-        stroke.setStrokeWidth(3.5f * u);
+        stroke.setStrokeWidth(4.5f * u);
         stroke.setColor(0xFF05080A);
         c.drawPath(path, stroke);
         fill.setColor(AMBER);
@@ -1477,37 +1477,38 @@ public final class PanelRenderer {
         k.body(c, "GOLD", x + cw - 40f * u, 62f * u, 22f * u, DIM, Paint.Align.RIGHT);
         k.text(c, cs(92, "", eng.meta.gold, ""), x + cw - 40f * u, 120f * u, 58f * u, GOLD, Paint.Align.RIGHT);
         int n = eng.shopKeys.size();
-        int rows = (n + 1) / 2;
-        float stripH = 156f * u;
-        float top = 172f * u, gap = 12f * u, bottom = h - 132f * u - stripH - gap;
-        float rh = Math.min(120f * u, (bottom - top - (rows - 1) * gap) / rows);
+        int pages = (n + Engine.SHOP_PAGE - 1) / Engine.SHOP_PAGE;
+        int page = eng.focus >= 0 && eng.focus < n ? eng.focus / Engine.SHOP_PAGE : Math.min(pages - 1, eng.shopPage);
+        int first = page * Engine.SHOP_PAGE, last = Math.min(n, first + Engine.SHOP_PAGE);
+        float stripH = 190f * u;
+        float top = 166f * u, gap = 12f * u, bottom = h - 132f * u - stripH - gap;
+        float rh = Math.min(136f * u, (bottom - top - 3 * gap) / 4f);
         float cwid = (cw - gap) / 2f;
-        for (int i = 0; i < n; i++) {
+        for (int i = first; i < last; i++) {
             String key = eng.shopKeys.get(i);
             PowerUpDef d = eng.data.powerUps.get(key);
-            float cx = x + (i % 2) * (cwid + gap), cy = top + (i / 2) * (rh + gap);
+            int l = i - first;
+            float cx = x + (l % 2) * (cwid + gap), cy = top + (l / 2) * (rh + gap);
             boolean f = eng.focus == i;
             k.plate(c, cx, cy, cx + cwid, cy + rh, f ? 0x44FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
             if (f) k.focusMarks(c, cx, cy, cx + cwid, cy + rh);
             hit(cx, cy, cx + cwid, cy + rh, i, 0);
             int rank = eng.meta.rank(key);
             boolean max = eng.meta.isMaxed(key);
-            float is = rh - 28f * u;
-            k.slotWell(c, cx + 14f * u, cy + 14f * u, is);
-            atlas.drawIcon(c, null, key, cx + 14f * u + is / 2, cy + 14f * u + is / 2, is * 0.8f);
-            frame(c, rank > 0 ? "frame_rare" : "frame_common", cx + 14f * u, cy + 14f * u, is);
-            float tx = cx + 14f * u + is + 16f * u;
-            float ts = Math.min(34f * u, rh * 0.3f);
+            float is = rh - 24f * u;
+            k.slotWell(c, cx + 12f * u, cy + 12f * u, is);
+            atlas.drawIcon(c, null, key, cx + 12f * u + is / 2, cy + 12f * u + is / 2, is * 0.8f);
+            frame(c, rank > 0 ? "frame_rare" : "frame_common", cx + 12f * u, cy + 12f * u, is);
+            float tx = cx + 12f * u + is + 14f * u, tw = cx + cwid - tx - 14f * u;
             int mr = d.maxRank();
-            float rankW = 84f * u;
-            k.fit(c, d.name, tx, cy + 8f * u + ts, ts, cx + cwid - tx - rankW - 16f * u, TEXT, Paint.Align.LEFT);
-            k.body(c, cs(130 + Math.min(i, 20), "", rank, "/", mr, ""), cx + cwid - 16f * u, cy + 8f * u + ts, ts * 0.8f,
-                    max ? GOLD : DIM, Paint.Align.RIGHT);
-            int price = eng.meta.nextPrice(key);
+            // name (44), effect per rank (30), then rank and price on the last line
+            k.fit(c, d.name, tx, cy + 44f * u, 44f * u, tw, TEXT, Paint.Align.LEFT);
             Describe.PowerUpText pt = eng.shopText.get(key);
-            float ps = Math.min(22f * u, rh * 0.22f);
-            if (pt != null) k.fit(c, pt.perRank, tx, cy + rh - 12f * u, ps, cx + cwid - tx - 130f * u, DIM, Paint.Align.LEFT);
-            k.text(c, max ? "MAX" : cs(104 + Math.min(i, 20), "", price, ""), cx + cwid - 16f * u, cy + rh - 12f * u, ts * 0.9f,
+            if (pt != null) k.fit(c, pt.perRank, tx, cy + 82f * u, 30f * u, tw, DIM, Paint.Align.LEFT);
+            int price = eng.meta.nextPrice(key);
+            k.text(c, cs(130 + Math.min(i, 20), "", rank, "/", mr, ""), tx, cy + rh - 14f * u, 38f * u,
+                    max ? GOLD : TEXT, Paint.Align.LEFT);
+            k.text(c, max ? "MAX" : cs(104 + Math.min(i, 20), "", price, ""), cx + cwid - 14f * u, cy + rh - 14f * u, 40f * u,
                     max ? GOLD : eng.meta.gold >= price ? Skin.GOOD : Skin.BAD, Paint.Align.RIGHT);
         }
         // detail strip: what the focused upgrade does
@@ -1520,21 +1521,39 @@ public final class PanelRenderer {
             int rank = eng.meta.rank(key), mr = d.maxRank();
             boolean max = eng.meta.isMaxed(key);
             float px = x + 24f * u;
-            k.fit(c, d.name, px, sy + 46f * u, 40f * u, cw * 0.5f, Skin.ORANGE, Paint.Align.LEFT);
-            k.body(c, cs(128, "RANK ", rank, "/", mr, ""), x + cw - 24f * u, sy + 44f * u, 28f * u, TEXT, Paint.Align.RIGHT);
+            k.fit(c, d.name, px, sy + 52f * u, 50f * u, cw * 0.6f, Skin.ORANGE, Paint.Align.LEFT);
+            k.text(c, cs(128, "RANK ", rank, "/", mr, ""), x + cw - 24f * u, sy + 50f * u, 40f * u, TEXT, Paint.Align.RIGHT);
             if (pt != null) {
-                k.fit(c, pt.perRank, px, sy + 84f * u, 28f * u, cw - 48f * u, TEXT, Paint.Align.LEFT);
-                k.fit(c, pt.totals[Math.min(rank, mr)], px, sy + 124f * u, 28f * u, cw * 0.62f, DIM, Paint.Align.LEFT);
+                k.fit(c, pt.perRank, px, sy + 104f * u, 34f * u, cw - 48f * u, TEXT, Paint.Align.LEFT);
+                k.fit(c, pt.totals[Math.min(rank, mr)], px, sy + 154f * u, 34f * u, cw * 0.56f, DIM, Paint.Align.LEFT);
             }
             int price = eng.meta.nextPrice(key);
-            k.text(c, max ? "MAX" : cs(129, "", price, " GOLD"), x + cw - 24f * u, sy + 134f * u, 34f * u,
+            k.text(c, max ? "MAX" : cs(129, "", price, " GOLD"), x + cw - 24f * u, sy + 164f * u, 44f * u,
                     max ? GOLD : eng.meta.gold >= price ? Skin.GOOD : Skin.BAD, Paint.Align.RIGHT);
         } else {
-            k.body(c, "RETURN TO THE MENU", x + 24f * u, sy + 86f * u, 30f * u, DIM, Paint.Align.LEFT);
+            k.body(c, "RETURN TO THE MENU", x + 24f * u, sy + 110f * u, 36f * u, DIM, Paint.Align.LEFT);
         }
-        float by = h - 102f * u;
-        k.button(c, x, by, x + cw, by + 80f * u, "BACK", eng.focus == n);
-        hit(x, by, x + cw, by + 80f * u, n, 0);
+        // bottom row: BACK, then < PREV, the page, NEXT >
+        float by = h - 112f * u, bh = 92f * u;
+        float backW = cw * 0.34f, pw = (cw - backW - 3f * gap) / 3f;
+        k.button(c, x, by, x + backW, by + bh, "BACK", eng.focus == n);
+        hit(x, by, x + backW, by + bh, n, 0);
+        float p0 = x + backW + gap;
+        pageButton(c, p0, by, p0 + pw, by + bh, "< PREV", page > 0, n + 1);
+        k.plate(c, p0 + pw + gap, by, p0 + 2 * pw + gap, by + bh, 0x28104030, Skin.EDGE, 3f * u);
+        k.text(c, cs(155, "PAGE ", page + 1, "/", pages, ""), p0 + pw * 1.5f + gap, by + bh * 0.68f, 40f * u, TEXT, Paint.Align.CENTER);
+        pageButton(c, p0 + 2 * (pw + gap), by, p0 + 3 * pw + 2 * gap, by + bh, "NEXT >", page < pages - 1, n + 2);
+    }
+
+    /** A page button: a live button, or a dimmed plate (no tap) when there is no page that way. */
+    private void pageButton(Canvas c, float l, float t, float r, float b, String label, boolean on, int id) {
+        if (on) {
+            k.button(c, l, t, r, b, label, false);
+            hit(l, t, r, b, id, 0);
+        } else {
+            k.plate(c, l, t, r, b, 0x18000000, Skin.EDGE, 2f * k.u);
+            k.text(c, label, (l + r) / 2f, t + (b - t) * 0.68f, 36f * k.u, 0xFF5A524C, Paint.Align.CENTER);
+        }
     }
 
     // ---- pause, chest, result

@@ -4,7 +4,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
 
@@ -206,73 +205,6 @@ public final class TopOverlay {
             k.tp.setTextAlign(Paint.Align.CENTER);
             c.drawText(s.toastText[i], w / 2f + 4f * ks, y + ph * 0.72f, k.tp);
         }
-    }
-
-    private final char[] distBuf = new char[8];
-
-    /**
-     * The nearest untaken find that lies outside the world view: a filled triangle with a dark outline at the screen
-     * edge (inset 40 px) pointing toward it, lumen green for a Weapon Cache and blue for a Gear Locker, and its distance
-     * (units / 10) beside it. While the Salvager is on the map the arrow points to it instead, in amber. Allocation-free.
-     */
-    public void drawFindArrow(Canvas c, int w, int h, Sim s, float sc, float ks) {
-        if (s.merchant.present) { // the Salvager takes the arrow while it is on the map
-            arrowTo(c, w, h, s, sc, ks, s.merchant.x, s.merchant.y, 0xFFB347);
-            return;
-        }
-        int i = s.nearestFind();
-        if (i < 0) return;
-        arrowTo(c, w, h, s, sc, ks, s.findX[i], s.findY[i], s.findKind[i] == Sim.FIND_WEAPON ? 0x39FF88 : 0x4FA8FF);
-    }
-
-    private void arrowTo(Canvas c, int w, int h, Sim s, float sc, float ks, float tx0, float ty0, int rgb) {
-        float ddx = tx0 - s.px, ddy = ty0 - s.py;
-        float dx = ddx * sc, dy = ddy * sc;
-        if (Math.abs(dx) < w / 2f - 20f * ks && Math.abs(dy) < h / 2f - 20f * ks) return; // in view
-        float len = (float) Math.sqrt(dx * dx + dy * dy);
-        float ux = dx / len, uy = dy / len, inset = 56f * ks;
-        float tx = Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : (w / 2f - inset) / Math.abs(ux);
-        float ty = Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : (h / 2f - inset - 20f * ks) / Math.abs(uy);
-        float t = Math.min(tx, ty);
-        float ax = w / 2f + ux * t, ay = h / 2f + uy * t;
-        float pulse = 0.85f + 0.15f * (float) Math.sin(s.time * 6.0);
-        float sz = 40f * ks * pulse, nx = -uy, ny = ux;
-        Path path = k.path;
-        path.rewind();
-        path.moveTo(ax + ux * sz, ay + uy * sz);
-        path.lineTo(ax - ux * sz * 0.7f + nx * sz * 0.8f, ay - uy * sz * 0.7f + ny * sz * 0.8f);
-        path.lineTo(ax - ux * sz * 0.7f - nx * sz * 0.8f, ay - uy * sz * 0.7f - ny * sz * 0.8f);
-        path.close();
-        k.stroke.setStyle(Paint.Style.STROKE);
-        k.stroke.setStrokeJoin(Paint.Join.ROUND);
-        k.stroke.setStrokeWidth(5f * ks);
-        k.stroke.setColor(0xF0080604);
-        c.drawPath(path, k.stroke);
-        fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xFF000000 | rgb);
-        c.drawPath(path, fill);
-        int m = Math.min(9999, Math.round(len / sc / 10f)), n = 0;
-        if (m == 0) distBuf[n++] = '0';
-        else {
-            int d = m >= 1000 ? 4 : m >= 100 ? 3 : m >= 10 ? 2 : 1;
-            for (int q = d - 1; q >= 0; q--) {
-                distBuf[n + q] = (char) ('0' + m % 10);
-                m /= 10;
-            }
-            n += d;
-        }
-        k.tp.setTypeface(art.bold);
-        k.tp.setTextAlign(Paint.Align.CENTER);
-        k.tp.setTextSize(32f * ks);
-        float tyy = ay + (uy > 0 ? -sz - 12f * ks : sz * 1.0f + 30f * ks);
-        k.tp.setStyle(Paint.Style.STROKE);
-        k.tp.setStrokeWidth(5f * ks);
-        k.tp.setColor(0xF0080604);
-        c.drawText(distBuf, 0, n, ax, tyy, k.tp);
-        k.tp.setStyle(Paint.Style.FILL);
-        k.tp.setStrokeWidth(0f);
-        k.tp.setColor(0xFF000000 | rgb);
-        c.drawText(distBuf, 0, n, ax, tyy, k.tp);
     }
 
     /** The ash storm warning: a hazard-edged band that fades out. */
