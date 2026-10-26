@@ -19,11 +19,12 @@ public final class Merchant {
     public static final float STAY = 75f, PACK_WARN = 15f;
     /** Spawn distance from the hero, the walk-up radius that opens the shop and the extra distance to leave before it can open again. */
     public static final float DIST_MIN = 350f, DIST_MAX = 450f, TALK_R = 45f, HYST = 20f;
-    public static final int SLOTS = 3, SLOT_OFFER = 0, SLOT_GEAR = 1, SLOT_SUPPLY = 2;
+    /** The three cards of every visit, and the Fuse Kit as a 4th card (STOCK in all) that is shown only while a fusion pair is ready. */
+    public static final int SLOTS = 3, STOCK = 4, SLOT_OFFER = 0, SLOT_GEAR = 1, SLOT_SUPPLY = 2, SLOT_FUSE = 3;
     public static final int SUP_MEDKIT = 0, SUP_VACUUM = 1, SUP_OROLOGION = 2;
     public static final int BUY_OK = 0, BUY_SOLD = 1, BUY_POOR = 2;
     /** Base prices in run gold of the three slots on the first visit; each later visit costs 25 % of the base more (see {@link #priceOf}). */
-    static final int[] BASE_PRICE = {70, 100, 40};
+    static final int[] BASE_PRICE = {70, 100, 40, 250};
     static final float PRICE_STEP = 0.25f;
     private static final long SALT = 0x5A17A6E5C0DEL;
     private static final int AMBER = 0xFFFFB347, GOOD = 0xFF5CF08E;
@@ -47,11 +48,19 @@ public final class Merchant {
     public Offer offer;
     public EquipDef gearDef;
     public int gearRar, supply;
-    public final boolean[] sold = new boolean[SLOTS];
-    public final int[] price = new int[SLOTS];
-    public final String[] name = new String[SLOTS], desc = new String[SLOTS], tag = new String[SLOTS],
-            priceText = new String[SLOTS];
-    public final int[] tagColor = new int[SLOTS];
+    public final boolean[] sold = new boolean[STOCK];
+    public final int[] price = new int[STOCK];
+    public final String[] name = new String[STOCK], desc = new String[STOCK], tag = new String[STOCK],
+            priceText = new String[STOCK];
+    public final int[] tagColor = new int[STOCK];
+    /** The Fuse Kit: shown (the 4th card) while a pair is ready, and the fusion it would make. */
+    public boolean kit;
+    public se.felixarvid.thorsurvivors.data.WeaponDef kitDef;
+
+    /** Number of cards on the counter: 3, or 4 with the Fuse Kit. */
+    public int cards() {
+        return kit ? STOCK : SLOTS;
+    }
 
     Merchant(Sim s) {
         this.s = s;
@@ -72,6 +81,7 @@ public final class Merchant {
         wants = false;
         armed = false;
         refreshOffer();
+        refreshKit();
     }
 
     /** Seconds until it leaves (0 when it is not here). */
@@ -148,7 +158,27 @@ public final class Merchant {
         return Math.round(BASE_PRICE[slot] * (1f + PRICE_STEP * visit) / 5f) * 5;
     }
 
+    /** The Fuse Kit appears only while a pair is ready (checked when the shop opens); once bought it stays on the counter as SOLD. */
+    private void refreshKit() {
+        if (kit && sold[SLOT_FUSE]) return;
+        se.felixarvid.thorsurvivors.data.WeaponDef f = s.data.fusions.length == 0 ? null : s.inv.readyFusion(s.data.fusions, s.data.weapons);
+        kit = f != null;
+        kitDef = f;
+        if (f == null) return;
+        int visit = Math.max(0, visits - 1);
+        sold[SLOT_FUSE] = false;
+        price[SLOT_FUSE] = priceOf(SLOT_FUSE, visit);
+        priceText[SLOT_FUSE] = Integer.toString(price[SLOT_FUSE]);
+        name[SLOT_FUSE] = "Fuse Kit";
+        desc[SLOT_FUSE] = "Fuse " + s.inv.weapons[s.inv.fuseA].def.name + " + " + s.inv.weapons[s.inv.fuseB].def.name
+                + " into " + f.name + ". Frees a weapon slot.";
+        tag[SLOT_FUSE] = "FUSION";
+        tagColor[SLOT_FUSE] = 0xFFFFD84A;
+    }
+
     private void roll(int visit) {
+        kit = false;
+        kitDef = null;
         for (int i = 0; i < SLOTS; i++) {
             sold[i] = false;
             price[i] = priceOf(i, visit);
@@ -247,7 +277,8 @@ public final class Merchant {
 
     /** Buys slot {@code i}: {@link #BUY_OK}, {@link #BUY_SOLD} (already bought) or {@link #BUY_POOR} (not enough gold, nothing happens). */
     public int buy(int i) {
-        if (i < 0 || i >= SLOTS || sold[i]) return BUY_SOLD;
+        if (i < 0 || i >= cards() || sold[i]) return BUY_SOLD;
+        if (i == SLOT_FUSE && !s.inv.canFuse(kitDef, s.data.weapons)) return BUY_SOLD; // the pair is gone
         if (s.gold < price[i]) return BUY_POOR;
         s.gold -= price[i];
         sold[i] = true;
@@ -256,6 +287,9 @@ public final class Merchant {
         switch (i) {
             case SLOT_OFFER:
                 s.applyOffer(offer);
+                break;
+            case SLOT_FUSE:
+                s.fuseNow(kitDef);
                 break;
             case SLOT_GEAR:
                 s.acquire(gearDef, gearRar); // a better item than the worn one waits for the Keep / Replace choice after the shop

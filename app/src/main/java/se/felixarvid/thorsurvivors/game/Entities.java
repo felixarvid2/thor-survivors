@@ -204,6 +204,9 @@ public final class Entities {
         public boolean inert;
         /** Explosion at the end of life: radius {@code blast} (existing field) and damage {@code blastDmg}. */
         public float blastDmg;
+        /** Fusion weapon id of the weapon that fired it (Fusions.*, 0 = none) and its scratch values (timers, base orbit radius, blast radius). */
+        public int fusion;
+        public float aux, aux2, blastR;
     }
 
     public static final int K_GEM = 0, K_COIN = 1, K_COINBAG = 2, K_ROAST = 3, K_VACUUM = 4, K_OROLOGION = 5,

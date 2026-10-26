@@ -1304,7 +1304,7 @@ public final class WorldRenderer {
         }
         if (p.kind == Entities.K_CHEST) {
             float g = 0.5f + 0.5f * (float) Math.sin(p.bob * 2);
-            glow(c, atlas.img("vfx.energy_glow_0"), px, py - 20f * ks, 110f * ks, 0f, fGold, (int) (120 + 90 * g));
+            glow(c, atlas.img("vfx.energy_glow_0"), px, py - 20f * ks, p.value > 0.5f ? 150f * ks : 110f * ks, 0f, p.value > 0.5f ? fOrange : fGold, (int) (120 + 90 * g)); // value 1 = an elite's Arms Crate
         } else {
             glow(c, atlas.img("vfx.energy_glow_1"), px, py - 8f * ks, 40f * ks, 0f, p.kind == Entities.K_COIN || p.kind == Entities.K_COINBAG ? fGold : fCyan, 110);
         }
@@ -1379,6 +1379,16 @@ public final class WorldRenderer {
                 break;
             }
             case Entities.P_BOOK: { // Ward Drones: a spinning hex shield with a wisp
+                if (p.fusion == 4) { // Miasma Censer: a small censer in the middle of its own toxic aura
+                    float t0 = (float) now;
+                    glow(c, atlas.img("vfx.spore_cloud_0"), px, py, r * 2.0f, t0 * 12f, null, 80);
+                    glow(c, atlas.img("vfx.spores_0"), px, py, r * 1.6f, -t0 * 8f, null, 90);
+                    stroke.setColor(0x7060FF90);
+                    stroke.setStrokeWidth(2f * ks);
+                    c.drawOval(px - r, py - r * 0.9f, px + r, py + r * 0.9f, stroke);
+                    glow(c, atlas.img("vfx.hex_shield_0"), px, py, 16f * sc * 3.4f, p.orbitAngle * 57.3f * 2f, fViolet, 255);
+                    break;
+                }
                 glow(c, atlas.img("vfx.hex_shield_0"), px, py, r * 4.6f, p.orbitAngle * 57.3f * 2f, p.evo ? fViolet : fCyan, 255);
                 glow(c, atlas.img(p.evo ? "vfx.energy_ring" : "vfx.wisp_0"), px, py, r * 3.2f, -p.orbitAngle * 57.3f, p.evo ? fViolet : fGreen, 170);
                 break;
@@ -1522,14 +1532,14 @@ public final class WorldRenderer {
         float r = w.auraRadius * sc;
         int cx = sx(s.px), cy = sy(s.py) - Math.round(6 * ks);
         float pulse = w.pulse > 0 ? 1f + w.pulse * 0.25f : 1f;
-        ColorFilter tint = w.evo ? fViolet : null;
+        ColorFilter tint = w.fusion == 7 ? fOrange : w.evo ? fViolet : null;
         float t = (float) now;
         // a thin fog: the aura is on screen all the time, so it must not hide the crowd inside it
         glow(c, atlas.img("vfx.spore_cloud_0"), cx, cy, r * 2.0f * pulse, t * 9f, tint, 70);
         glow(c, atlas.img("vfx.spore_cloud_2"), cx, cy, r * 1.5f, -t * 14f, tint, 55);
         glow(c, atlas.img("vfx.spores_0"), cx, cy, r * 1.9f, t * 5f, tint, 100);
         if (w.evo) glow(c, atlas.img("vfx.heal_0"), cx, cy - r * 0.3f, r * 1.1f, 0f, fViolet, 80);
-        stroke.setColor((w.evo ? 0x90C060FF : 0x9060FF90));
+        stroke.setColor((w.fusion == 7 ? 0xA0FF8A2A : w.evo ? 0x90C060FF : 0x9060FF90));
         stroke.setStrokeWidth(2f * ks);
         c.drawOval(cx - r, cy - r * 0.9f, cx + r, cy + r * 0.9f, stroke);
     }

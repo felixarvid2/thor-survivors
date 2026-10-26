@@ -163,6 +163,7 @@ public final class Engine {
         int offerLevel = s.level - s.pendingLevelUps + 1;
         offers = OfferGenerator.generate(s.inv, data.weapons.values(), s.stats.luck, rng,
                 s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, offerLevel);
+        s.addFuseCard(offers);
         phase = PH_LEVELUP;
         focus = 0;
     }
@@ -246,8 +247,8 @@ public final class Engine {
                 if (c[1] == phase) {
                     // first tap on a tile only focuses it (the shop and the Salvager); LEAVE acts at once
                     boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus
-                            || phase == PH_MERCHANT && c[2] < Merchant.SLOTS && (c[2] != focus || !merchantTapped);
-                    if (phase == PH_MERCHANT) merchantTapped = c[2] < Merchant.SLOTS;
+                            || phase == PH_MERCHANT && c[2] < sim.merchant.cards() && (c[2] != focus || !merchantTapped);
+                    if (phase == PH_MERCHANT) merchantTapped = c[2] < sim.merchant.cards();
                     focus = c[2];
                     if (!pick) confirm(c[3]);
                 }
@@ -268,7 +269,7 @@ public final class Engine {
             case PH_SHOP: return shopKeys.size() + 1;
             case PH_LEVELUP: return offers.size();
             case PH_EQUIP: return 2;
-            case PH_MERCHANT: return Merchant.SLOTS + 1; // three cards and LEAVE
+            case PH_MERCHANT: return sim.merchant.cards() + 1; // the cards (three, four with the Fuse Kit) and LEAVE
             case PH_PAUSED: return 2;
             default: return 1;
         }
@@ -387,7 +388,7 @@ public final class Engine {
                 else quitRun();
                 break;
             case PH_MERCHANT:
-                if (f >= Merchant.SLOTS) {
+                if (f >= sim.merchant.cards()) {
                     resume();
                 } else {
                     Merchant m = sim.merchant;

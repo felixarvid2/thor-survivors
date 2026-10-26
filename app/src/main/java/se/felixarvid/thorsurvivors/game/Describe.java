@@ -19,6 +19,8 @@ public final class Describe {
                 return "Salvage haul. +25 gold.";
             case Offer.BRANCH:
                 return o.branch.tiers[o.newLevel - 1].description;
+            case Offer.FUSE:
+                return o.def.description + " Frees a weapon slot.";
             case Offer.NEW_WEAPON:
             case Offer.NEW_PASSIVE:
             case Offer.PASSIVE_LEVEL:

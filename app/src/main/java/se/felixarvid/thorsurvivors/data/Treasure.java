@@ -2,7 +2,7 @@ package se.felixarvid.thorsurvivors.data;
 
 /** One stage minute's boss-chest table (game_data.json `treasure`). */
 public final class Treasure {
-    public static final String EVOLUTION = "EVOLUTION", EXISTING_ANY = "EXISTING_ANY", EXISTING_WEAPON = "EXISTING_WEAPON";
+    public static final String FUSION = "FUSION", EVOLUTION = "EVOLUTION", EXISTING_ANY = "EXISTING_ANY", EXISTING_WEAPON = "EXISTING_WEAPON";
 
     /** Percent chances: [0] a 5-item chest, [1] a 3-item chest, [2] a 1-item chest (always at least 1 item). */
     public final double[] chances;
