@@ -146,6 +146,7 @@ public final class TopOverlay {
         else if (ph == Engine.PH_CHEST) { t1 = "SUPPLY CACHE"; col = Skin.LUMEN; }
         else if (ph == Engine.PH_EQUIP) { t1 = "NEW EQUIPMENT"; col = Skin.GOLD; }
         else if (ph == Engine.PH_MERCHANT) { t1 = "SALVAGER"; col = AMBER; }
+        else if (ph == Engine.PH_TERMINAL) { t1 = "RELAY TERMINAL"; col = Skin.COOL; }
         else if (e.resultWin) { t1 = "VICTORY"; col = Skin.LUMEN; }
         else { t1 = "YOU DIED"; col = 0xFFE04A32; }
         if (ph == Engine.PH_MERCHANT) sub = "TRADE ON THE BOTTOM SCREEN";

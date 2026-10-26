@@ -23,6 +23,7 @@ import se.felixarvid.thorsurvivors.game.Input;
 import se.felixarvid.thorsurvivors.game.Inventory;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
+import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.Offer;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas;
@@ -226,6 +227,10 @@ public final class PanelRenderer {
             case Engine.PH_MERCHANT:
                 if (compact) dimOverlay(c, w, h, 0x99000000);
                 merchant(c, w, h);
+                break;
+            case Engine.PH_TERMINAL:
+                if (compact) dimOverlay(c, w, h, 0x99000000);
+                terminal(c, w, h);
                 break;
             case Engine.PH_RESULT:
                 if (compact) dimOverlay(c, w, h, 0xAA000000);
@@ -825,6 +830,7 @@ public final class PanelRenderer {
         minimapFinds(c, s, cx, cy, kk, side);
         minimapMerchant(c, s, cx, cy, kk, side);
         minimapEvents(c, s, cx, cy, kk, side);
+        minimapPois(c, s, cx, cy, kk, side);
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -948,6 +954,115 @@ public final class PanelRenderer {
         c.drawPath(path, stroke);
         fill.setColor(AMBER);
         c.drawPath(path, fill);
+    }
+
+    private static final int POI_ORANGE = 0xFFFF8A2A, POI_GREY = 0xFF6E7378, POI_GREEN = 0xFF39FF88, POI_BLUE = 0xFF40A8FF, POI_GOLD = 0xFFFFD84A;
+
+    /** A diamond (or a square) marker of the places, black outlined; one path reused. */
+    private void poiMark(Canvas c, float mx, float my, float z, int color, boolean square) {
+        path.rewind();
+        if (square) {
+            path.addRect(mx - z * 0.8f, my - z * 0.8f, mx + z * 0.8f, my + z * 0.8f, Path.Direction.CW);
+        } else {
+            path.moveTo(mx, my - z);
+            path.lineTo(mx + z * 0.8f, my);
+            path.lineTo(mx, my + z);
+            path.lineTo(mx - z * 0.8f, my);
+            path.close();
+        }
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeJoin(Paint.Join.ROUND);
+        stroke.setStrokeWidth(4f * k.u);
+        stroke.setColor(0xFF05080A);
+        c.drawPath(path, stroke);
+        fill.setColor(color);
+        c.drawPath(path, fill);
+    }
+
+    /**
+     * The places (minimap only): outposts as orange squares (grey once cleared; clamped to the edge so they can be found), nests as
+     * pulsing green dots, relay terminals as blue diamonds (used ones are not shown), the vault as a gold diamond once found.
+     */
+    private void minimapPois(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        Pois p = s.pois;
+        if (!p.enabled) return;
+        float u = k.u, lim = side / 2 - 20f * u, pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 5.0);
+        for (int i = 0; i < p.outN; i++) {
+            float dx = (p.outX[i] - s.px) * kk, dy = (p.outY[i] - s.py) * kk;
+            dx = Math.max(-lim, Math.min(lim, dx));
+            dy = Math.max(-lim, Math.min(lim, dy));
+            poiMark(c, cx + dx, cy + dy, 11f * u, p.outCleared[i] ? POI_GREY : POI_ORANGE, true);
+        }
+        for (int i = 0; i < s.destN; i++) {
+            if (s.destKind[i] != Sim.DK_NEST) continue;
+            float dx = (s.destX[i] - s.px) * kk, dy = (s.destY[i] - s.py) * kk;
+            if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
+            fill.setColor(0xFF05080A);
+            c.drawCircle(cx + dx, cy + dy, 10f * u * pulse, fill);
+            fill.setColor(POI_GREEN);
+            c.drawCircle(cx + dx, cy + dy, 7f * u * pulse, fill);
+        }
+        for (int i = 0; i < p.termN; i++) {
+            if (p.termUsed(i)) continue;
+            float dx = (p.termX[i] - s.px) * kk, dy = (p.termY[i] - s.py) * kk;
+            if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
+            poiMark(c, cx + dx, cy + dy, 10f * u, POI_BLUE, false);
+        }
+        if (p.hasVault && p.vaultFound && p.vaultState != Pois.V_DONE) {
+            float dx = (p.vaultX - s.px) * kk, dy = (p.vaultY - s.py) * kk;
+            dx = Math.max(-lim, Math.min(lim, dx));
+            dy = Math.max(-lim, Math.min(lim, dy));
+            poiMark(c, cx + dx, cy + dy, 12f * u * pulse, POI_GOLD, false);
+        }
+    }
+
+    // ---- the Relay Terminal: three buff cards (gain in green, cost in red), DECLINE below
+
+    private static final String[] GAIN_LINE = new String[Pois.BUFFS], COST_LINE = new String[Pois.BUFFS];
+
+    static {
+        for (int i = 0; i < Pois.BUFFS; i++) {
+            GAIN_LINE[i] = "+  " + Pois.BUFF_GAIN[i];
+            COST_LINE[i] = "-  " + Pois.BUFF_COST[i];
+        }
+    }
+
+    private void terminal(Canvas c, int w, int h) {
+        Sim s = eng.sim;
+        if (s == null) return;
+        Pois p = s.pois;
+        float u = k.u;
+        float[] cl = column(w, h, 1100f * u);
+        float x = cl[0], cw = cl[1];
+        k.plate(c, x, 16f * u, x + cw, 150f * u, 0x28102840, Skin.EDGE, 3f * u);
+        k.rivets(c, x, 16f * u, x + cw, 150f * u, 11f * u, 3f * u);
+        k.text(c, "RELAY TERMINAL", x + 30f * u, 84f * u, 62f * u, Skin.COOL, Paint.Align.LEFT);
+        k.body(c, "CHOOSE ONE  -  THE GAIN AND ITS COST BOTH LAST 5 MINUTES", x + 30f * u, 124f * u, 24f * u, DIM, Paint.Align.LEFT);
+        int n = Pois.CARDS;
+        float by = h - 102f * u, stripY = by - 62f * u, top = 172f * u, gap = 14f * u;
+        float ch = Math.min(250f * u, (stripY - gap - top - (n - 1) * gap) / n);
+        for (int i = 0; i < n; i++) {
+            float y = top + i * (ch + gap);
+            boolean f = eng.focus == i;
+            int b = p.cardBuff[i];
+            k.plate(c, x, y, x + cw, y + ch, f ? 0x4440D8FF : 0, f ? Skin.COOL : Skin.EDGE, f ? 5f * u : 2f * u);
+            if (f) k.focusMarks(c, x, y, x + cw, y + ch);
+            hit(x, y, x + cw, y + ch, i, 0);
+            float is = ch - 36f * u, ix = x + 18f * u, iy = y + 18f * u;
+            k.slotWell(c, ix, iy, is);
+            k.glyph(c, b == Pois.B_OVERCLOCK ? Skin.G_FIRE : b == Pois.B_REINFORCE ? Skin.G_ARMORED : b == Pois.B_LENS ? Skin.G_FROST : Skin.G_BOLT,
+                    ix + is / 2, iy + is / 2, is * 0.36f, Skin.COOL);
+            float tx = ix + is + 22f * u, titleSize = Math.min(44f * u, ch * 0.22f);
+            k.text(c, Pois.BUFF_NAME[b], tx, y + 14f * u + titleSize, titleSize, 0xFFFFF4E6, Paint.Align.LEFT);
+            k.text(c, "5 MIN", x + cw - 24f * u, y + 14f * u + titleSize, titleSize * 0.7f, Skin.COOL, Paint.Align.RIGHT);
+            float ls = Math.min(34f * u, ch * 0.17f);
+            k.body(c, GAIN_LINE[b], tx, y + ch * 0.62f, ls, Skin.GOOD, Paint.Align.LEFT);
+            k.body(c, COST_LINE[b], tx, y + ch * 0.86f, ls, Skin.BAD, Paint.Align.LEFT);
+        }
+        k.plate(c, x, stripY, x + cw, stripY + 52f * u, 0x28104030, Skin.EDGE, 2f * u);
+        k.body(c, "TAP A CARD, TAP AGAIN TO CHOOSE    |    D-PAD + A    |    B = DECLINE", w / 2f, stripY + 34f * u, 24f * u, DIM, Paint.Align.CENTER);
+        k.button(c, x, by, x + cw, by + 80f * u, "DECLINE", eng.focus == n);
+        hit(x, by, x + cw, by + 80f * u, n, 0);
     }
 
     private void hudStrip(Canvas c, int w, int h) {

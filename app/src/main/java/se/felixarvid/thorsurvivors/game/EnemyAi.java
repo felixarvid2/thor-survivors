@@ -44,7 +44,7 @@ final class EnemyAi {
     }
 
     private float rnd(float a, float b) {
-        return a + s.rng.nextFloat() * (b - a);
+        return a + s.initRng().nextFloat() * (b - a);
     }
 
     /** First timers of a freshly spawned non-chaser. */
@@ -52,8 +52,8 @@ final class EnemyAi {
         EnemyDef d = e.type.def;
         switch (e.type.arch) {
             case EnemyDef.ARCH_PACK:
-                e.weaveT = s.rng.nextFloat() * e.type.phaseLen;
-                e.shots = s.rng.nextInt(5);
+                e.weaveT = s.initRng().nextFloat() * e.type.phaseLen;
+                e.shots = s.initRng().nextInt(5);
                 break;
             case EnemyDef.ARCH_RANGED:
             case EnemyDef.ARCH_FLIER:
@@ -98,7 +98,7 @@ final class EnemyAi {
     static final float ASH_SLOW = 0.8f;
 
     float speedOf(Enemy e) {
-        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul();
+        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul() * s.pois.enemySpeedMul;
     }
 
     void walkTo(Enemy e, float dt, float dx, float dy, float d, float factor) {

@@ -98,7 +98,7 @@ final class Shots {
         eng.input.stickY = (float) Math.sin(a);
         if (immortal) s.hp = s.maxHp;
         if (eng.phase == Engine.PH_LEVELUP || eng.phase == Engine.PH_CHEST) eng.input.post(Input.CMD_CONFIRM, 0, 0, 0);
-        else if (eng.phase == Engine.PH_MERCHANT) eng.input.post(Input.CMD_BACK, 0, 0, 0); // walked into the Salvager: leave
+        else if (eng.phase == Engine.PH_MERCHANT || eng.phase == Engine.PH_TERMINAL) eng.input.post(Input.CMD_BACK, 0, 0, 0); // walked into the Salvager or a relay terminal: leave
         eng.advance(1f / 60f);
     }
 
