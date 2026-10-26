@@ -106,6 +106,9 @@ public final class StageSoak {
         return false;
     }
 
+    /** False: runs without the minute 20-30 events (their Tide adds elites and hordes on top of the schedules). */
+    public static boolean withEvents = true;
+
     public static Result run(String stage, String hero, String policy, long seed, double limit) throws Exception {
         GameData d = data();
         Result r = new Result();
@@ -119,6 +122,7 @@ public final class StageSoak {
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), hero, seed);
         s.findN = 0; // the soak measures the balance without the map finds (they depend on where the bot wanders)
         s.merchant.enabled = false; // nor the Salvager: the headless Sim never pauses for a shop, and a purchase would change the balance numbers
+        if (!withEvents) s.events.enabled = false; // schedule tests (EliteTest) measure the plain elite timer without the Tide's extra elites
         s.pois.enabled = false; // nor the places: a relay terminal screen never closes headless, and vents/nests depend on where the bot wanders
         Random rng = new Random(seed * 7919 + 1);
         Input in = new Input();

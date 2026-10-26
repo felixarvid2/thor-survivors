@@ -48,6 +48,7 @@ public class MerchantTest {
     public void arrivesAtFourThirtyAndEveryFiveMinutesAndStaysSeventyFiveSeconds() throws Exception {
         for (String stage : new String[]{"FLATS", "MINES"}) {
             Sim s = sim(stage, 3);
+            s.events.enabled = false; // the Beacon's reward summons an extra visit; this test is the plain schedule
             Merchant m = s.merchant;
             double[] arrive = new double[5], leave = new double[5];
             int visit = -1;

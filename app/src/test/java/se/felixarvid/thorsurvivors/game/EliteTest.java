@@ -52,7 +52,13 @@ public class EliteTest {
     public void oneEliteEveryHundredAndTwentyFiveSecondsShrinkingOnePercentAMinute() throws Exception {
         GameData d = TestData.load();
         for (String stage : new String[]{"FLATS", "MINES"}) {
-            StageSoak.Result r = StageSoak.run(stage, "BASTION", "immortal", 3, 1800);
+            StageSoak.Result r;
+            StageSoak.withEvents = false; // the plain schedule: the Tide's extra elites are EventsTest's
+            try {
+                r = StageSoak.run(stage, "BASTION", "immortal", 3, 1800);
+            } finally {
+                StageSoak.withEvents = true;
+            }
             assertEquals(r.toString(), 0, r.nan);
             assertTrue("first elite at 3:00 +-10 s: " + r.eliteAt, Math.abs(r.eliteAt.get(0) - 180) <= 10);
             for (int i = 1; i < r.eliteAt.size(); i++) {
