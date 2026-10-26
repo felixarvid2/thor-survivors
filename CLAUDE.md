@@ -2,7 +2,8 @@
 
 Thor Survivors ("ASHFALL: Lumen Tide") is a plain-Java Android game for the AYN Thor dual-screen handheld:
 a Vampire Survivors + Halls of Torment style survivor in the Ashfall world. It moved here from the
-`thor-survivors/` folder of felixarvid2/test; older history is there. Start with `README.md` and
+`thor-survivors/` folder of felixarvid2/test; older history is there. Start with `README.md` (a short
+player-facing description only), `docs/TEKNIK.md` (rules, numbers, data, build, code; Swedish) and
 `docs/ASHFALL_DESIGN.md`. The owner writes Swedish; answer in Swedish.
 
 The build tools read source art and audio from the shared asset library `assets/` in felixarvid2/test:

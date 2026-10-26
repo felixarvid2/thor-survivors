@@ -14,7 +14,7 @@ public final class EnemyType {
     public final float alpha;
     /**
      * Baked Ashfall model (render.SpriteAtlas.model) used for this key, and the one used when it spawns as a boss. A
-     * temporary mapping from the current Vampire Survivors roster until the Ashfall roster lands (README, "Fiender").
+     * temporary mapping from the current Vampire Survivors roster until the Ashfall roster lands (docs/TEKNIK.md, "Fiender").
      */
     public final String model, bossModel;
     /** Colour of the sparks and gore this enemy sheds when hit (ARGB). */

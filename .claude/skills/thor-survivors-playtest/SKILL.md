@@ -25,7 +25,7 @@ one or two questions whose answer changes the fix. Answer the owner in Swedish; 
    `game/Sim.java` (all gameplay), `game/Engine.java` (phases, run flow), `screen/GameView.java` (loop, input, refresh
    rate), `screen/DualScreenManager.java` and `PanelPresentation.java` (second screen), `screen/InputRouter.java`
    (gamepad), `render/WorldRenderer.java`, `ui/PanelRenderer.java`, `audio/`. Cite `path:line`. Separate verified
-   (read or reproduced) from suspected. Hardware-only issues (README "Ej testat": which bottom-screen path the Thor
+   (read or reproduced) from suspected. Hardware-only issues (docs/TEKNIK.md "Ej testat": which bottom-screen path the Thor
    uses, gamepad routing, real fps) have no code cause until the owner runs a diagnostic; propose the cheapest one.
 4. Propose a fix and a headless verification for each: a JVM test (`SimSmokeTest`/`WeaponBehaviourTest` style seeded
    run), a Robolectric screenshot (skill `thor-survivors-screenshots`), or a measurement (balance/perf skills). If it
