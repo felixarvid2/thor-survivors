@@ -158,6 +158,7 @@ Alla skärmar på nedre panelen (`ui/PanelRenderer`, 1240 x 1080, samma kod i en
 - **Böcker och pölar:** varje bok (King Bible, Unholy Vespers) och varje Santa Water-pöl träffar på egen hand med sin egen `hitBoxDelay` per fiende (`Enemy.tryTick`), så fler böcker (Amount) ger mer skada.
 - **Vågor:** varje `frequency` ms kommer en fiende av varje typ i minutens `enemies` (högst 300 på banan, en flock hundar räknas som 4), och fältet fylls dessutom upp till `minimum` (`game/WaveDirector`). Dödzonen i XP runt minut 5 till 10 i Mad Forest är i huvudsak datan (en fiendetyp och `minimum` 10 till 30).
 - **PowerUp-butik:** köp med guld som sparas mellan körningar.
+- **Butikstexter och HP-visning:** varje butikspanel visar effekt per rank (t.ex. `+5% DAMAGE / RANK`) och rank som `2/5`; en detaljremsa över BACK visar den markerade uppgraderingen med `NOW`/`NEXT`-summor eller `MAXED`. Texterna byggs en gång i `Describe.powerUp` (cache i `Engine.shopText`), aldrig per bildruta. Touch: första trycket på en ruta markerar den, tryck på den markerade rutan köper (A-knappen köper fortfarande den markerade). HP visas med `Sim.shownHp`/`shownMaxHp`: max avrundas (`Math.round`), nuvarande är `ceil` men aldrig över max (annars "119/118"); `recomputeAll` klampar `hp` till nya `maxHp`.
 
 Evolution: vapnet måste vara på maxnivå tillsammans med sin passiv. Öppna sedan en boss-kista. En körning vinns när timern når 30:00.
 
