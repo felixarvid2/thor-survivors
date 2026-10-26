@@ -10,8 +10,8 @@ android {
         applicationId 'se.felixarvid.thorsurvivors'
         minSdk 29
         targetSdk 35
-        versionCode 4
-        versionName '1.2.0'
+        versionCode 5
+        versionName '1.2.1'
     }
 
     // keep the audio uncompressed in the APK so SoundPool/MediaPlayer can map it directly
