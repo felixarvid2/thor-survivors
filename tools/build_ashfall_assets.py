@@ -138,7 +138,11 @@ FRAMES = {"frame_common": "common", "frame_magic": "magic", "frame_rare": "rare"
 # boss spawn banner portraits (flux/bosses), key = the enemy key; the Ashfall bosses and the picture that suits each
 PORTRAIT_PX = 192
 PORTRAITS = {"boss_CARGO_LOADER": "drowned_engine", "boss_SLAGBORN": "pyre_warden", "boss_VIRE_AWAKENED": "vire",
-             "boss_SMELTER_FOREMAN": "foreman_dray", "boss_THE_FIRST": "the_first"}
+             "boss_SMELTER_FOREMAN": "foreman_dray", "boss_THE_FIRST": "the_first",
+             # v1.3 timed bosses (the Overseer wears the red visor of Security Chief Holm)
+             "boss_BROOD_MOTHER": "brood_mother", "boss_FROZEN_WELDER": "frozen_welder",
+             "boss_COMMANDANT_HALE": "commandant_hale", "boss_OVERSEER_UNIT_7": "security_chief_holm",
+             "boss_GOVERNOR_KADE": "governor_kade"}
 # gem crystals (transparent icons, trimmed): key -> (source, px)
 GEMS = {"crystal_lumen": 64, "crystal_void": 64, "crystal_ember": 64}
 

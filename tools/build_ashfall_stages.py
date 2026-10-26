@@ -73,6 +73,58 @@ ENEMIES = {
                                   tentCount=3, tentRadius=300, lanes=2, laneLen=560, laneW=46, laneDps=22,
                                   laneWarn=1.0, laneLife=3.2, laneSpin=0.85, laneGap=2.0, hounds=6, houndEvery=9,
                                   pulseEvery=6, pulseWarn=1.5, pulseDmg=28)),
+    # ---- v1.3 timed bosses (design v1.3 section 3, BossAi patterns 6..10): spawned by `stages.<S>.timedBosses`, not by wave rows.
+    # `tintRGB` recolours the baked model (WorldRenderer, luminance x tint), `gearSlot` is the EquipDef slot of the Rare crate it
+    # drops (5 NECK, 4 RING, 0 HEAD, 2 GLOVES, 1 BODY), `xpPileLevels` the gem pile in levels, a chest of 1..3 items always comes.
+    "BROOD_MOTHER": dict(name="Brood Mother", archetype="BOSS", boss=True, maxHp=220, speed=45, power=22, xp=100,
+                         sprite="spore_carrier", scale=2.2,
+                         description="Leaves spore clouds, lays egg pods that hatch hounds, bursts at half health.",
+                         params=dict(pattern=6, hpRamp=20, radius=10, tintRGB=0x6FD060, gearSlot=5, xpPileLevels=1.5,
+                                     trail=36, cloudR=50, cloudT=3, cloudDps=2.5, eggEvery=7, eggs=3, eggWarn=1.0,
+                                     burstHp=0.5, burstN=6, burstR=90, burstWarn=1.0, burstDmg=10, burstDist=120,
+                                     stopDist=60)),
+    "FROZEN_WELDER": dict(name="Frozen Welder", archetype="BOSS", boss=True, maxHp=420, speed=70, power=24, xp=100,
+                          sprite="welder", scale=2.0,
+                          description="Three chained dashes, each leaving frost and ending in a freezing ring.",
+                          params=dict(pattern=7, hpRamp=20, radius=12, tintRGB=0xA8F0FF, gearSlot=4, xpPileLevels=1.5,
+                                      pre=0.9, dashLen=190, dash=0.45, gap=0.25, lineW=46, dashDmg=16, recover=2.0,
+                                      gapMin=2.0, gapMax=3.5, range=380, patchEvery=80, patchR=38, patchT=5,
+                                      ringR=140, ringExtra=0.3, ringDmg=14, ringStun=0.4)),
+    "COMMANDANT_HALE": dict(name="Commandant Hale", archetype="BOSS", boss=True, maxHp=400, speed=60, power=26, xp=100,
+                            sprite="sergeant", scale=2.2,
+                            description="Calls artillery barrages and lines up sergeants for a synchronised volley.",
+                            params=dict(pattern=8, hpRamp=20, radius=11, tintRGB=0x7FB0F0, gearSlot=0, xpPileLevels=1.5,
+                                        barrageEvery=9, shells=8, shellSpan=3.0, shellWarn=1.0, shellR=52, shellDmg=14,
+                                        orderEvery=12, guards=6, guardGap=46, guardDist=230, orderStand=1.8,
+                                        guardLane=22, stopDist=170)),
+    "OVERSEER_UNIT_7": dict(name="Overseer Unit 7", archetype="BOSS", boss=True, maxHp=300, speed=80, power=24, xp=100,
+                            sprite="security_drone", scale=3.0,
+                            description="Hovers out of reach: bullet spiral, sweeping laser, drone deployment.",
+                            params=dict(pattern=9, hpRamp=20, radius=8, tintRGB=0xFF6A55, gearSlot=2, xpPileLevels=1.5,
+                                        hover=220, spiralTele=0.9, spiralTime=4.5, spiralArms=3, spiralGap=0.28,
+                                        spiralTurn=0.3, spiralSpeed=170, spiralDmg=9, spiralLife=2.0, liveMax=24,
+                                        laserLen=520, laserW=46, laserWarn=1.0, laserLife=2.4, laserSpin=0.75,
+                                        laserDps=20, droneN=4, droneWarn=0.9, droneDist=120, rest=1.4,
+                                        enrageHp=0.4, enrageMul=1.3)),
+    "GOVERNOR_KADE": dict(name="Governor Kade", archetype="BOSS", boss=True, maxHp=650, speed=85, power=26, xp=150,
+                          sprite="vire", scale=2.0,
+                          description="Blinks and leaves decoys; issues Decrees that light four lanes, two of them safe.",
+                          params=dict(pattern=10, hpRamp=20, radius=13, tintRGB=0xFFE08A, gearSlot=1, xpPileLevels=1.5,
+                                      blinkEvery=7, blinkTele=0.8, blinkMin=130, blinkMax=200, decoys=3,
+                                      decreeEvery=10, decreeWarn=1.2, laneW=64, laneGap=120, laneLen=900, laneDmg=24,
+                                      carriers=4, carrierHp=0.5, stopDist=120)),
+    # what the timed bosses summon: pinned like a tentacle (warn ring, then up), see BossAi.tentacle
+    "BROOD_EGG": dict(name="Brood Egg", archetype="TENTACLE", maxHp=0.2, speed=0, power=0, xp=1, knockback=0,
+                      sprite="spore_carrier",
+                      params=dict(radius=10, warn=1.0, up=5.0, hitR=26, end=1, hounds=4, drawScale=0.7, tintRGB=0xC8E070)),
+    "HALE_GUARD": dict(name="Hale's Guard", archetype="TENTACLE", maxHp=1.0, speed=0, power=0, xp=1, knockback=0,
+                       sprite="sergeant",
+                       params=dict(radius=12, warn=1.0, up=0.8, hitR=24, end=2, volleyN=3, volleySpread=0.14,
+                                   volleySpeed=260, volleyDmg=9, tintRGB=0x7FB0F0)),
+    "KADE_DECOY": dict(name="Kade's Decoy", archetype="TENTACLE", maxHp=0.1, speed=0, power=0, xp=1, knockback=0,
+                       sprite="vire",
+                       params=dict(radius=12, warn=0.9, up=8.0, hitR=60, ring=1, blast=12, drawScale=2.0,
+                                   tintRGB=0xFFE08A)),
     # a killable tentacle: bursts from the ground (warn ring, then up for `up` seconds), see BossAi.tentacle.
     # Design 4.1 gives it 150 Z when exposed, which no build kills in the 1.2 s it is up: 8 Z here.
     "LUMEN_TENTACLE": dict(name="Lumen Tentacle", archetype="TENTACLE", maxHp=8.0, speed=0, power=25, xp=5,
@@ -186,6 +238,13 @@ MINES_ROWS = [
 ]
 
 # which Vampire Survivors treasure row each boss minute copies
+# v1.3 timed bosses (seconds into the run): they come between the wave-row bosses, see Sim.updateTimedBosses
+TIMED_BOSSES = {
+    "FLATS": [(450, "BROOD_MOTHER"), (750, "FROZEN_WELDER"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
+              (1650, "GOVERNOR_KADE")],
+    "MINES": [(450, "BROOD_MOTHER"), (750, "FROZEN_WELDER"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
+              (1590, "GOVERNOR_KADE")],
+}
 FLATS_TREASURE = {5: 5, 10: 10, 15: 15, 20: 20, 25: 25, 29: 29}   # from FOREST
 MINES_TREASURE = {5: 5, 10: 10, 15: 15, 20: 20, 25: 25, 28: 28}   # from LIBRARY
 
@@ -243,6 +302,8 @@ def main():
     for key, fade in XP_FADE.items():
         stages[key]["xpFade"] = fade
     stages["MINES"]["tentacles"] = dict(minutes=[8, 13, 18, 23, 27], length=20, every=4, count=3, radius=400)
+    for key, lst in TIMED_BOSSES.items():
+        stages[key]["timedBosses"] = [dict(t=t, boss=b) for t, b in lst]
     data["elites"] = ELITES
     eq = {}
     for key, (slot, name, icon, values) in EQUIPMENT.items():

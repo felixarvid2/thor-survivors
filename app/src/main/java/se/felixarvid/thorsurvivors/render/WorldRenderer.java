@@ -221,6 +221,7 @@ public final class WorldRenderer {
         ensureDemo(e);
         Sim s = e.sim;
         gd = e.data;
+        ensureTints();
         int ph = e.phase;
         boolean menu = s == null || ph == Engine.PH_MENU || ph == Engine.PH_SHOP;
         if (menu && topUi.menuReady()) { // the title screen: painting, embers and title instead of the world
@@ -375,9 +376,15 @@ public final class WorldRenderer {
     static boolean DBG_NO_SHADE, DBG_NO_MASK;
 
     private ColorFilter shadeAt(float x, float y, float floor, ColorFilter[] set) {
-        if (DBG_NO_SHADE) return null;
+        int i = shadeIndex(x, y, floor);
+        return i < 0 ? null : set[i];
+    }
+
+    /** The brightness step (0..SHADES) of a point, or -1 when shading is switched off for debugging. */
+    private int shadeIndex(float x, float y, float floor) {
+        if (DBG_NO_SHADE) return -1;
         float b;
-        if (lightMode == MetaProgress.LIGHT_OFF) return set[SHADES];
+        if (lightMode == MetaProgress.LIGHT_OFF) return SHADES;
         if (lightMode == MetaProgress.LIGHT_LOW) {
             float dx = x - scrW / 2f, dy = (y - scrH / 2f) * 1.15f, r = light.lr[0] > 0 ? light.lr[0] : 400f;
             float d = (float) Math.sqrt(dx * dx + dy * dy) / r;
@@ -386,9 +393,54 @@ public final class WorldRenderer {
             b = light.brightness(x, y);
         }
         if (b < floor) b = floor;
-        int i = Math.round(b * SHADES);
-        return set[Math.min(SHADES, i)];
+        return Math.min(SHADES, Math.round(b * SHADES));
     }
+
+    // v1.3 boss recolours: a luminance x tint colour matrix per brightness step for every enemy type with a tintRGB (made once)
+    private final int[] tintRgb = new int[12];
+    private final ColorFilter[][] tintSet = new ColorFilter[12][];
+    private int tintN;
+    private GameData tintFor;
+
+    private void ensureTints() {
+        if (gd == null || tintFor == gd) return;
+        tintFor = gd;
+        tintN = 0;
+        Canvas primer = new Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888));
+        for (EnemyDef d : gd.enemies.values()) {
+            int rgb = Math.round(d.param("tintRGB", 0f));
+            if (rgb == 0 || tintN >= tintRgb.length || tintIndex(rgb) >= 0) continue;
+            ColorFilter[] set = new ColorFilter[SHADES + 1];
+            float tr = (rgb >> 16 & 255) / 255f, tg = (rgb >> 8 & 255) / 255f, tb = (rgb & 255) / 255f;
+            for (int i = 0; i <= SHADES; i++) {
+                float v = (float) i / SHADES, g = TINT_GAIN * v * TINT_MIX, o = (1f - TINT_MIX) * ENEMY_GAIN * v, lift = (255 - 255 * v) * 0.12f;
+                set[i] = new ColorMatrixColorFilter(new float[]{
+                        g * tr * 0.30f + o, g * tr * 0.59f, g * tr * 0.11f, 0, lift,
+                        g * tg * 0.30f, g * tg * 0.59f + o, g * tg * 0.11f, 0, lift,
+                        g * tb * 0.30f, g * tb * 0.59f, g * tb * 0.11f + o, 0, lift,
+                        0, 0, 0, 1, 0});
+                glowPaint.setColorFilter(set[i]); // the native filter is made now, not mid-frame
+                primer.drawRect(0f, 0f, 1f, 1f, glowPaint);
+            }
+            glowPaint.setColorFilter(null);
+            tintRgb[tintN] = rgb;
+            tintSet[tintN++] = set;
+        }
+    }
+
+    private int tintIndex(int rgb) {
+        for (int i = 0; i < tintN; i++) if (tintRgb[i] == rgb) return i;
+        return -1;
+    }
+
+    /** The recolouring filter of a tint at brightness step {@code idx} (from {@link #shadeIndex}), or null when it is not known. */
+    private ColorFilter tintAt(int rgb, int idx) {
+        int i = tintIndex(rgb);
+        return i < 0 || idx < 0 ? null : tintSet[i][Math.min(SHADES, idx)];
+    }
+
+    /** How much of a tinted creature is the colourised luminance (the rest keeps its own colours), and the gain of that part. */
+    private static final float TINT_MIX = 0.72f, TINT_GAIN = 1.7f;
 
     private boolean warmed;
 
@@ -1039,11 +1091,14 @@ public final class WorldRenderer {
         boolean iced = frozen || en.freezeT > 0f;
         if (flash) cf = soft ? fBright : fWhite;
         else if (iced || en.frost > 0) cf = fIce; // Frost: a cyan tint
-        else cf = shadeAt(px, py - 30f * ks, FLOOR_ENEMY, en.boss ? shade : shadeLift); // bosses are big and already pale: no gain
+        else if (en.type.tint != 0 && (cf = tintAt(en.type.tint, shadeIndex(px, py - 30f * ks, FLOOR_ENEMY))) != null) { // a recoloured boss or summon
+        } else cf = shadeAt(px, py - 30f * ks, FLOOR_ENEMY, en.boss ? shade : shadeLift); // bosses are big and already pale: no gain
         float dx = s.px - en.x, dy = s.py - en.y, rr = en.radius * 0.8f + Sim.PLAYER_R * 0.8f + 8f;
         boolean attacking = dx * dx + dy * dy < rr * rr;
         curScale = en.elite ? 1.4f : 1f;
-        if (en.type.arch == EnemyDef.ARCH_TENTACLE) { // a tentacle shoots up, stands, then sinks away
+        if (en.type.arch == EnemyDef.ARCH_TENTACLE && !en.type.def.key.equals("LUMEN_TENTACLE")) { // an egg, a guard or a decoy: pops up at its draw scale
+            curScale = en.type.drawScale * Math.max(0.2f, Math.min(1f, (en.type.def.param("up", 1f) - en.aiT) / 0.2f));
+        } else if (en.type.arch == EnemyDef.ARCH_TENTACLE) { // a tentacle shoots up, stands, then sinks away
             float up = en.type.def.param("up", 1.2f);
             float k = Math.max(0.06f, Math.min(1f, Math.min((up - en.aiT) / 0.25f, en.aiT / 0.3f)));
             curScale = 1.7f * k; // the small model is drawn big enough to see, with a lumen glow at its foot
@@ -1125,9 +1180,10 @@ public final class WorldRenderer {
             float clipT = k.boss ? BOSS_DEATH_CLIP : DEATH_CLIP;
             int hs = k.id & (STATE - 1);
             int dir = stId[hs] == k.id ? stDir[hs] : 0;
-            float s2 = ks * visualScale(k.type, k.boss, m) * (k.elite ? 1.4f : 1f);
+            float s2 = ks * visualScale(k.type, k.boss, m) * (k.elite ? 1.4f : 1f) * (k.boss ? 1f : k.type.drawScale);
             drawShadow(c, px, py, Math.round(k.radius * sc * 0.95f * (0.4f + 0.6f * alpha)));
-            bmp.setColorFilter(shadeAt(px, py - 10f * ks, FLOOR_ENEMY * 0.8f));
+            ColorFilter dcf = k.type.tint != 0 ? tintAt(k.type.tint, shadeIndex(px, py - 10f * ks, FLOOR_ENEMY * 0.8f)) : null;
+            bmp.setColorFilter(dcf != null ? dcf : shadeAt(px, py - 10f * ks, FLOOR_ENEMY * 0.8f));
             bmp.setAlpha((int) (255 * alpha));
             Clip cl = m.clip(SpriteAtlas.C_DEATH);
             if (cl != null) {
@@ -1656,6 +1712,15 @@ public final class WorldRenderer {
             c.drawOval(cx - ir, cy - ir * 0.8f, cx + ir, cy + ir * 0.8f, fill);
             float fall = (1f - prog) * (1f - prog) * 340f * ks; // lobbed: it comes down from above the ring
             if (h.variant == Entities.BV_STOMP) return;
+            if (h.variant == Entities.BV_FROST) { // a cold ring: a cyan circle turning inside the red-orange warning
+                glow(c, atlas.img("vfx.magic_circle_cyan"), cx, cy, r * 1.6f, t * 25f, null, (int) (60 + 150 * prog));
+                return;
+            }
+            if (h.variant == Entities.BV_SPORE) { // a spore bomb falls into its ring
+                glow(c, atlas.img("vfx.spore_cloud_0"), cx, cy - fall - 12f * ks, 80f * ks * (0.7f + 0.4f * prog), t * 40f, fGreen, 230);
+                glow(c, atlas.img("vfx.spores_0"), cx, cy - fall - 10f * ks, 100f * ks, t * 60f, fGreen, 200);
+                return;
+            }
             if (h.variant == Entities.BV_CRATE) {
                 Img crate = atlas.img("prop.cargo_crate");
                 if (crate != null) {
@@ -1684,6 +1749,7 @@ public final class WorldRenderer {
      */
     private void drawLane(Canvas c, Hazard h, int cx, int cy, float t) {
         float len = h.r * sc, wd = h.w * sc, deg = h.ang * 57.29578f;
+        if (h.variant == Entities.LV_MARK && h.warn <= 0f) return; // a warning line only: nothing to show once its time is up
         c.save();
         c.rotate(deg, cx, cy);
         if (h.warn > 0f) {
@@ -1705,7 +1771,7 @@ public final class WorldRenderer {
             c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
             Img beam = atlas.img("vfx.lumen_beam");
             if (beam != null) {
-                add.setColorFilter(fGreen);
+                add.setColorFilter(h.variant == Entities.LV_LASER ? fRedAdd : fGreen);
                 add.setAlpha((int) (255 * k));
                 blitBox(c, beam, cx + len / 2f, cy, len, wd * 0.8f, add);
             }
@@ -1713,7 +1779,9 @@ public final class WorldRenderer {
             c.drawRect(cx, cy - wd * 0.12f, cx + len, cy + wd * 0.12f, fill);
         }
         c.restore();
-        glow(c, atlas.img("vfx.magic_circle_green"), cx, cy, wd * 2.4f, t * 40f, null, 200); // the root it grows from
+        if (h.variant == Entities.LV_MARK) return;
+        if (h.variant == Entities.LV_LASER) glow(c, atlas.img("vfx.energy_glow_1"), cx, cy, wd * 2.6f, t * 40f, fRedAdd, 220); // the emitter
+        else glow(c, atlas.img("vfx.magic_circle_green"), cx, cy, wd * 2.4f, t * 40f, null, 200); // the root it grows from
     }
 
     /** Charger lines and carrier fuse rings: the line shows where the dash goes and fills as the windup runs out. */
@@ -1808,6 +1876,23 @@ public final class WorldRenderer {
                 }
                 break;
             }
+            case 9:
+                if (e.ai == BossAi.BA_WINDUP && e.shots == 0 && e.tele > 0f) { // the three arms of the spiral, thin lines
+                    float prog = 1f - e.tele / Math.max(0.01f, e.teleMax);
+                    for (int k = 0; k < 3; k++) {
+                        float a = e.mt0 + k * 2.0943952f;
+                        drawChargeLine(c, cx, cy, (float) Math.cos(a), (float) Math.sin(a), 300f * sc, 14f * ks, prog);
+                    }
+                }
+                break;
+            case 10:
+                if (e.ai == BossAi.BA_WINDUP && e.tele > 0f) { // a blink: the gold flash gathers on him
+                    float prog = 1f - e.tele / Math.max(0.01f, e.teleMax);
+                    glow(c, atlas.img("vfx.blink_0"), cx, cy - 28f * ks, 150f * ks * (1.3f - prog * 0.5f), 0f, fGold, 255);
+                } else if (e.ai == BossAi.BA_DECREE && e.tele > 0f) {
+                    drawDecree(c, e, 1f - e.tele / Math.max(0.01f, e.teleMax), t);
+                }
+                break;
             case 5:
                 if (e.ai == BossAi.BA_ROAR) {
                     float prog = 1f - e.tele / Math.max(0.01f, e.teleMax);
@@ -1818,6 +1903,53 @@ public final class WorldRenderer {
                 }
                 break;
             default:
+        }
+    }
+
+    /**
+     * Governor Kade's Decree: four parallel lanes across the hero's place, the unsafe ones in red-orange with a black outline
+     * and a hatch that fills in, the two safe ones with green rings (the geometry is {@code BossAi.decreeOffset}).
+     */
+    private void drawDecree(Canvas c, Enemy e, float prog, float t) {
+        float len = e.type.def.param("laneLen", 900f) * sc, wd = e.type.def.param("laneW", 64f) * sc;
+        float deg = (float) Math.atan2(e.ay, e.ax) * 57.29578f;
+        for (int k = 0; k < 4; k++) {
+            float off = BossAi.decreeOffset(e, k);
+            int lx = sx(e.t2 - e.ay * off), ly = sy(e.t3 + e.ax * off);
+            boolean safe = (e.cnt >> k & 1) != 0;
+            c.save();
+            c.rotate(deg, lx, ly);
+            if (safe) {
+                fill.setColor(((int) (24 + 30 * prog) << 24) | 0x70FF90);
+                c.drawRect(lx - len / 2f, ly - wd / 2f, lx + len / 2f, ly + wd / 2f, fill);
+                stroke.setStrokeWidth(3f * ks);
+                stroke.setColor(0xFF000000);
+                c.drawRect(lx - len / 2f, ly - wd / 2f - 2f * ks, lx + len / 2f, ly + wd / 2f + 2f * ks, stroke);
+                stroke.setColor(0xFF70FF90);
+                c.drawRect(lx - len / 2f, ly - wd / 2f, lx + len / 2f, ly + wd / 2f, stroke);
+                for (int n = -2; n <= 2; n++) { // green rings along the lane: stand here
+                    float rx = lx + n * len / 6f;
+                    stroke.setStrokeWidth(5f * ks);
+                    stroke.setColor(0xDD000000);
+                    c.drawOval(rx - wd * 0.42f, ly - wd * 0.34f, rx + wd * 0.42f, ly + wd * 0.34f, stroke);
+                    stroke.setStrokeWidth(2.5f * ks);
+                    stroke.setColor(0xFF70FF90);
+                    c.drawOval(rx - wd * 0.42f, ly - wd * 0.34f, rx + wd * 0.42f, ly + wd * 0.34f, stroke);
+                }
+            } else {
+                fill.setColor(((int) (36 + 100 * prog) << 24) | 0xFF3B1F);
+                c.drawRect(lx - len / 2f, ly - wd / 2f, lx + len / 2f, ly + wd / 2f, fill);
+                stroke.setStrokeWidth(5f * ks);
+                stroke.setColor(((int) (70 + 90 * prog) << 24) | 0xFF3B1F);
+                for (float h = -len / 2f; h < len / 2f; h += 90f * ks) c.drawLine(lx + h, ly - wd / 2f, lx + h + wd * 0.6f, ly + wd / 2f, stroke);
+                stroke.setStrokeWidth(5.5f * ks);
+                stroke.setColor(0xFF000000);
+                c.drawRect(lx - len / 2f, ly - wd / 2f - 2f * ks, lx + len / 2f, ly + wd / 2f + 2f * ks, stroke);
+                stroke.setStrokeWidth(2.5f * ks);
+                stroke.setColor(0xFFFF3B1F);
+                c.drawRect(lx - len / 2f, ly - wd / 2f, lx + len / 2f, ly + wd / 2f, stroke);
+            }
+            c.restore();
         }
     }
 

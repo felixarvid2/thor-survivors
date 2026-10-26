@@ -23,6 +23,9 @@ public final class StageDef {
     public int[] tentacleMinutes = new int[0];
     public float tentacleLen = 20f, tentacleEvery = 4f, tentacleRadius = 400f;
     public int tentacleCount = 3;
+    /** v1.3 timed bosses (ashfall_data.json {@code timedBosses}): the run second each comes at and its enemy key, in time order. */
+    public int[] timedAt = new int[0];
+    public String[] timedBoss = new String[0];
     /**
      * Ashfall balance (phase 12): the gem value of a kill fades linearly from 1.0 at {@code xpFadeFrom} seconds to
      * {@code xpFadeEnd} at {@code xpFadeTo} (no fade when {@code xpFadeTo <= xpFadeFrom}). Keeps the early levels, stops the late XP flood.
@@ -55,6 +58,8 @@ public final class StageDef {
         d.tentacleEvery = tentacleEvery;
         d.tentacleRadius = tentacleRadius;
         d.tentacleCount = tentacleCount;
+        d.timedAt = timedAt;
+        d.timedBoss = timedBoss;
         d.xpFadeFrom = xpFadeFrom;
         d.xpFadeTo = xpFadeTo;
         d.xpFadeEnd = xpFadeEnd;
