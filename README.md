@@ -6,7 +6,7 @@ Du har kraschat på en övergiven gruvkoloni där lumen, en lysande infektion, h
 
 Spelet är inspirerat av Vampire Survivors och Halls of Torment. Du styr bara hur hjälten rör sig, siktar och undviker. Vapnen skjuter av sig själva. Varje fiende du dödar lämnar kristaller. Med dem går du upp i nivå och väljer nya vapen, uppgraderingar och förmågor. När ett vapen är fullt uppgraderat och har rätt följeslagare kan det utvecklas till något mycket starkare. Varje runda bygger du upp en ny kombination. Mot slutet möter du bossar, och till sist det som väntar längst ner i mörkret.
 
-Välj mellan tre hjältar som spelar helt olika: en tung närstridskämpe med hammare, en snabb skytt och en mystiker som förgiftar och sprider sporer. Det guld du samlar ihop kan du lägga på bestående förbättringar mellan rundorna.
+Välj mellan tre hjältar som spelar helt olika: en tung närstridskämpe med hammare, en snabb skytt och en mystiker som förgiftar och sprider sporer. På banorna ligger dessutom gömda vapenlådor och utrustningsskåp, och en pil visar vägen till den närmaste. Det guld du samlar ihop kan du lägga på bestående förbättringar mellan rundorna.
 
 ## Två skärmar
 

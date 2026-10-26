@@ -200,6 +200,20 @@ public final class Sim {
     /** The stage layout (also what the renderer draws); destructibles keep off its trees, shelves and tables. */
     public final WorldGen map;
 
+    // ------------------------------------------------------------------ finds (Weapon Caches and Gear Lockers on the map)
+
+    /** Findable world items of an Ashfall run: not pickups (never condensed or despawned); {@link #FIND_R} walk-over. */
+    public static final int MAX_FINDS = 6, FIND_WEAPON = 0, FIND_GEAR = 1;
+    public static final float FIND_R = 32f;
+    private static final float[] FIND_DIST = {650f, 1000f, 1400f, 1850f, 2400f, 3000f};
+    private static final float FIND_APART = 150f;
+    public final float[] findX = new float[MAX_FINDS], findY = new float[MAX_FINDS];
+    public final int[] findKind = new int[MAX_FINDS];
+    public final boolean[] findTaken = new boolean[MAX_FINDS];
+    /** Finds placed this run (0 on the legacy stages). */
+    public int findN;
+    private boolean findHinted;
+
     private int lastRow = -1;
     private float spawnTimer;
     /** Fractional gold not yet paid out (Greed on 1-gold coins). */
@@ -249,6 +263,122 @@ public final class Sim {
         hp = maxHp;
         spawnInitial();
         refreshDestructibles();
+        placeFinds(seed == null ? 0L : seed);
+    }
+
+    /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
+    private boolean hasFinds() {
+        return stage.key.equals("FLATS") || stage.key.equals("MINES");
+    }
+
+    /**
+     * 4 Weapon Caches and 2 Gear Lockers at about 650 .. 3000 u from the start, a pure function of the run seed (its own
+     * Random, never the main one, so seeded runs stay identical). The nearest is always a cache; spots keep off blocked
+     * tiles and 150 u apart.
+     */
+    private void placeFinds(long seed) {
+        findN = 0;
+        if (!hasFinds()) return;
+        Random fr = new Random(seed ^ 0x5F1D5C0FFEE1L);
+        int[] kinds = {FIND_WEAPON, FIND_WEAPON, FIND_WEAPON, FIND_WEAPON, FIND_GEAR, FIND_GEAR};
+        for (int i = kinds.length - 1; i > 0; i--) {
+            int j = fr.nextInt(i + 1);
+            int t = kinds[i];
+            kinds[i] = kinds[j];
+            kinds[j] = t;
+        }
+        if (kinds[0] != FIND_WEAPON) {
+            for (int i = 1; i < kinds.length; i++) {
+                if (kinds[i] == FIND_WEAPON) {
+                    kinds[i] = kinds[0];
+                    kinds[0] = FIND_WEAPON;
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < MAX_FINDS; i++) {
+            for (int attempt = 0; attempt < 400; attempt++) {
+                float a = fr.nextFloat() * 6.2831855f;
+                float r = FIND_DIST[i] + (attempt / 20) * 25f; // a crowded spot drifts slowly outwards
+                float x = (float) Math.cos(a) * r, y = (float) Math.sin(a) * r;
+                if (map.blocked(x, y) || map.blocked(x + 22f, y) || map.blocked(x - 22f, y)
+                        || map.blocked(x, y + 22f) || map.blocked(x, y - 22f)) continue;
+                boolean apart = true;
+                for (int j = 0; j < findN; j++) {
+                    float dx = x - findX[j], dy = y - findY[j];
+                    if (dx * dx + dy * dy < FIND_APART * FIND_APART) {
+                        apart = false;
+                        break;
+                    }
+                }
+                if (!apart) continue;
+                findX[findN] = x;
+                findY[findN] = y;
+                findKind[findN] = kinds[i];
+                findTaken[findN] = false;
+                findN++;
+                break;
+            }
+        }
+    }
+
+    /** Index of the nearest find not yet taken, or -1. */
+    public int nearestFind() {
+        int best = -1;
+        float bd = Float.MAX_VALUE;
+        for (int i = 0; i < findN; i++) {
+            if (findTaken[i]) continue;
+            float dx = findX[i] - px, dy = findY[i] - py, d = dx * dx + dy * dy;
+            if (d < bd) {
+                bd = d;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    private void updateFinds() {
+        if (findN == 0) return;
+        if (!findHinted && time >= 3.0) {
+            findHinted = true;
+            toast("Caches detected - follow the arrow", 0xFF39FF88);
+        }
+        for (int i = 0; i < findN; i++) {
+            if (findTaken[i]) continue;
+            float dx = px - findX[i], dy = py - findY[i];
+            if (dx * dx + dy * dy < FIND_R * FIND_R) {
+                findTaken[i] = true;
+                collectFind(findKind[i]);
+            }
+        }
+    }
+
+    private void collectFind(int kind) {
+        sound.emit(SoundEvents.CHEST_OPEN);
+        if (kind == FIND_GEAR) {
+            toast("GEAR LOCKER", 0xFF4FA8FF);
+            if (!data.baseItems.isEmpty()) acquire(data.baseItems.get(rng.nextInt(data.baseItems.size())), Equipment.RARE);
+            return;
+        }
+        final int green = 0xFF39FF88;
+        java.util.List<Offer> cand = OfferGenerator.candidates(inv, data.weapons.values());
+        java.util.ArrayList<Offer> fresh = new java.util.ArrayList<>(), up = new java.util.ArrayList<>();
+        for (Offer o : cand) {
+            if (o.kind == Offer.NEW_WEAPON && !o.def.powerUp) fresh.add(o);
+            else if (o.kind == Offer.WEAPON_LEVEL) up.add(o);
+        }
+        if (!fresh.isEmpty()) {
+            Offer o = fresh.get(rng.nextInt(fresh.size()));
+            applyOffer(o);
+            toast("WEAPON CACHE: " + o.def.name, green);
+        } else if (!up.isEmpty()) {
+            Offer o = up.get(rng.nextInt(up.size()));
+            applyOffer(o);
+            toast("WEAPON CACHE: " + o.def.name + " LV " + o.newLevel, green);
+        } else {
+            gold += 150;
+            toast("WEAPON CACHE: +150 gold", green);
+        }
     }
 
     public float cameraHalfW(float aspect) {
@@ -257,6 +387,15 @@ public final class Sim {
 
     // ------------------------------------------------------------------ stats
 
+    /** HP as shown in the UI: the maximum is rounded, the current value never exceeds it. */
+    public static int shownMaxHp(float maxHp) {
+        return Math.round(maxHp);
+    }
+
+    public static int shownHp(float hp, float maxHp) {
+        return Math.min(shownMaxHp(maxHp), (int) Math.ceil(hp));
+    }
+
     public void recomputeAll() {
         PlayerStats old = stats;
         statsLevel = level;
@@ -264,6 +403,7 @@ public final class Sim {
         float nm = (float) stats.baseHp * (float) stats.maxHpMul;
         if (old != null) hp += Math.max(0, nm - maxHp);
         maxHp = nm;
+        if (hp > maxHp) hp = maxHp;
         for (int i = 0; i < inv.weaponCount; i++) syncWeapon(i);
         if (main != null) main.sync();
     }
@@ -356,6 +496,7 @@ public final class Sim {
             condenseFar();
         }
         updatePickups(dt);
+        updateFinds();
         updateVisuals(dt);
         if (freezeTimer > 0) freezeTimer -= dt;
         if (invuln > 0) invuln -= dt;

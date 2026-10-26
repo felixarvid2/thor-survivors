@@ -278,8 +278,8 @@ public final class PanelRenderer {
 
     // ---- text caches: strings are redrawn 60 times a second but change rarely
 
-    private final String[] csStr = new String[128];
-    private final int[] csA = new int[128], csB = new int[128];
+    private final String[] csStr = new String[160];
+    private final int[] csA = new int[160], csB = new int[160];
 
     private String cs(int slot, String pre, int a, String mid, int b, String post) {
         String c = csStr[slot];
@@ -440,7 +440,7 @@ public final class PanelRenderer {
         k.text(c, "HP", m, 156f * u, 30f * u, Skin.BAD, Paint.Align.LEFT);
         boolean low = s.hp < s.maxHp * 0.25f && ((int) (s.time * 4f) & 1) == 0;
         k.bar(c, bl, 118f * u, w - m, 166f * u, s.hp / s.maxHp, low ? 0xFFFF8068 : 0xFFFF5A3C, 0xFFB02818, 10);
-        k.shadowed(c, cs(4, "", (int) Math.ceil(s.hp), " / ", (int) s.maxHp, ""), (bl + w - m) / 2f, 153f * u, 30f * u, 0xFFFFF4EC, Paint.Align.CENTER);
+        k.shadowed(c, cs(4, "", Sim.shownHp(s.hp, s.maxHp), " / ", Sim.shownMaxHp(s.maxHp), ""), (bl + w - m) / 2f, 153f * u, 30f * u, 0xFFFFF4EC, Paint.Align.CENTER);
         k.text(c, "XP", m, 198f * u, 30f * u, Skin.LUMEN, Paint.Align.LEFT);
         k.bar(c, bl, 174f * u, w - m, 206f * u, s.xp / s.xpNeed, 0xFF7CFFB4, 0xFF1FB85E, 0);
         k.shadowed(c, cs(5, "", (int) s.xp, " / ", s.xpNeed, ""), (bl + w - m) / 2f, 199f * u, 22f * u, 0xFFEFFFF6, Paint.Align.CENTER);
@@ -798,6 +798,7 @@ public final class PanelRenderer {
                 c.drawCircle(cx + dx, cy + dy, 4f * u, fill);
             }
         }
+        minimapFinds(c, s, cx, cy, kk, side);
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -814,6 +815,46 @@ public final class PanelRenderer {
         k.body(c, "N", cx, y + 26f * u, 22f * u, 0xFF4F8A6C, Paint.Align.CENTER);
     }
 
+    /**
+     * Untaken finds: a pulsing diamond in its colour (lumen green cache / blue locker) inside the range, a triangle
+     * clamped to the edge and pointing outward toward it beyond it.
+     */
+    private void minimapFinds(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        float u = k.u, lim = side / 2 - 12f * u;
+        float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
+        for (int i = 0; i < s.findN; i++) {
+            if (s.findTaken[i]) continue;
+            float dx = (s.findX[i] - s.px) * kk, dy = (s.findY[i] - s.py) * kk;
+            int col = s.findKind[i] == Sim.FIND_WEAPON ? 0xFF39FF88 : 0xFF4FA8FF;
+            float z = 11f * u * pulse;
+            path.rewind();
+            if (Math.abs(dx) <= lim && Math.abs(dy) <= lim) {
+                float mx = cx + dx, my = cy + dy;
+                path.moveTo(mx, my - z);
+                path.lineTo(mx + z, my);
+                path.lineTo(mx, my + z);
+                path.lineTo(mx - z, my);
+            } else {
+                float len = (float) Math.sqrt(dx * dx + dy * dy);
+                float ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+                float t = Math.min(Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(ux),
+                        Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(uy));
+                float mx = cx + ux * t, my = cy + uy * t;
+                path.moveTo(mx + ux * z * 1.3f, my + uy * z * 1.3f);
+                path.lineTo(mx - ux * z * 0.7f + nx * z, my - uy * z * 0.7f + ny * z);
+                path.lineTo(mx - ux * z * 0.7f - nx * z, my - uy * z * 0.7f - ny * z);
+            }
+            path.close();
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeJoin(Paint.Join.ROUND);
+            stroke.setStrokeWidth(3.5f * u);
+            stroke.setColor(0xFF05080A);
+            c.drawPath(path, stroke);
+            fill.setColor(col);
+            c.drawPath(path, fill);
+        }
+    }
+
     private void hudStrip(Canvas c, int w, int h) {
         Sim s = eng.sim;
         if (s == null) return;
@@ -828,7 +869,7 @@ public final class PanelRenderer {
         hit(m, 20f * u, m + 120f * u, sh - 10f * u, 0, 0);
         float bx = m * 2 + 120f * u;
         k.bar(c, bx, 22f * u, bx + 360f * u, 52f * u, s.hp / s.maxHp, 0xFFFF5A3C, 0xFFB02818, 10);
-        k.shadowed(c, cs(4, "", (int) Math.ceil(s.hp), " / ", (int) s.maxHp, ""), bx + 180f * u, 47f * u, 22f * u, 0xFFFFF4EC, Paint.Align.CENTER);
+        k.shadowed(c, cs(4, "", Sim.shownHp(s.hp, s.maxHp), " / ", Sim.shownMaxHp(s.maxHp), ""), bx + 180f * u, 47f * u, 22f * u, 0xFFFFF4EC, Paint.Align.CENTER);
         // mini slot icons
         float is = 28f * u, ix = bx;
         for (int i = 0; i < s.inv.weaponCount; i++, ix += is + 3f * u) weaponTile(c, s.inv.weapons[i].def, ix, 58f * u, is, s.inv.weapons[i].def.evolution, false);
@@ -1327,7 +1368,8 @@ public final class PanelRenderer {
         k.text(c, cs(92, "", eng.meta.gold, ""), x + cw - 40f * u, 120f * u, 58f * u, GOLD, Paint.Align.RIGHT);
         int n = eng.shopKeys.size();
         int rows = (n + 1) / 2;
-        float top = 172f * u, bottom = h - 132f * u, gap = 12f * u;
+        float stripH = 156f * u;
+        float top = 172f * u, gap = 12f * u, bottom = h - 132f * u - stripH - gap;
         float rh = Math.min(120f * u, (bottom - top - (rows - 1) * gap) / rows);
         float cwid = (cw - gap) / 2f;
         for (int i = 0; i < n; i++) {
@@ -1346,13 +1388,39 @@ public final class PanelRenderer {
             frame(c, rank > 0 ? "frame_rare" : "frame_common", cx + 14f * u, cy + 14f * u, is);
             float tx = cx + 14f * u + is + 16f * u;
             float ts = Math.min(34f * u, rh * 0.3f);
-            k.fit(c, d.name, tx, cy + 10f * u + ts, ts, cx + cwid - tx - 12f * u, TEXT, Paint.Align.LEFT);
             int mr = d.maxRank();
-            float pw = Math.min(24f * u, 120f * u / Math.max(1, mr));
-            for (int p = 0; p < mr; p++) k.pip(c, tx + p * (pw + 4f * u), cy + rh - 34f * u, pw, p < rank, Skin.ORANGE);
+            float rankW = 84f * u;
+            k.fit(c, d.name, tx, cy + 8f * u + ts, ts, cx + cwid - tx - rankW - 16f * u, TEXT, Paint.Align.LEFT);
+            k.body(c, cs(130 + Math.min(i, 20), "", rank, "/", mr, ""), cx + cwid - 16f * u, cy + 8f * u + ts, ts * 0.8f,
+                    max ? GOLD : DIM, Paint.Align.RIGHT);
             int price = eng.meta.nextPrice(key);
-            k.text(c, max ? "MAX" : cs(104 + Math.min(i, 20), "", price, ""), cx + cwid - 16f * u, cy + rh - 14f * u, ts,
+            Describe.PowerUpText pt = eng.shopText.get(key);
+            float ps = Math.min(22f * u, rh * 0.22f);
+            if (pt != null) k.fit(c, pt.perRank, tx, cy + rh - 12f * u, ps, cx + cwid - tx - 130f * u, DIM, Paint.Align.LEFT);
+            k.text(c, max ? "MAX" : cs(104 + Math.min(i, 20), "", price, ""), cx + cwid - 16f * u, cy + rh - 12f * u, ts * 0.9f,
                     max ? GOLD : eng.meta.gold >= price ? Skin.GOOD : Skin.BAD, Paint.Align.RIGHT);
+        }
+        // detail strip: what the focused upgrade does
+        float sy = bottom + gap;
+        k.plate(c, x, sy, x + cw, sy + stripH, 0x28104030, Skin.EDGE, 3f * u);
+        if (eng.focus >= 0 && eng.focus < n) {
+            String key = eng.shopKeys.get(eng.focus);
+            PowerUpDef d = eng.data.powerUps.get(key);
+            Describe.PowerUpText pt = eng.shopText.get(key);
+            int rank = eng.meta.rank(key), mr = d.maxRank();
+            boolean max = eng.meta.isMaxed(key);
+            float px = x + 24f * u;
+            k.fit(c, d.name, px, sy + 46f * u, 40f * u, cw * 0.5f, Skin.ORANGE, Paint.Align.LEFT);
+            k.body(c, cs(128, "RANK ", rank, "/", mr, ""), x + cw - 24f * u, sy + 44f * u, 28f * u, TEXT, Paint.Align.RIGHT);
+            if (pt != null) {
+                k.fit(c, pt.perRank, px, sy + 84f * u, 28f * u, cw - 48f * u, TEXT, Paint.Align.LEFT);
+                k.fit(c, pt.totals[Math.min(rank, mr)], px, sy + 124f * u, 28f * u, cw * 0.62f, DIM, Paint.Align.LEFT);
+            }
+            int price = eng.meta.nextPrice(key);
+            k.text(c, max ? "MAX" : cs(129, "", price, " GOLD"), x + cw - 24f * u, sy + 134f * u, 34f * u,
+                    max ? GOLD : eng.meta.gold >= price ? Skin.GOOD : Skin.BAD, Paint.Align.RIGHT);
+        } else {
+            k.body(c, "RETURN TO THE MENU", x + 24f * u, sy + 86f * u, 30f * u, DIM, Paint.Align.LEFT);
         }
         float by = h - 102f * u;
         k.button(c, x, by, x + cw, by + 80f * u, "BACK", eng.focus == n);
