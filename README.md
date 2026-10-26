@@ -16,7 +16,7 @@ Den övre skärmen visar spelvärlden. Den nedre har allt annat: hälsa, vapen, 
 
 - Vänster spak: gå
 - Höger spak: sikta
-- A: undvik
+- A eller B: undvik (X, Y och axelknapparna fungerar också)
 - Start: paus
 
 ## Ladda ner
