@@ -16,6 +16,7 @@ public final class InputRouter {
     private static int stickNavDir = -1;
     private static int hatNavDir = -1;
     private static long lastDpadKeyMs;
+    private static boolean triggerHeld;
 
     private InputRouter() {
     }
@@ -69,6 +70,13 @@ public final class InputRouter {
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_CONFIRM, 0, 0, 0);
                 return true;
             case KeyEvent.KEYCODE_BUTTON_B:
+                // while playing, B dodges like A (pause stays on Start and the system back key); in menus it goes back
+                if (eng.phase == Engine.PH_PLAYING) {
+                    if (down && e.getRepeatCount() == 0) in.dodgeReq = true;
+                    return true;
+                }
+                if (down && e.getRepeatCount() == 0) in.post(Input.CMD_BACK, 0, 0, 0);
+                return true;
             case KeyEvent.KEYCODE_ESCAPE:
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_BACK, 0, 0, 0);
                 return true;
@@ -80,12 +88,17 @@ public final class InputRouter {
             case KeyEvent.KEYCODE_P:
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_START, 0, 0, 0);
                 return true;
-            case KeyEvent.KEYCODE_BUTTON_SELECT:
             case KeyEvent.KEYCODE_BUTTON_X:
             case KeyEvent.KEYCODE_BUTTON_Y:
             case KeyEvent.KEYCODE_BUTTON_L1:
             case KeyEvent.KEYCODE_BUTTON_R1:
-                return true; // swallow so the system does not act on them
+            case KeyEvent.KEYCODE_BUTTON_L2:
+            case KeyEvent.KEYCODE_BUTTON_R2:
+                // any face or shoulder button dodges while playing; elsewhere they are swallowed
+                if (eng.phase == Engine.PH_PLAYING && down && e.getRepeatCount() == 0) in.dodgeReq = true;
+                return true;
+            case KeyEvent.KEYCODE_BUTTON_SELECT:
+                return true; // swallow so the system does not act on it
             default:
                 return false;
         }
@@ -129,6 +142,13 @@ public final class InputRouter {
         in.aimStickX = Input.deadZone(rx, ry);
         in.aimStickY = Input.deadZone(ry, rx);
         if (in.aimStickX != 0 || in.aimStickY != 0) in.gamepadSeen = true;
+
+        // analog triggers (L2 / R2 on pads that report them only as axes): a press dodges while playing
+        float trig = Math.max(Math.max(axis(e, MotionEvent.AXIS_LTRIGGER), axis(e, MotionEvent.AXIS_RTRIGGER)),
+                Math.max(axis(e, MotionEvent.AXIS_BRAKE), axis(e, MotionEvent.AXIS_GAS)));
+        boolean held = trig > 0.5f;
+        if (held && !triggerHeld && Engine.get().phase == Engine.PH_PLAYING) in.dodgeReq = true;
+        triggerHeld = held;
 
         // stick -> menu navigation on threshold crossings
         int dir = -1;
