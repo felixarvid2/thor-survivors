@@ -98,7 +98,7 @@ final class EnemyAi {
     static final float ASH_SLOW = 0.8f;
 
     float speedOf(Enemy e) {
-        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f);
+        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul();
     }
 
     void walkTo(Enemy e, float dt, float dx, float dy, float d, float factor) {
@@ -635,6 +635,23 @@ final class EnemyAi {
                 s.screenShake(0.2f);
                 if (inside && vulnerable && s.ended == 0) s.stunHero(h.acc);
                 if (h.w > 0f) addHazard(Entities.HZ_FROST, h.x, h.y, h.w, h.spin, 0f, 0f);
+                break;
+            case Entities.BV_RUBBLE: // Collapse / Slag Rain: the impact hurts the enemies under it too and leaves a slow patch for the hero
+            case Entities.BV_SLAGRAIN:
+                s.addFx(h.variant == Entities.BV_RUBBLE ? Entities.FX_SLAM : Entities.FX_BLAST, h.x, h.y, h.r * 0.9f, 1f, 0.35f, 0, false);
+                s.spark(h.x, h.y - 8f, h.variant == Entities.BV_RUBBLE ? 0xFFB08850 : 0xFFFFA030, 8);
+                s.sound.emit(h.variant == Entities.BV_RUBBLE ? SoundEvents.CRATE_BREAK : SoundEvents.BARREL_EXPLODE);
+                s.screenShake(0.12f);
+                int nq = s.query(h.x, h.y, h.r + 30f);
+                for (int k = 0; k < nq; k++) {
+                    Enemy en = s.enemies[s.qbuf[k]];
+                    float ex = en.x - h.x, ey = en.y - h.y, er = h.r + en.radius * 0.5f;
+                    if (!en.dead && ex * ex + ey * ey < er * er) s.hurt(en, h.dps, 0f, 1f, 0f, 0f, 0f);
+                }
+                if (h.w > 0f && s.hazN < Sim.MAX_HAZ - Events.HAZ_RESERVE) {
+                    Hazard p = addHazard(Entities.HZ_FROST, h.x, h.y, h.w, h.spin, 0f, 0f);
+                    if (p != null) p.variant = 1; // rubble: drawn dark, slows the hero like a frost patch
+                }
                 break;
             case Entities.BV_STOMP:
                 s.addFx(Entities.FX_SLAM, h.x, h.y, h.r, 0f, 0.5f, 0, false);

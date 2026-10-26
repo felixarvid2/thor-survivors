@@ -18,6 +18,7 @@ import se.felixarvid.thorsurvivors.game.Elites;
 import se.felixarvid.thorsurvivors.game.Engine;
 import se.felixarvid.thorsurvivors.game.Entities;
 import se.felixarvid.thorsurvivors.game.Equipment;
+import se.felixarvid.thorsurvivors.game.Events;
 import se.felixarvid.thorsurvivors.game.Input;
 import se.felixarvid.thorsurvivors.game.Inventory;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
@@ -823,6 +824,7 @@ public final class PanelRenderer {
         }
         minimapFinds(c, s, cx, cy, kk, side);
         minimapMerchant(c, s, cx, cy, kk, side);
+        minimapEvents(c, s, cx, cy, kk, side);
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -877,6 +879,37 @@ public final class PanelRenderer {
             fill.setColor(col);
             c.drawPath(path, fill);
         }
+    }
+
+    /**
+     * The Signal Tower (cyan, green while it is being captured) and the Beacon (gold): a pulsing ring with a progress arc
+     * (capture progress, time held) around a dot; clamped to the edge when far. The only indicator of these events (no arrows on the top screen).
+     */
+    private void minimapEvents(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        Events ev = s.events;
+        if (ev.towerOn) minimapRing(c, s, cx, cy, kk, side, ev.tx, ev.ty, ev.towerFrac(), ev.towerCapturing ? 0xFF39FF88 : 0xFF4FD8FF);
+        if (ev.beaconOn) minimapRing(c, s, cx, cy, kk, side, ev.bx, ev.by, ev.beaconTimeFrac(), ev.beaconFrac() > 0.35f ? 0xFFFFD84A : 0xFFFF4A32);
+    }
+
+    private void minimapRing(Canvas c, Sim s, float cx, float cy, float kk, float side, float wx, float wy, float frac, int col) {
+        float u = k.u, lim = side / 2 - 22f * u;
+        float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
+        float dx = Math.max(-lim, Math.min(lim, (wx - s.px) * kk)), dy = Math.max(-lim, Math.min(lim, (wy - s.py) * kk));
+        float mx = cx + dx, my = cy + dy, z = 20f * u * pulse;
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeCap(Paint.Cap.BUTT);
+        stroke.setStrokeWidth(8f * u);
+        stroke.setColor(0xFF05080A);
+        c.drawCircle(mx, my, z, stroke);
+        stroke.setStrokeWidth(3f * u);
+        stroke.setColor((col & 0xFFFFFF) | 0x66000000);
+        c.drawCircle(mx, my, z, stroke); // the pulsing ring
+        r.set(mx - z, my - z, mx + z, my + z);
+        stroke.setStrokeWidth(5.5f * u);
+        stroke.setColor(col);
+        c.drawArc(r, -90f, 360f * Math.max(0.02f, Math.min(1f, frac)), false, stroke); // the progress arc
+        fill.setColor(col);
+        c.drawCircle(mx, my, z * 0.35f, fill);
     }
 
     /** The Salvager: a pulsing amber ring with a dot inside the range, an amber triangle clamped to the edge beyond it. */

@@ -219,6 +219,10 @@ public final class Sim {
     private boolean findHinted;
     /** The Salvager (merchant) of the Ashfall stages; see {@link Merchant}. */
     public final Merchant merchant = new Merchant(this);
+    /** The events of minutes 20 to 30 (Signal Tower, Collapse, Surge, Beacon, Tide); see {@link Events}. */
+    public final Events events = new Events(this);
+    /** Hits the hero has taken this run (discrete hurtHero calls; the Collapse's Flawless bonus compares it). */
+    public int heroHits;
 
     // ------------------------------------------------------------------ weapon fusions (design v1.3 section 1)
 
@@ -340,6 +344,7 @@ public final class Sim {
         refreshDestructibles();
         placeFinds(seed == null ? 0L : seed);
         merchant.init(seed == null ? 0L : seed, hasFinds());
+        events.init(seed == null ? 0L : seed);
     }
 
     /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
@@ -575,6 +580,7 @@ public final class Sim {
         updateDodge(input, dt);
         movePlayer(dt);
         refreshDestructibles();
+        events.update(dt);
         updateWaves(dt);
         statusAcc += dt;
         if (statusAcc >= Status.PASS) { // one pass at 10 Hz: Burn, Frost, Electrify, Decay and the hero's statuses
@@ -1047,7 +1053,7 @@ public final class Sim {
 
     /** Multiplier on the light radius: 1, or 0.6 at the height of an ash storm. */
     public float lightRadiusMul() {
-        return 1f - STORM_LIGHT * stormLevel();
+        return (1f - STORM_LIGHT * stormLevel()) * events.lightMul();
     }
 
     private void updateWaves(float dt) {
@@ -1062,9 +1068,10 @@ public final class Sim {
             }
         }
         updateTimedBosses();
-        updateElites();
+        if (!events.spawnsBlocked()) updateElites(); // the Tide's lull: nothing arrives
         if (stage.tentacleMinutes.length > 0) updateTentacles(dt);
-        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f);
+        if (events.spawnsBlocked()) return;
+        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f) * events.spawnMul();
         if (spawnTimer >= row.frequencyMs) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
@@ -1075,6 +1082,37 @@ public final class Sim {
                 spawnAtRing(type(row.enemies[rng.nextInt(row.enemies.length)]), false, 0);
             }
         }
+    }
+
+    /** Colonists in the ring of {@link #requestHorde}. */
+    static final int HORDE_SIZE = 40;
+    /** Kind of the latest horde asked for ("TOWER", "BEACON", "TIDE"), and how many it brought (for tests). */
+    public String lastHordeKind = "";
+    public int lastHordeSize;
+
+    /**
+     * An event asks for a horde. The minimal version: a closing ring of {@link #HORDE_SIZE} colonists just outside the view with
+     * a 60 degree gap, through {@link #spawnAtRing} (so the 300 cap holds). The pacing chunk replaces the body, not the callers.
+     * Returns how many came.
+     */
+    public int requestHorde(String kind) {
+        lastHordeKind = kind;
+        lastHordeSize = 0;
+        EnemyType t = type("COLONIST");
+        if (t == null) return 0;
+        float gap = rng.nextFloat() * 6.2831855f, gapW = 1.05f, dist = HALF_W + 100f;
+        for (int i = 0; i < HORDE_SIZE; i++) {
+            float a = gap + gapW * 0.5f + (6.2831855f - gapW) * (i + 0.5f) / HORDE_SIZE;
+            int before = enemyN;
+            spawnAtRing(t, false, dist);
+            if (enemyN > before) {
+                Enemy e = enemies[enemyN - 1];
+                e.x = px + (float) Math.cos(a) * dist;
+                e.y = py + (float) Math.sin(a) * dist;
+                lastHordeSize++;
+            }
+        }
+        return lastHordeSize;
     }
 
     private int timedNext;
@@ -1202,6 +1240,7 @@ public final class Sim {
         e.clearHits();
         e.clearStatus();
         e.clearAi();
+        e.toBeacon = !boss && t.arch == EnemyDef.ARCH_CHASER && events.flagBeacon();
         // Ashfall bosses carry their final HP in the data; the Vampire Survivors ones get the old x3
         double hp = t.def.maxHp * 10.0 * (t.def.hpTimesLevel ? t.def.level : 1) * stage.enemyHealth
                 * (1 + stats.curse) * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
@@ -1244,11 +1283,17 @@ public final class Sim {
             else moving = !frozen && !held;
             if (e.type.arch == EnemyDef.ARCH_CHASER) {
                 if (moving) {
-                    float d = (float) Math.sqrt(d2);
-                    if (d > 1f) {
+                    float tdx = dx, tdy = dy, d2t = d2;
+                    if (e.toBeacon) { // Defend the Beacon: 30% of the spawns walk to it and gnaw at it
+                        tdx = events.bx - e.x;
+                        tdy = events.by - e.y;
+                        d2t = tdx * tdx + tdy * tdy;
+                    }
+                    float d = (float) Math.sqrt(d2t);
+                    if (d > 1f && !(e.toBeacon && d < Events.BEACON_R * 0.8f)) {
                         float sp = ai.speedOf(e);
-                        e.x += dx / d * sp * dt;
-                        e.y += dy / d * sp * dt;
+                        e.x += tdx / d * sp * dt;
+                        e.y += tdy / d * sp * dt;
                     }
                 }
             } else if (!frozen && !stunned) {
@@ -1563,6 +1608,7 @@ public final class Sim {
 
     void hurtHero(float taken, float inv, boolean shake, int source) {
         taken *= (float) stats.damageTaken; // Riot Shield
+        heroHits++;
         dmgBy[source] += taken;
         hp -= taken;
         sound.emit(SoundEvents.PLAYER_HURT);
@@ -1703,7 +1749,7 @@ public final class Sim {
     }
 
     private void drops(Enemy e) {
-        addPickup(Entities.K_GEM, e.x, e.y, e.xp);
+        addPickup(Entities.K_GEM, e.x, e.y, e.xp * events.xpMul());
         if (e.elite) eliteRewards(e);
         if (e.boss) bossRewards(e);
         else if (e.type.arch == EnemyDef.ARCH_TENTACLE && e.cnt == 1 && !seedDropped && rng.nextFloat() < 0.25f) {

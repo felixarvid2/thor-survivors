@@ -298,6 +298,13 @@ TIMED_BOSSES = {
     "MINES": [(450, "BROOD_MOTHER"), (750, "FROZEN_WELDER"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
               (1590, "GOVERNOR_KADE")],
 }
+# v1.4 events of minutes 20-30 (seconds into the run), see game/Events. Shifted from design v1.3 section 4 where a timed boss
+# would collide: Collapse on Deep Mines starts 23:25 (the tentacle burst of minute 23 runs 23:00-23:20), the Mines Beacon runs
+# 25:30-26:30 (Governor Kade arrives 26:30); Flats keep 23:00 and 26:00. The Tide ends where the closing bosses come.
+EVENTS = {
+    "FLATS": [("SIGNAL_TOWER", 1260), ("SLAG_RAIN", 1380), ("LUMEN_SURGE", 1440), ("BEACON", 1560), ("TIDE", 1680)],
+    "MINES": [("SIGNAL_TOWER", 1260), ("COLLAPSE", 1405), ("LUMEN_SURGE", 1440), ("BEACON", 1530), ("TIDE", 1620)],
+}
 FLATS_TREASURE = {5: 5, 10: 10, 15: 15, 20: 20, 25: 25, 29: 29}   # from FOREST
 MINES_TREASURE = {5: 5, 10: 10, 15: 15, 20: 20, 25: 25, 28: 28}   # from LIBRARY
 
@@ -359,6 +366,8 @@ def main():
     stages["MINES"]["tentacles"] = dict(minutes=[8, 13, 18, 23, 27], length=20, every=4, count=3, radius=400)
     for key, lst in TIMED_BOSSES.items():
         stages[key]["timedBosses"] = [dict(t=t, boss=b) for t, b in lst]
+    for key, lst in EVENTS.items():
+        stages[key]["events"] = [dict(id=i, at=t) for i, t in lst]
     data["elites"] = ELITES
     eq = {}
     for key, (slot, name, icon, values) in EQUIPMENT.items():

@@ -26,6 +26,9 @@ public final class StageDef {
     /** v1.3 timed bosses (ashfall_data.json {@code timedBosses}): the run second each comes at and its enemy key, in time order. */
     public int[] timedAt = new int[0];
     public String[] timedBoss = new String[0];
+    /** v1.4 events of minutes 20-30 (ashfall_data.json {@code events}, see game/Events): the id of each and the run second it starts at, in time order. */
+    public int[] eventAt = new int[0];
+    public String[] eventId = new String[0];
     /**
      * Ashfall balance (phase 12): the gem value of a kill fades linearly from 1.0 at {@code xpFadeFrom} seconds to
      * {@code xpFadeEnd} at {@code xpFadeTo} (no fade when {@code xpFadeTo <= xpFadeFrom}). Keeps the early levels, stops the late XP flood.
@@ -60,6 +63,8 @@ public final class StageDef {
         d.tentacleCount = tentacleCount;
         d.timedAt = timedAt;
         d.timedBoss = timedBoss;
+        d.eventAt = eventAt;
+        d.eventId = eventId;
         d.xpFadeFrom = xpFadeFrom;
         d.xpFadeTo = xpFadeTo;
         d.xpFadeEnd = xpFadeEnd;

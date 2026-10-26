@@ -644,6 +644,28 @@
      "t": 1650,
      "boss": "GOVERNOR_KADE"
     }
+   ],
+   "events": [
+    {
+     "id": "SIGNAL_TOWER",
+     "at": 1260
+    },
+    {
+     "id": "SLAG_RAIN",
+     "at": 1380
+    },
+    {
+     "id": "LUMEN_SURGE",
+     "at": 1440
+    },
+    {
+     "id": "BEACON",
+     "at": 1560
+    },
+    {
+     "id": "TIDE",
+     "at": 1680
+    }
    ]
   },
   "MINES": {
@@ -1073,6 +1095,28 @@
     {
      "t": 1590,
      "boss": "GOVERNOR_KADE"
+    }
+   ],
+   "events": [
+    {
+     "id": "SIGNAL_TOWER",
+     "at": 1260
+    },
+    {
+     "id": "COLLAPSE",
+     "at": 1405
+    },
+    {
+     "id": "LUMEN_SURGE",
+     "at": 1440
+    },
+    {
+     "id": "BEACON",
+     "at": 1530
+    },
+    {
+     "id": "TIDE",
+     "at": 1620
     }
    ]
   }

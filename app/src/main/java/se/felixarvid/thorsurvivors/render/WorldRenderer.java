@@ -19,6 +19,7 @@ import se.felixarvid.thorsurvivors.data.GameData;
 import se.felixarvid.thorsurvivors.game.BossAi;
 import se.felixarvid.thorsurvivors.game.Elites;
 import se.felixarvid.thorsurvivors.game.Engine;
+import se.felixarvid.thorsurvivors.game.Events;
 import se.felixarvid.thorsurvivors.game.Equipment;
 import se.felixarvid.thorsurvivors.game.Entities;
 import se.felixarvid.thorsurvivors.game.Entities.Corpse;
@@ -272,6 +273,7 @@ public final class WorldRenderer {
         if (lightMode == MetaProgress.LIGHT_FULL) light.drawGlows(c);
         drawMood(c, w, h);
         if (!menu) drawAsh(c, s, w, h);
+        if (!menu) drawEvents(c, s, w, h);
         drawOverlay(c, w, h, e, s, menu, dualScreen);
     }
 
@@ -279,7 +281,7 @@ public final class WorldRenderer {
 
     /** Collects the lights of the frame and draws the darkness over the ground (FULL: dynamic map, LOW: static, OFF: none). */
     private void setupLights(Canvas c, int w, int h, Engine e, Sim s, boolean menu, float[] lp) {
-        light.begin(lp[0]);
+        light.begin(Math.max(0f, Math.min(1f, lp[0] - (s != null && !menu ? s.events.ambientLift() : 0f)))); // the Surge lifts the dark, the Tide's lull flickers it
         // ash storms shrink the pool of light, a Headlamp or the Heart of Lumen widens it (equipment: lightRadius)
         float pr = lp[1] * sc * (s != null && !menu ? s.lightRadiusMul() * (float) s.stats.lightRadius : 1f);
         if (menu) {
@@ -569,6 +571,98 @@ public final class WorldRenderer {
     }
 
     private static final int AMBER_RGB = 0xFFB347;
+
+    /** Lumen Surge strength this frame (0 outside it), and the gems that got the extra glow (a budget). */
+    private float surgeNow;
+    private int surgeGems;
+
+    /**
+     * The Signal Tower and the Beacon (v1.4 events): the structure, the ring on the ground, and for the Beacon its health bar and
+     * label. The ring of the tower shows the capture radius; its progress is on the minimap only.
+     */
+    private void drawEventGround(Canvas c, Sim s, float t) {
+        Events ev = s.events;
+        if (ev.towerOn) {
+            int cx = sx(ev.tx), cy = sy(ev.ty);
+            if (cx > -400 && cx < scrW + 400 && cy > -400 && cy < scrH + 400) {
+                float pu = 0.5f + 0.5f * (float) Math.sin(t * 3f), r = Events.TOWER_R * sc;
+                int rgb = ev.towerCapturing ? 0x39FF88 : 0x4FD8FF;
+                fill.setColor(((int) (18 + 30 * ev.towerFrac() + 14 * pu) << 24) | rgb);
+                c.drawOval(cx - r, cy - r * 0.6f, cx + r, cy + r * 0.6f, fill);
+                stroke.setStrokeWidth(3f * ks);
+                stroke.setColor(0xCC000000);
+                c.drawOval(cx - r - 2f * ks, cy - r * 0.6f - 1.5f * ks, cx + r + 2f * ks, cy + r * 0.6f + 1.5f * ks, stroke);
+                stroke.setStrokeWidth(2.5f * ks);
+                stroke.setColor(((int) (150 + 100 * pu) << 24) | rgb);
+                c.drawOval(cx - r, cy - r * 0.6f, cx + r, cy + r * 0.6f, stroke);
+                float r2 = r * (0.2f + 0.8f * ((t * 0.5f) % 1f)); // a pulse runs inward
+                stroke.setStrokeWidth(1.5f * ks);
+                stroke.setColor(((int) (110 * (1f - (t * 0.5f) % 1f)) << 24) | rgb);
+                c.drawOval(cx - r2, cy - r2 * 0.6f, cx + r2, cy + r2 * 0.6f, stroke);
+                glow(c, atlas.img("vfx.energy_glow_0"), cx, cy - 70f * ks, 240f * ks, 0f, ev.towerCapturing ? fGreen : fCyan, (int) (90 + 70 * pu));
+                drawEventProp(c, "prop.smokestack", cx, cy, 1f);
+                glow(c, atlas.img("vfx.energy_ring"), cx, cy - 150f * ks, (60f + 40f * pu) * ks, 0f, ev.towerCapturing ? fGreen : fCyan, 200);
+                eventLabel(c, "SIGNAL TOWER", cx, cy - 190f * ks, ev.towerCapturing ? 0xFF39FF88 : 0xFF4FD8FF);
+            }
+        }
+        if (ev.beaconOn) {
+            int cx = sx(ev.bx), cy = sy(ev.by);
+            if (cx > -400 && cx < scrW + 400 && cy > -400 && cy < scrH + 400) {
+                float pu = 0.5f + 0.5f * (float) Math.sin(t * 4f), r = Events.BEACON_REGEN_R * sc;
+                stroke.setStrokeWidth(1.5f * ks);
+                stroke.setColor(0x66FFD84A);
+                c.drawOval(cx - r, cy - r * 0.6f, cx + r, cy + r * 0.6f, stroke); // the regeneration radius
+                float br = Events.BEACON_R * sc * 1.5f;
+                fill.setColor(((int) (30 + 30 * pu) << 24) | 0xFFD84A);
+                c.drawOval(cx - br, cy - br * 0.6f, cx + br, cy + br * 0.6f, fill);
+                glow(c, atlas.img("vfx.energy_glow_0"), cx, cy - 40f * ks, 230f * ks, 0f, fGold, (int) (110 + 80 * pu));
+                drawEventProp(c, "prop.emergency_light", cx, cy, 1.6f);
+                int bw = Math.round(120f * ks), top = Math.round(cy - 118f * ks);
+                bar(c, cx, top, bw, Math.max(8, Math.round(10f * ks)), ev.beaconFrac(), 0xFF2A2008, ev.beaconFrac() > 0.35f ? 0xFFFFD84A : 0xFFE02828);
+                eventLabel(c, "BEACON", cx, top - 14f * ks, 0xFFFFD84A);
+            }
+        }
+    }
+
+    private void drawEventProp(Canvas c, String key, int cx, int cy, float scale) {
+        Img im = atlas.img(key);
+        if (im == null) return;
+        drawShadow(c, cx, cy - 2, Math.round(28 * ks * scale));
+        bmp.setColorFilter(null);
+        bmp.setAlpha(255);
+        blit(c, im, cx, cy, ks * scale, bmp);
+    }
+
+    private void eventLabel(Canvas c, String txt, float x, float y, int color) {
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(20f * ks);
+        text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+        text.setColor(color);
+        c.drawText(txt, x, y, text);
+        text.clearShadowLayer();
+    }
+
+    /** Lumen Surge: every enemy gets a glowing ring at its feet so the crowd stays readable in the dark. */
+    private void surgeRing(Canvas c, Enemy en, int px, int py) {
+        float pu = 0.5f + 0.5f * (float) Math.sin(now * 6.0 + en.id), r = Math.max(12f * ks, en.radius * sc * 1.3f);
+        int a = (int) (surgeNow * (120 + 90 * pu));
+        fill.setColor((a / 3 << 24) | 0x39FF88);
+        c.drawOval(px - r, py - r * 0.5f, px + r, py + r * 0.5f, fill);
+        stroke.setStrokeWidth(2f * ks);
+        stroke.setColor((a << 24) | 0x7CFFB4);
+        c.drawOval(px - r, py - r * 0.5f, px + r, py + r * 0.5f, stroke);
+    }
+
+    /** The banner of a starting event (the first seconds) and the Tide's dark teal wash. */
+    private void drawEvents(Canvas c, Sim s, int w, int h) {
+        Events ev = s.events;
+        if (ev.is(Events.TIDE)) {
+            float e = ev.elapsed(), k = Math.min(1f, Math.min(e, Events.LEN[Events.TIDE] - e) / 3f);
+            fill.setColor(((int) (46 * k) << 24) | 0x1A0A3A);
+            c.drawRect(0, 0, w, h, fill);
+        }
+        if (ev.bannerT > 0f && ev.bannerT <= Events.BANNER_LIFE) topUi.drawEventBanner(c, w, h, Events.BANNER_LIFE - ev.bannerT, ks, ev.bannerTitle, ev.bannerColor);
+    }
 
     /** The interact radius on the ground around the Salvager: a pulsing amber ring (ellipse like the other ground rings). */
     private void drawMerchantRing(Canvas c, Sim s, float t) {
@@ -894,6 +988,9 @@ public final class WorldRenderer {
 
         drawHazards(c, s, t);
         drawMerchantRing(c, s, t);
+        surgeNow = s.events.surgeLevel();
+        surgeGems = 0;
+        drawEventGround(c, s, t);
 
         // 2. pickups, y-sorted (flat on the ground, under the creatures); corpses first
         drawCorpses(c, s);
@@ -1079,6 +1176,7 @@ public final class WorldRenderer {
 
     private void drawEnemy(Canvas c, Sim s, Enemy en, Model m, int px, int py, boolean frozen) {
         if (en.dormant) return; // a tentacle still warning: only its ring is drawn (drawTelegraphs)
+        if (surgeNow > 0f) surgeRing(c, en, px, py);
         boolean flash = stateFor(en, s.px, s.py);
         if (m == null) {
             fill.setColor(0xFF7A4A3A);
@@ -1344,6 +1442,10 @@ public final class WorldRenderer {
             // soft glow under the crystal: gems stay findable in the dark (fainter and smaller, and gone for far green gems, in a crowd)
             if (crowd < 0.7f || tier > 0) {
                 glow(c, atlas.img("vfx.energy_glow_1"), px, py - size * 0.4f, size * (p.red ? 3.6f : 2.6f - 0.7f * crowd), 0f, tint, (int) (150 * pulse * (1f - 0.8f * crowd)));
+            }
+            if (surgeNow > 0f && surgeGems < 48) { // Lumen Surge: the gems shine
+                surgeGems++;
+                glow(c, atlas.img("vfx.energy_glow_1"), px, py - size * 0.4f, size * 4.2f, 0f, tint, (int) (170 * surgeNow));
             }
             float k = size / Math.max(im.w(), im.h());
             bmp.setColorFilter(null);
@@ -1704,6 +1806,15 @@ public final class WorldRenderer {
                     break;
                 }
                 default:
+                    if (h.kind == Entities.HZ_FROST && h.variant == 1) { // rubble left by Collapse / Slag Rain: dark, slows the hero
+                        fill.setColor(((int) (120 * k) << 24) | 0x2A2420);
+                        c.drawOval(cx - r, cy - r * 0.7f, cx + r, cy + r * 0.7f, fill);
+                        glow(c, atlas.img("vfx.rock_debris"), cx, cy - r * 0.1f, r * 2f, h.x * 5f % 360f, null, (int) (200 * k));
+                        stroke.setStrokeWidth(2f * ks);
+                        stroke.setColor(((int) (170 * k) << 24) | 0xB09070);
+                        c.drawOval(cx - r, cy - r * 0.7f, cx + r, cy + r * 0.7f, stroke);
+                        break;
+                    }
                     glow(c, atlas.img("vfx.magic_circle_cyan"), cx, cy, r * 2.1f, t * 20f, null, (int) (190 * k));
             }
         }
@@ -1729,6 +1840,11 @@ public final class WorldRenderer {
             if (h.variant == Entities.BV_SPORE) { // a spore bomb falls into its ring
                 glow(c, atlas.img("vfx.spore_cloud_0"), cx, cy - fall - 12f * ks, 80f * ks * (0.7f + 0.4f * prog), t * 40f, fGreen, 230);
                 glow(c, atlas.img("vfx.spores_0"), cx, cy - fall - 10f * ks, 100f * ks, t * 60f, fGreen, 200);
+                return;
+            }
+            if (h.variant == Entities.BV_RUBBLE) { // a boulder drops into its ring
+                glow(c, atlas.img("vfx.rock_debris"), cx, cy - fall - 14f * ks, 90f * ks * (0.7f + 0.4f * prog), t * 50f, null, 255);
+                glow(c, atlas.img("vfx.dust_0"), cx, cy - fall - 8f * ks, 80f * ks, 0f, null, 150);
                 return;
             }
             if (h.variant == Entities.BV_CRATE) {

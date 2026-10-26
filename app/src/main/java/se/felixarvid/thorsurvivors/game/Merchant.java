@@ -114,6 +114,30 @@ public final class Merchant {
         wants = armed && d2 < TALK_R * TALK_R;
     }
 
+    /**
+     * An event's reward (the Beacon held): a Salvager for {@code stay} seconds off the schedule. Already here: it only stays
+     * longer. Not on the stages without a Salvager (and not in the soaks that switched it off).
+     */
+    void summon(float stay) {
+        if (!enabled) return;
+        if (present) {
+            leaveAt = Math.max(leaveAt, s.time + stay);
+            return;
+        }
+        int visit = Math.max(visits, ARRIVE.length);
+        vr = new Random(seed + 0x5EED + visit * 0x9E3779B97F4A7C15L);
+        if (!place()) return;
+        visits = visit + 1;
+        present = true;
+        warned = false;
+        armed = true;
+        wants = false;
+        leaveAt = s.time + stay;
+        roll(visit);
+        s.sound.emit(SoundEvents.CHEST_OPEN);
+        s.toast("A SALVAGER HAS ARRIVED", AMBER);
+    }
+
     private void arrive() {
         int visit = next++;
         vr = new Random(seed + visit * 0x9E3779B97F4A7C15L);

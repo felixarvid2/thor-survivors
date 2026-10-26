@@ -221,6 +221,15 @@ public final class GameData {
                 sd.timedBoss[i] = tb.getJSONObject(i).optString("boss", "");
             }
         }
+        JSONArray ev = o.optJSONArray("events");
+        if (ev != null) {
+            sd.eventAt = new int[ev.length()];
+            sd.eventId = new String[ev.length()];
+            for (int i = 0; i < ev.length(); i++) {
+                sd.eventAt[i] = ev.getJSONObject(i).optInt("at", 0);
+                sd.eventId[i] = ev.getJSONObject(i).optString("id", "");
+            }
+        }
         return sd;
     }
 

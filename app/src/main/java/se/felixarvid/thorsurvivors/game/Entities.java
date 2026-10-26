@@ -65,6 +65,8 @@ public final class Entities {
         public float ashLeft;
         /** A tentacle still warning: it cannot be hit and does not hurt. A silent enemy leaves without a kill or drops. */
         public boolean dormant, silent;
+        /** Defend the Beacon: this chaser walks to the Beacon instead of the hero (see Events). */
+        public boolean toBeacon;
         /** Width in world units of this enemy's charge telegraph (0 = from its radius). */
         public float teleW;
 
@@ -168,7 +170,8 @@ public final class Entities {
     /** Ground areas of the enemies and the world: slag pools, spore clouds, frost patches (see {@link Sim#MAX_HAZ}). */
     public static final int HZ_SLAG = 0, HZ_CLOUD = 1, HZ_FROST = 2, HZ_BOMB = 3, HZ_LANE = 4, HZ_ASH = 5;
     /** {@link Hazard#variant} of a HZ_BOMB: a slag bomb (leaves a pool), a falling crate, a stomp, a volcano bomb, a spore bomb (leaves a hero-only cloud), a frost ring (stuns the hero). */
-    public static final int BV_SLAG = 0, BV_CRATE = 1, BV_STOMP = 2, BV_VOLCANO = 3, BV_SPORE = 4, BV_FROST = 5;
+    public static final int BV_SLAG = 0, BV_CRATE = 1, BV_STOMP = 2, BV_VOLCANO = 3, BV_SPORE = 4, BV_FROST = 5,
+            BV_RUBBLE = 6, BV_SLAGRAIN = 7;
     /** {@link Hazard#variant} of a HZ_CLOUD that only hurts the hero (the Brood Mother's own clouds spare her eggs). */
     public static final int CV_HERO = 1;
     /** {@link Hazard#variant} of a HZ_LANE: The First's tendril, a laser (Overseer Unit 7), a pure marker that is only a warning line and never hurts. */
