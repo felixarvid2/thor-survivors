@@ -27,7 +27,7 @@ Den nedre panelen använder `android.app.Presentation`. Om det inte fungerar sta
 
 - Vänster spak eller d-pad: rörelse
 - Höger spak (AXIS_Z/AXIS_RZ, annars RX/RY): sikta huvudvapnet. Utan spakutslag siktar det dit hjälten tittar (rörelseriktningen).
-- A: undvik (dodge) under spel, bekräfta i menyer. B: tillbaka. Start: paus
+- A, B, X, Y, L1/R1 och L2/R2 (även som analoga avtryckare): undvik (dodge) under spel. I menyer bekräftar A och B går tillbaka. Start (och systemets bakåtknapp) pausar; B pausar inte längre under spel (`InputRouter`, `DodgeButtonsTest`).
 - Utrustningsvalet (pausar som en level-up): vänster/höger väljer kort, A bekräftar (Replace är förvalt), B = behåll det du bär, eller tryck på ett kort.
 - Touch på nedre skärmen: vänster yta rör, höger yta siktar (visas bara utan handkontroll), knappen DODGE undviker. I överlägget på en skärm är hela skärmen rörelsespak (den sätter bara riktningen) och DODGE ligger nere till höger.
 
