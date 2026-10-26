@@ -94,7 +94,8 @@ public class MainWeaponTest {
         Sim b = run("BASTION"), p = run("SPECTRE"), x = run("XENOMANT");
         assertEquals(130f, b.maxHp, 0.01f);
         assertEquals(105f, p.maxHp, 0.01f); // phase 12: 80 -> 105
-        assertEquals(95f, x.maxHp, 0.01f);
+        assertEquals(100f, x.maxHp, 0.01f); // v1.3.1: 95 -> 100
+        assertEquals(1.0, x.stats.armor, 1e-9);
         assertEquals(1.0, b.stats.armor, 1e-9);
         assertEquals(0.3, b.stats.regen, 1e-9);
         assertEquals(0.5, p.stats.regen, 1e-9);
@@ -119,17 +120,22 @@ public class MainWeaponTest {
         b.level = 11;
         b.recomputeAll();
         assertEquals(1.10, b.stats.might, 1e-9);
-        assertEquals(143f, b.maxHp, 0.01f);
+        assertEquals(139.1f, b.maxHp, 0.01f); // +0.7% max HP per level (v1.3.1: was 1%)
         Sim p = run("SPECTRE");
         p.level = 11;
         p.recomputeAll();
         assertEquals(0.25, p.stats.critChance, 1e-9);
+        assertEquals(1.06, p.stats.might, 1e-9); // v1.3.1: +0.6% might per level
+        assertEquals(110.25f, p.maxHp, 0.01f); // +0.5% max HP per level
+        assertEquals(0.93, p.stats.damageTaken, 1e-9); // -0.7% damage taken per level
         assertEquals(1.10 * 1.05, p.stats.moveSpeedMul, 1e-9);
         Sim x = run("XENOMANT");
         x.level = 11;
         x.recomputeAll();
         assertEquals(1.10, x.stats.areaMul, 1e-9);
         assertEquals(1.10, x.stats.magnetMul, 1e-9);
+        assertEquals(104f, x.maxHp, 0.01f); // v1.3.1: +0.4% max HP and -0.15% damage taken per level
+        assertEquals(0.985, x.stats.damageTaken, 1e-9);
     }
 
     // ------------------------------------------------------------------ aim

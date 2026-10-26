@@ -778,6 +778,7 @@ public class BossTest {
             in.stickX = (float) Math.cos(i * 0.01);
             in.stickY = (float) Math.sin(i * 0.01);
             s.hp = s.maxHp;
+            s.invuln = 1f; // the damage curve at 28:00 is bigger than the health bar
             s.update(DT, in);
             while (s.pendingLevelUps > 0) s.pendingLevelUps--;
             while (s.pendingChests > 0) s.pendingChests--;
@@ -793,6 +794,7 @@ public class BossTest {
             in.stickX = (float) Math.cos(i * 0.02);
             in.stickY = (float) Math.sin(i * 0.02);
             s.hp = s.maxHp;
+            s.invuln = 1f; // the damage curve at 28:00 is bigger than the health bar
             s.update(DT, in);
             first.hp = Math.max(first.hp, first.maxHp * 0.2f);
             while (s.pendingLevelUps > 0) s.pendingLevelUps--;

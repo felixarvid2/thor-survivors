@@ -48,6 +48,7 @@ public class Phase9ShotsTest {
         Sim s = h.eng.sim;
         for (int i = 0; i < frames; i++) {
             s.hp = s.maxHp;
+            s.invuln = Math.max(s.invuln, 1f); // the damage curve at 29:00 hits harder than any health bar
             h.eng.input.stickX = 0;
             h.eng.input.stickY = 0;
             int ph = h.eng.phase;

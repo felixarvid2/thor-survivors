@@ -147,7 +147,7 @@ public class EliteTest {
         assertEquals(plain.speed * 0.9f, e.speed, 1e-4f);
         assertEquals(plain.radius * 1.4f, e.radius, 1e-3f);
         assertEquals(plain.xp * 4f, e.xp, 1e-4f);
-        assertEquals("shots hit 1.5 times as hard", 1.5f, e.shotMul, 1e-6f);
+        assertEquals("shots hit 1.5 times as hard (times the 0.8 of the curve at 0:00)", 1.5f * 0.8f, e.shotMul, 1e-6f);
         assertEquals("six adds came with it", 1 + 1 + 6, s.enemyN);
         assertEquals(1, s.sound.emitted[SoundEvents.ELITE_SPAWN]);
         // it lives in the ordinary enemy pool: same record class, no extra array
@@ -247,7 +247,7 @@ public class EliteTest {
             double a = Math.atan2(Math.sin(Math.atan2(p.vy, p.vx) - base), Math.cos(Math.atan2(p.vy, p.vx) - base)); // relative to the aim
             lo = Math.min(lo, a);
             hi = Math.max(hi, a);
-            assertEquals("elite shots hit 1.5x", 9f * 1.5f, p.dmg, 0.01f);
+            assertEquals("elite shots hit 1.5x (the curve is 0.8 at 0:00)", 9f * 1.5f * 0.8f, p.dmg, 0.01f);
         }
         assertEquals("an 80 degree fan", Math.toRadians(80), hi - lo, 0.05);
         run(s, 3.2);
