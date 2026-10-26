@@ -51,6 +51,8 @@ public final class Engine {
     public List<String> stageKeys = new ArrayList<>();
     public List<String> starters = new ArrayList<>();
     public List<String> shopKeys = new ArrayList<>();
+    /** Shop texts per power-up, built in init (no string building while drawing). */
+    public final java.util.Map<String, Describe.PowerUpText> shopText = new java.util.HashMap<>();
 
     // transient dialog data
     public volatile List<Offer> offers = new ArrayList<>();
@@ -80,6 +82,7 @@ public final class Engine {
         if (stageKeys.isEmpty()) stageKeys.addAll(d.stages.keySet()); // data without the Ashfall stages (tests of the base data)
         starters = d.starterWeapons();
         shopKeys.addAll(d.powerUps.keySet());
+        for (se.felixarvid.thorsurvivors.data.PowerUpDef p : d.powerUps.values()) shopText.put(p.key, Describe.powerUp(p));
     }
 
     public boolean isReady() {
@@ -230,8 +233,9 @@ public final class Engine {
             case Input.CMD_START: start(); break;
             case Input.CMD_TAP:
                 if (c[1] == phase) {
+                    boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus; // first tap on a tile only focuses it
                     focus = c[2];
-                    confirm(c[3]);
+                    if (!pick) confirm(c[3]);
                 }
                 break;
             case Input.CMD_AUTOPAUSE:

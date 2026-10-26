@@ -257,6 +257,15 @@ public final class Sim {
 
     // ------------------------------------------------------------------ stats
 
+    /** HP as shown in the UI: the maximum is rounded, the current value never exceeds it. */
+    public static int shownMaxHp(float maxHp) {
+        return Math.round(maxHp);
+    }
+
+    public static int shownHp(float hp, float maxHp) {
+        return Math.min(shownMaxHp(maxHp), (int) Math.ceil(hp));
+    }
+
     public void recomputeAll() {
         PlayerStats old = stats;
         statsLevel = level;
@@ -264,6 +273,7 @@ public final class Sim {
         float nm = (float) stats.baseHp * (float) stats.maxHpMul;
         if (old != null) hp += Math.max(0, nm - maxHp);
         maxHp = nm;
+        if (hp > maxHp) hp = maxHp;
         for (int i = 0; i < inv.weaponCount; i++) syncWeapon(i);
         if (main != null) main.sync();
     }
