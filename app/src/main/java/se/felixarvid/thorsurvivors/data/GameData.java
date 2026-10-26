@@ -191,6 +191,15 @@ public final class GameData {
             sd.tentacleCount = tn.optInt("count", 3);
             sd.tentacleRadius = (float) tn.optDouble("radius", 400);
         }
+        JSONArray tb = o.optJSONArray("timedBosses");
+        if (tb != null) {
+            sd.timedAt = new int[tb.length()];
+            sd.timedBoss = new String[tb.length()];
+            for (int i = 0; i < tb.length(); i++) {
+                sd.timedAt[i] = tb.getJSONObject(i).optInt("t", 0);
+                sd.timedBoss[i] = tb.getJSONObject(i).optString("boss", "");
+            }
+        }
         return sd;
     }
 

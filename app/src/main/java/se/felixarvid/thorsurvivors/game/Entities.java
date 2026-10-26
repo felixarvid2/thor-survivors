@@ -167,8 +167,12 @@ public final class Entities {
 
     /** Ground areas of the enemies and the world: slag pools, spore clouds, frost patches (see {@link Sim#MAX_HAZ}). */
     public static final int HZ_SLAG = 0, HZ_CLOUD = 1, HZ_FROST = 2, HZ_BOMB = 3, HZ_LANE = 4, HZ_ASH = 5;
-    /** {@link Hazard#variant} of a HZ_BOMB: a slag bomb (leaves a pool), a falling crate, a stomp, a volcano bomb. */
-    public static final int BV_SLAG = 0, BV_CRATE = 1, BV_STOMP = 2, BV_VOLCANO = 3;
+    /** {@link Hazard#variant} of a HZ_BOMB: a slag bomb (leaves a pool), a falling crate, a stomp, a volcano bomb, a spore bomb (leaves a hero-only cloud), a frost ring (stuns the hero). */
+    public static final int BV_SLAG = 0, BV_CRATE = 1, BV_STOMP = 2, BV_VOLCANO = 3, BV_SPORE = 4, BV_FROST = 5;
+    /** {@link Hazard#variant} of a HZ_CLOUD that only hurts the hero (the Brood Mother's own clouds spare her eggs). */
+    public static final int CV_HERO = 1;
+    /** {@link Hazard#variant} of a HZ_LANE: The First's tendril, a laser (Overseer Unit 7), a pure marker that is only a warning line and never hurts. */
+    public static final int LV_TENDRIL = 0, LV_LASER = 1, LV_MARK = 2;
 
     /**
      * A ground area. HZ_BOMB: a ring that warns for {@code warn} s, then one blast of {@code dps} damage inside {@code r}

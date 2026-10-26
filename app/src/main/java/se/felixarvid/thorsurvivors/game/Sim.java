@@ -961,6 +961,7 @@ public final class Sim {
                 spawnAtRing(type(b), true, HALF_W + 100f);
             }
         }
+        updateTimedBosses();
         updateElites();
         if (stage.tentacleMinutes.length > 0) updateTentacles(dt);
         spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f);
@@ -974,6 +975,28 @@ public final class Sim {
                 spawnAtRing(type(row.enemies[rng.nextInt(row.enemies.length)]), false, 0);
             }
         }
+    }
+
+    private int timedNext;
+    /** A timed boss whose second has passed by more than this (a test that jumps the clock) is skipped, not spawned late. */
+    static final float TIMED_LATE = 20f;
+
+    /**
+     * v1.3 timed bosses ({@code stage.timedAt/timedBoss}, ashfall_data.json {@code timedBosses}): each spawns once, on the
+     * ring, when its second is reached, through the same {@link #spawnAtRing} / {@link #onBossSpawn} as the wave-row bosses.
+     * They come between the row bosses (7:30, 12:30, 17:30, 22:30 and 26:30 / 27:30), so sub-minute scheduling lives here.
+     */
+    private void updateTimedBosses() {
+        while (timedNext < stage.timedAt.length && time >= stage.timedAt[timedNext]) {
+            int i = timedNext++;
+            if (time - stage.timedAt[i] > TIMED_LATE) continue;
+            spawnAtRing(type(stage.timedBoss[i]), true, HALF_W + 100f);
+        }
+    }
+
+    /** Tests: how many timed bosses of the stage have been handled (spawned or skipped). */
+    public int timedBossesDone() {
+        return timedNext;
     }
 
     /** Ranged enemies alive (the cap of {@link #RANGED_CAP} keeps the enemy projectile budget). */
@@ -1554,6 +1577,7 @@ public final class Sim {
             kills++;
             sound.emit(SoundEvents.ENEMY_DEATH);
             if (e.type.arch == EnemyDef.ARCH_EXPLODER) ai.carrierBurst(e); // a spore carrier bursts when it dies
+            else if (e.type.arch == EnemyDef.ARCH_TENTACLE && e.type.def.param("blast", 0f) > 0f) boss.decoyBlast(e); // a Kade decoy explodes
             spark(e.x, e.y, e.type.gore, e.boss ? 24 : 7);
             addCorpse(e);
             drops(e);
@@ -1590,7 +1614,8 @@ public final class Sim {
             }
         }
         if (e.boss) {
-            addPickup(Entities.K_CHEST, e.x, e.y, 0);
+            // v1.3 timed bosses: the chest always holds 1..3 items (the value is the count), see openChest
+            addPickup(Entities.K_CHEST, e.x, e.y, e.type.def.ashfallBoss && e.type.pattern >= 6 ? 1 + rng.nextInt(3) : 0);
             return;
         }
         if (rng.nextFloat() < 0.035f + 0.02f * (float) stats.luck) {
@@ -1864,6 +1889,7 @@ public final class Sim {
                 break;
             case Entities.K_CHEST:
                 pendingChests++;
+                if (p.value >= 1f && bossChestN < bossChestQ.length) bossChestQ[bossChestN++] = Math.round(p.value);
                 break;
             case Entities.K_EQUIP: {
                 int code = (int) (p.value + 0.5f);
@@ -1946,6 +1972,7 @@ public final class Sim {
     private void bossRewards(Enemy e) {
         EquipDef u = e.type.def.ashfallBoss ? data.uniqueBySource.get(e.type.def.key) : null;
         if (u != null && equip.def[u.slot] != u) dropEquipment(e.x + 34f, e.y + 6f, u, Equipment.UNIQUE);
+        if (e.type.def.ashfallBoss && e.type.pattern >= 6) timedBossRewards(e);
         if (e.type.pattern == 5 && !firstKilled) {
             firstKilled = true;
             winDelay = 2.2f;
@@ -1953,6 +1980,33 @@ public final class Sim {
             screenFlash = Math.max(screenFlash, 0.5f);
             toast("THE FIRST IS DEAD  -  GOLD x2", 0xFF39FF88);
         }
+    }
+
+    /**
+     * v1.3 timed bosses: besides the chest (1..3 items), a Rare crate of the fixed slot in the data {@code gearSlot} (Brood Mother
+     * Neck, Frozen Welder Ring, Hale Head, Overseer Gloves, Kade Body; the base item of that slot is random) and a pile of
+     * gems worth {@code xpPileLevels} levels (1.5).
+     */
+    private void timedBossRewards(Enemy e) {
+        EnemyDef d = e.type.def;
+        int slot = Math.round(d.param("gearSlot", -1f));
+        int n = 0;
+        for (int i = 0; i < data.baseItems.size(); i++) if (data.baseItems.get(i).slot == slot) n++;
+        if (n > 0) {
+            int pick = rng.nextInt(n);
+            for (int i = 0; i < data.baseItems.size(); i++) {
+                if (data.baseItems.get(i).slot != slot || pick-- > 0) continue;
+                dropEquipment(e.x - 34f, e.y + 6f, data.baseItems.get(i), Equipment.RARE);
+                break;
+            }
+        }
+        int gems = 5;
+        float each = (float) (xpNeed * d.param("xpPileLevels", 1.5f) / gems);
+        for (int k = 0; k < gems; k++) {
+            float a = k * 6.2831855f / gems;
+            addPickup(Entities.K_GEM, e.x + (float) Math.cos(a) * 26f, e.y + (float) Math.sin(a) * 18f, each);
+        }
+        toast(d.name.toUpperCase(java.util.Locale.ROOT) + " DEFEATED", 0xFFFFA58A);
     }
 
     /** Gold the run pays out: doubled when The First was killed. */
@@ -2172,6 +2226,23 @@ public final class Sim {
         }
     }
 
+    /**
+     * A pinned summon of a boss (egg, guard, decoy): an ARCH_TENTACLE type placed at (x, y) with its warning ring first
+     * (data {@code warn}); null when the pool is nearly full. Lives and ends in {@link BossAi#tentacle}.
+     */
+    Enemy spawnPinned(String key, float x, float y) {
+        EnemyType t = type(key);
+        if (t == null || enemyN >= MAX_ENEMIES - 6) return null;
+        Enemy e = enemies[enemyN++];
+        initEnemy(e, t, false);
+        e.x = e.ax = x;
+        e.y = e.ay = y;
+        e.ai = BossAi.T_WARN;
+        e.aiT = e.tele = e.teleMax = t.def.param("warn", 0.8f);
+        e.dormant = true;
+        return e;
+    }
+
     /** Tests and screenshot tools: a tentacle wave as the hazard makes it. */
     public void tentacleWaveForTest(int count, float radius, boolean hazard) {
         tentacleWave(count, radius, hazard);
@@ -2205,8 +2276,22 @@ public final class Sim {
     private static final Treasure DEFAULT_TREASURE =
             new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.EVOLUTION});
 
+    /**
+     * The chest of a v1.3 timed boss: always 1..3 items (its pickup carries the count), first an evolution, then upgrades of
+     * owned weapons. TODO(fusions): the prize order becomes FUSION, EVOLUTION, EXISTING_WEAPON when weapon fusions land.
+     */
+    private static final Treasure BOSS_TREASURE =
+            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.EVOLUTION, Treasure.EXISTING_WEAPON});
+    private final int[] bossChestQ = new int[8];
+    private int bossChestN, forcedItems;
+
     /** Opens one pending chest with the stage's treasure table for the current minute. Returns text lines. */
     public String[] openChest() {
+        if (bossChestN > pendingChests) bossChestN = pendingChests; // a test that dropped pending chests by hand
+        if (bossChestN > 0) { // a timed boss's chest first
+            forcedItems = bossChestQ[--bossChestN];
+            return openChest(BOSS_TREASURE);
+        }
         Treasure t = stage.treasureAt(time);
         return openChest(t != null ? t : DEFAULT_TREASURE);
     }
@@ -2224,7 +2309,8 @@ public final class Sim {
         pendingChests--;
         sound.emit(SoundEvents.CHEST_OPEN);
         java.util.ArrayList<String> lines = new java.util.ArrayList<>();
-        int n = rng.nextDouble() * 100 < t.chances[0] ? 5 : rng.nextDouble() * 100 < t.chances[1] ? 3 : 1;
+        int n = forcedItems > 0 ? forcedItems : rng.nextDouble() * 100 < t.chances[0] ? 5 : rng.nextDouble() * 100 < t.chances[1] ? 3 : 1;
+        forcedItems = 0;
         for (int i = 0; i < n; i++) {
             String type = t.prizeAt(i);
             if (Treasure.EVOLUTION.equals(type)) {

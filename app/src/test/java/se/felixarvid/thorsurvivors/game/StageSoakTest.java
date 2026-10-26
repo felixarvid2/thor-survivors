@@ -90,7 +90,7 @@ public class StageSoakTest {
         java.util.Collections.sort(first);
         double median = first.isEmpty() ? 1e9 : first.get(first.size() / 2);
         System.out.println("worst time to kill (s) by boss: " + worst + "; The First: median projected " + Math.round(median) + " s over " + first.size() + " runs, killed in " + firstKills);
-        for (String k : new String[]{"CARGO_LOADER", "SMELTER_FOREMAN", "SLAGBORN", "VIRE_AWAKENED"}) {
+        for (String k : new String[]{"CARGO_LOADER", "SMELTER_FOREMAN", "SLAGBORN", "VIRE_AWAKENED", "BROOD_MOTHER", "FROZEN_WELDER", "COMMANDANT_HALE", "OVERSEER_UNIT_7", "GOVERNOR_KADE"}) { // v1.3: the five timed bosses die in under 90 s as well
             assertTrue(k + " was fought", worst.containsKey(k));
         }
         for (java.util.Map.Entry<String, Double> e : worst.entrySet()) assertTrue(e.getKey() + " took " + e.getValue() + " s", e.getValue() < 90.0);
