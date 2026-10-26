@@ -17,7 +17,12 @@ public final class WaveDirector {
 
     /** After the per-type spawns: how many more (random types) bring the field up to `minimum`, bounded per tick. */
     public static int topUpCount(WaveRow row, int alive) {
-        if (alive >= ENEMY_CAP || row.enemies.length == 0 || alive >= row.minimum) return 0;
-        return Math.min(Math.min(row.minimum - alive, MAX_PER_TICK), ENEMY_CAP - alive);
+        return topUpCount(row.minimum, row.enemies.length, alive);
+    }
+
+    /** The same with an explicit minimum (a horde burst raises it above the row's). */
+    public static int topUpCount(int minimum, int types, int alive) {
+        if (alive >= ENEMY_CAP || types == 0 || alive >= minimum) return 0;
+        return Math.min(Math.min(minimum - alive, MAX_PER_TICK), ENEMY_CAP - alive);
     }
 }

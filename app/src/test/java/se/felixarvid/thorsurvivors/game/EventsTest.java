@@ -29,8 +29,17 @@ public class EventsTest {
         return s;
     }
 
+    /** The Tide's hordes hit a 100 HP test hero for more than a full bar in one step with the phase 13 damage curve: those tests make it untouchable. */
+    private static boolean untouchable;
+
+    @org.junit.After
+    public void resetUntouchable() {
+        untouchable = false;
+    }
+
     private static void step(Sim s, float dt) {
         s.hp = s.maxHp;
+        if (untouchable) s.invuln = 1f;
         s.update(dt, IN);
     }
 
@@ -362,6 +371,7 @@ public class EventsTest {
 
     @Test
     public void tideLullHasZeroSpawnsForTenSeconds() throws Exception {
+        untouchable = true;
         for (String stage : new String[]{"MINES", "FLATS"}) {
             Sim s = sim(stage, 11, false);
             s.time = at(s, "TIDE") - 0.05;
@@ -386,6 +396,7 @@ public class EventsTest {
 
     @Test
     public void tideBringsEliteAndHordeEveryFortyFiveSecondsAndEndsOnTime() throws Exception {
+        untouchable = true;
         Sim s = sim("FLATS", 12, true);
         int e0 = s.eliteSpawned;
         toEvent(s, "TIDE");

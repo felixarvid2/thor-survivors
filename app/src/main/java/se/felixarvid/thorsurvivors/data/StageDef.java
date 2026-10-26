@@ -34,6 +34,19 @@ public final class StageDef {
      * {@code xpFadeEnd} at {@code xpFadeTo} (no fade when {@code xpFadeTo <= xpFadeFrom}). Keeps the early levels, stops the late XP flood.
      */
     public double xpFadeFrom, xpFadeTo, xpFadeEnd = 1.0;
+    /**
+     * Ashfall difficulty (phase 13): multiplier on the HP of every wave enemy and elite (not bosses, not tentacles) by run time,
+     * linear between the points {seconds, multiplier}; before the first point 1.0, after the last point the last value. Empty = 1.
+     */
+    public double[][] hpCurve = new double[0][];
+    /** Same shape: multiplier on the contact damage and the bolt / ring damage of wave enemies and elites (not bosses). */
+    public double[][] dmgCurve = new double[0][];
+    /**
+     * Horde bursts (phase 13): {start s, length s, minimum alive, frequency ms}; while one runs the wave minimum is raised to
+     * {@code minimum}, the spawn tick shortened to {@code frequency} and the top-up picks from {@link #hordeTypes}.
+     */
+    public double[][] hordes = new double[0][];
+    public String[] hordeTypes = new String[0];
 
     public StageDef(String key, String name, double timeLimit, double playerSpeed, double enemySpeed,
                     double enemyHealth, double goldMultiplier, double xpBonus, int startingSpawns,
@@ -68,6 +81,10 @@ public final class StageDef {
         d.xpFadeFrom = xpFadeFrom;
         d.xpFadeTo = xpFadeTo;
         d.xpFadeEnd = xpFadeEnd;
+        d.hpCurve = hpCurve;
+        d.dmgCurve = dmgCurve;
+        d.hordes = hordes;
+        d.hordeTypes = hordeTypes;
         return d;
     }
 
@@ -76,6 +93,31 @@ public final class StageDef {
         if (xpFadeTo <= xpFadeFrom || seconds <= xpFadeFrom) return 1.0;
         if (seconds >= xpFadeTo) return xpFadeEnd;
         return 1.0 + (xpFadeEnd - 1.0) * (seconds - xpFadeFrom) / (xpFadeTo - xpFadeFrom);
+    }
+
+    /** Multiplier on the HP of a wave enemy spawned at run time {@code seconds} ({@link #hpCurve}). */
+    public double hpMul(double seconds) {
+        return curve(hpCurve, seconds);
+    }
+
+    /** Multiplier on the damage a wave enemy spawned at run time {@code seconds} deals ({@link #dmgCurve}). */
+    public double dmgMul(double seconds) {
+        return curve(dmgCurve, seconds);
+    }
+
+    static double curve(double[][] c, double seconds) {
+        if (c.length == 0) return 1.0;
+        if (seconds <= c[0][0]) return c[0][1];
+        for (int i = 1; i < c.length; i++) {
+            if (seconds <= c[i][0]) return c[i - 1][1] + (c[i][1] - c[i - 1][1]) * (seconds - c[i - 1][0]) / (c[i][0] - c[i - 1][0]);
+        }
+        return c[c.length - 1][1];
+    }
+
+    /** Index into {@link #hordes} of the burst running at {@code seconds}, or -1. */
+    public int hordeAt(double seconds) {
+        for (int i = 0; i < hordes.length; i++) if (seconds >= hordes[i][0] && seconds < hordes[i][0] + hordes[i][1]) return i;
+        return -1;
     }
 
     /** The row that governs the given run time: the last row whose minute is <= elapsed minutes. */

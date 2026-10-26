@@ -1104,15 +1104,29 @@ public final class Sim {
         if (!events.spawnsBlocked()) updateElites(); // the Tide's lull: nothing arrives
         if (stage.tentacleMinutes.length > 0) updateTentacles(dt);
         if (events.spawnsBlocked()) return;
+        // phase 13: a horde burst raises the minimum, shortens the tick and fills the field with its own (cheap) types
+        int horde = stage.hordeAt(time);
+        if (horde != hordeLast) {
+            hordeLast = horde;
+            if (horde >= 0) toast("SWARM INCOMING", 0xFFFF6A3D);
+        }
+        int minimum = row.minimum;
+        float freq = row.frequencyMs;
+        if (horde >= 0) {
+            minimum = Math.max(minimum, (int) stage.hordes[horde][2]);
+            freq = Math.min(freq, (float) stage.hordes[horde][3]);
+        }
         spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f) * events.spawnMul() * pois.spawnMul;
-        if (spawnTimer >= row.frequencyMs) {
+        if (spawnTimer >= freq) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
             int each = WaveDirector.eachCount(row, enemyN);
             for (int i = 0; i < each; i++) spawnAtRing(type(row.enemies[i]), false, 0);
-            int extra = WaveDirector.topUpCount(row, enemyN);
+            boolean swarm = horde >= 0 && stage.hordeTypes.length > 0;
+            int extra = WaveDirector.topUpCount(minimum, swarm ? stage.hordeTypes.length : row.enemies.length, enemyN);
             for (int i = 0; i < extra; i++) {
-                spawnAtRing(type(row.enemies[rng.nextInt(row.enemies.length)]), false, 0);
+                String[] pool = swarm ? stage.hordeTypes : row.enemies;
+                spawnAtRing(type(pool[rng.nextInt(pool.length)]), false, 0);
             }
         }
     }
@@ -1169,6 +1183,7 @@ public final class Sim {
     public int timedBossesDone() {
         return timedNext;
     }
+    private int hordeLast = -1;
 
     /** Ranged enemies alive (the cap of {@link #RANGED_CAP} keeps the enemy projectile budget). */
     int rangedAlive() {
@@ -1250,7 +1265,7 @@ public final class Sim {
             float dmgMul = (float) data.elite("damageMul", 1.5);
             e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
             e.power *= dmgMul;
-            e.shotMul = dmgMul;
+            e.shotMul *= dmgMul;
             e.radius *= (float) data.elite("scale", 1.4);
             e.speed *= (float) data.elite("speedMul", 0.9);
             e.xp *= (float) data.elite("xpMul", 8);
@@ -1321,12 +1336,18 @@ public final class Sim {
         double hp = t.def.maxHp * 10.0 * (t.def.hpTimesLevel ? t.def.level : 1) * stage.enemyHealth
                 * (1 + stats.curse) * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
         if (boss && t.def.ashfallBoss) hp *= bossHpRamp(t.def.param("hpRamp", 0f), time);
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time); // phase 13: the HP of wave enemies grows with the run time
         e.hp = e.maxHp = (float) Math.max(1, hp);
         e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * stats.enemySpeed);
         e.power = (float) t.def.power;
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
         if (t.arch != EnemyDef.ARCH_CHASER) ai.init(e);
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) { // phase 13: contact and bolt damage grow with the run time too
+            float dm = (float) stage.dmgMul(time);
+            e.power *= dm;
+            e.shotMul = dm;
+        }
     }
 
     private void updateEnemies(float dt) {
@@ -2357,7 +2378,7 @@ public final class Sim {
         float dmgMul = (float) data.elite("damageMul", 1.5);
         e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
         e.power *= dmgMul;
-        e.shotMul = dmgMul;
+        e.shotMul *= dmgMul;
         e.radius *= (float) data.elite("scale", 1.4);
         e.speed *= (float) data.elite("speedMul", 0.9);
         e.xp *= (float) data.elite("xpMul", 8);

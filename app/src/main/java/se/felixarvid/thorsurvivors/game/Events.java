@@ -390,11 +390,12 @@ public final class Events {
         float dx = s.px - bx, dy = s.py - by;
         if (dx * dx + dy * dy < BEACON_REGEN_R * BEACON_REGEN_R && s.hp < s.maxHp) s.hp = Math.min(s.maxHp, s.hp + dt); // +1 HP/s
         float hit = 0f;
+        float dm = 1f / (float) s.stage.dmgMul(s.time); // phase 13: the Beacon takes the base power, the damage curve is for the hero
         for (int i = 0; i < s.enemyN; i++) {
             Enemy en = s.enemies[i];
             if (!en.toBeacon || en.dead) continue;
             float ex = en.x - bx, ey = en.y - by, r = BEACON_R + en.radius;
-            if (ex * ex + ey * ey < r * r) hit += en.power * BEACON_DPS_K * dt;
+            if (ex * ex + ey * ey < r * r) hit += en.power * dm * BEACON_DPS_K * dt;
         }
         beaconHp -= hit;
         if (beaconHp <= 0f) {

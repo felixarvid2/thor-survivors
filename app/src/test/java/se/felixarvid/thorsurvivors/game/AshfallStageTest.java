@@ -1,5 +1,6 @@
 package se.felixarvid.thorsurvivors.game;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -38,7 +39,7 @@ public class AshfallStageTest {
         assertEquals("Cinder Flats", f.name);
         assertEquals("Deep Mines", m.name);
         assertEquals(30, f.rows.size());
-        assertEquals(23, m.rows.size()); // phase 12: the extra row is minute 28 (The First)
+        assertEquals(30, m.rows.size()); // phase 13: every minute has a row (the sparse table inherits the composition)
         // mods copied from the VS stages; Deep Mines is harder (speed x1.05 on top of the library's); phase 12 sets the health multipliers by hand
         StageDef forest = d.stages.get("FOREST"), library = d.stages.get("LIBRARY");
         assertEquals(forest.enemySpeed, f.enemySpeed, 1e-9);
@@ -52,14 +53,15 @@ public class AshfallStageTest {
         // wave tables of the design
         assertEquals(10, f.rows.get(0).minimum);
         assertEquals(1400, f.rows.get(0).frequencyMs);
-        assertEquals(140, f.rows.get(29).minimum);
+        assertEquals(255, f.rows.get(29).minimum); // phase 13: 300 x 0.85 (a boss row)
         assertEquals(8, f.rows.get(29).enemies.length);
         assertEquals("CARGO_LOADER", f.rows.get(5).bosses[0]);
         assertEquals(2, f.rows.get(25).bosses.length);
         assertEquals("THE_FIRST", m.rows.get(m.rows.size() - 2).bosses[0]); // 28:00 (phase 12)
-        // missing minutes inherit the previous row
-        assertEquals(46, m.rowAt(11 * 60).minimum);
-        assertEquals(52, m.rowAt(12 * 60).minimum);
+        // phase 13: from minute 5 every minute has a row (the composition of the sparse table is inherited), minimum from MIN_TABLE
+        assertEquals(54, m.rowAt(11 * 60).minimum);
+        assertEquals(58, m.rowAt(12 * 60).minimum);
+        assertArrayEquals(m.rowAt(10 * 60 + 59).enemies, m.rowAt(11 * 60).enemies);
         // treasure tables copied from the VS boss minutes
         assertNotNull(f.treasureAt(5 * 60 + 1));
         assertEquals(forest.treasureAt(10 * 60).chances[0], f.treasureAt(10 * 60).chances[0], 0.0);

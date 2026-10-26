@@ -135,7 +135,7 @@ ENEMIES = {
 # --------------------------------------------------------------------------- elites (design 5) and equipment (design 6)
 # phase 12: an elite every 125 s (floor 90 s), the XP of an elite x4 and its pile 0.7 levels (was 8 and 2.0: the elites alone were a
 # quarter of all XP late), the Armored modifier takes `armor` off every hit
-ELITES = dict(first=180, interval=125, min=90, shrinkPerMin=0.01, hpMul=6, damageMul=1.5, scale=1.4, speedMul=0.9,
+ELITES = dict(first=180, interval=125, min=60, shrinkPerMin=0.02, hpMul=6, damageMul=1.5, scale=1.4, speedMul=0.9,
               xpMul=4, dist=400, adds=6, mods2At=720, mods3At=1440, xpPileGems=5, xpPileLevels=0.7, armor=3)
 
 # --------------------------------------------------------------------------- phase 12 balance (heroes and main weapons)
@@ -290,6 +290,59 @@ MINES_ROWS = [
     row(28, 130, 375, "all", ["THE_FIRST"]), row(29, 140, 350, "all"),
 ]
 
+# --------------------------------------------------------------------------- phase 13 difficulty (measured with StageSoak, see TEKNIK "Svårighet")
+# Owner: "too few enemies for how strong you are, especially after minute 20". Measured before: the field was ~ `minimum` (80..140), the
+# hero cleared it in ~3 s (mean life = alive / kills per s) because the enemy HP was flat. Now: from DIFF_FROM on `minimum` follows
+# MIN_TABLE (every minute gets a row, the composition of the sparse Mines table is inherited) and, from minute 16, `frequency` follows
+# FREQ_TABLE; the HP and damage of wave enemies and elites grow along HP_CURVE / DMG_CURVE (StageDef.hpCurve / dmgCurve, Sim.initEnemy;
+# bosses and tentacles excluded); HORDES (StageDef.hordes, Sim.updateWaves) are 16 s bursts of cheap enemies between the bosses (a burst
+# every 150 s from 11:15, 75 s before or after each boss minute); the elites come faster late (ELITES.shrinkPerMin 0.02, floor 60 s).
+DIFF_FROM = 5                                   # minutes 0..4 are left as they were (the weak hero is already swamped there)
+MIN_TABLE = [[5, 40], [9, 40], [10, 50], [14, 65], [17, 110], [20, 190], [25, 270], [29, 300]]   # [minute, minimum alive]: linear between, flat after
+FREQ_TABLE = [[16, 600], [20, 480], [25, 380], [29, 300]]   # [minute, ms between spawn ticks] from minute 16 (earlier rows keep their original frequency)
+DMG_CURVE = [[0, 1.0], [18, 1.0], [24, 3.0], [30, 8.0]]   # [minute, multiplier on contact and bolt damage of wave enemies]
+HP_CURVE = [[0, 1.0], [15, 1.0], [20, 1.6], [25, 3.0], [30, 5.0]]   # [minute, multiplier on the wave enemy HP]
+HORDE_TYPES = ["COLONIST", "SPORE_HOUND"]
+# [start s, minimum]; nominal starts 675, 825, ..., 1575 (every 150 s), shifted where a burst would sit on a v1.3/v1.4 boss spawn or event:
+# 1275 -> 1245 (the Signal Tower runs 1260-1350), Flats 1425 -> 1420 (Lumen Surge starts 1440), Mines 1425 -> 1430 (after the Collapse
+# 1405-1430), 1575 -> Flats 1545 (before the Beacon 1560) / Mines 1600 (the Beacon 1530-1590 and Kade at 1590 are over their spawn)
+HORDES = {
+    "FLATS": [[675, 75], [825, 95], [975, 130], [1125, 180], [1245, 240], [1420, 290], [1545, 290]],
+    "MINES": [[675, 75], [825, 95], [975, 130], [1125, 180], [1245, 240], [1430, 290], [1600, 290]],
+}
+HORDE_LEN, HORDE_FREQ = 16, 250
+BOSS_ROW_MUL = 0.85                              # a row with a boss: minimum x this (the boss and its adds are the pressure there)
+
+
+def interp(table, x):
+    if x <= table[0][0]:
+        return table[0][1]
+    for (x0, y0), (x1, y1) in zip(table, table[1:]):
+        if x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return table[-1][1]
+
+
+def apply_difficulty(rows):
+    """Fills every minute from DIFF_FROM (the sparse Mines table inherits composition) and sets minimum / frequency by formula."""
+    out, last = [], None
+    by_min = {r["minute"]: r for r in rows}
+    for m in range(0, 30):
+        if m in by_min:
+            last = by_min[m]
+            r = dict(last)
+        elif m >= DIFF_FROM:
+            r = dict(last, minute=m, bosses=[])
+        else:
+            continue
+        if m >= DIFF_FROM:
+            r["minimum"] = int(round(max(MIN_TABLE[0][1], interp(MIN_TABLE, m) * (BOSS_ROW_MUL if r["bosses"] else 1.0))))
+            if m >= FREQ_TABLE[0][0]:
+                r["frequency"] = int(min(r["frequency"], round(interp(FREQ_TABLE, m))))
+        out.append(r)
+    return out
+
+
 # which Vampire Survivors treasure row each boss minute copies
 # v1.3 timed bosses (seconds into the run): they come between the wave-row bosses, see Sim.updateTimedBosses
 TIMED_BOSSES = {
@@ -336,7 +389,7 @@ def main():
         mods_fn(mods)
         tre = treasure_rows(vs, treasure_map)
         out_rows = []
-        for r in rows:
+        for r in apply_difficulty(rows):
             r = dict(r)
             if r["minute"] in tre:
                 t = tre[r["minute"]]
@@ -363,6 +416,11 @@ def main():
                             spawn_type="HORIZONTAL", starting=12)
     for key, fade in XP_FADE.items():
         stages[key]["xpFade"] = fade
+    for key in ("FLATS", "MINES"):
+        stages[key]["hpCurve"] = HP_CURVE
+        stages[key]["dmgCurve"] = DMG_CURVE
+        stages[key]["hordes"] = dict(types=HORDE_TYPES, bursts=[dict(at=a, length=HORDE_LEN, minimum=mn, frequency=HORDE_FREQ)
+                                                              for a, mn in HORDES[key]])
     stages["MINES"]["tentacles"] = dict(minutes=[8, 13, 18, 23, 27], length=20, every=4, count=3, radius=400)
     for key, lst in TIMED_BOSSES.items():
         stages[key]["timedBosses"] = [dict(t=t, boss=b) for t, b in lst]

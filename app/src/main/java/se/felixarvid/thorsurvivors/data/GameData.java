@@ -180,6 +180,16 @@ public final class GameData {
                 numbers(o.optJSONObject("params")), o.optBoolean("boss", false));
     }
 
+    private static double[][] curve(JSONArray a) throws JSONException {
+        if (a == null) return new double[0][];
+        double[][] c = new double[a.length()][2];
+        for (int i = 0; i < c.length; i++) {
+            c[i][0] = a.getJSONArray(i).getDouble(0) * 60.0;
+            c[i][1] = a.getJSONArray(i).getDouble(1);
+        }
+        return c;
+    }
+
     private static StageDef parseOverlayStage(String key, JSONObject o) throws JSONException {
         JSONObject mods = o.optJSONObject("mods");
         if (mods == null) mods = new JSONObject();
@@ -201,6 +211,21 @@ public final class GameData {
             sd.xpFadeFrom = fade.optDouble("from", 0);
             sd.xpFadeTo = fade.optDouble("to", 0);
             sd.xpFadeEnd = fade.optDouble("end", 1);
+        }
+        sd.hpCurve = curve(o.optJSONArray("hpCurve")); // [[minute, multiplier], ...]
+        sd.dmgCurve = curve(o.optJSONArray("dmgCurve"));
+        JSONObject hd = o.optJSONObject("hordes");
+        if (hd != null) {
+            sd.hordeTypes = strings(hd.optJSONArray("types")).toArray(new String[0]);
+            JSONArray bursts = hd.optJSONArray("bursts");
+            sd.hordes = new double[bursts == null ? 0 : bursts.length()][4];
+            for (int i = 0; i < sd.hordes.length; i++) {
+                JSONObject b = bursts.getJSONObject(i);
+                sd.hordes[i][0] = b.getDouble("at");
+                sd.hordes[i][1] = b.optDouble("length", 18);
+                sd.hordes[i][2] = b.optDouble("minimum", 250);
+                sd.hordes[i][3] = b.optDouble("frequency", 300);
+            }
         }
         JSONObject tn = o.optJSONObject("tentacles");
         if (tn != null) {

@@ -219,7 +219,7 @@
     },
     {
      "minute": 5,
-     "minimum": 20,
+     "minimum": 40,
      "frequency": 1100,
      "enemies": [
       "SPORE_HOUND",
@@ -248,7 +248,7 @@
     },
     {
      "minute": 6,
-     "minimum": 24,
+     "minimum": 40,
      "frequency": 1000,
      "enemies": [
       "COLONIST",
@@ -259,7 +259,7 @@
     },
     {
      "minute": 7,
-     "minimum": 30,
+     "minimum": 40,
      "frequency": 900,
      "enemies": [
       "COLONIST",
@@ -270,7 +270,7 @@
     },
     {
      "minute": 8,
-     "minimum": 32,
+     "minimum": 40,
      "frequency": 850,
      "enemies": [
       "SPORE_HOUND",
@@ -282,7 +282,7 @@
     },
     {
      "minute": 9,
-     "minimum": 36,
+     "minimum": 40,
      "frequency": 800,
      "enemies": [
       "COLONIST",
@@ -293,7 +293,7 @@
     },
     {
      "minute": 10,
-     "minimum": 40,
+     "minimum": 42,
      "frequency": 800,
      "enemies": [
       "SPORE_HOUND",
@@ -322,7 +322,7 @@
     },
     {
      "minute": 11,
-     "minimum": 44,
+     "minimum": 54,
      "frequency": 750,
      "enemies": [
       "COLONIST",
@@ -333,7 +333,7 @@
     },
     {
      "minute": 12,
-     "minimum": 48,
+     "minimum": 58,
      "frequency": 750,
      "enemies": [
       "SPORE_HOUND",
@@ -345,7 +345,7 @@
     },
     {
      "minute": 13,
-     "minimum": 52,
+     "minimum": 61,
      "frequency": 700,
      "enemies": [
       "COLONIST",
@@ -356,7 +356,7 @@
     },
     {
      "minute": 14,
-     "minimum": 56,
+     "minimum": 65,
      "frequency": 700,
      "enemies": [
       "SPORE_HOUND",
@@ -367,7 +367,7 @@
     },
     {
      "minute": 15,
-     "minimum": 60,
+     "minimum": 68,
      "frequency": 650,
      "enemies": [
       "COLONIST",
@@ -397,8 +397,8 @@
     },
     {
      "minute": 16,
-     "minimum": 64,
-     "frequency": 650,
+     "minimum": 95,
+     "frequency": 600,
      "enemies": [
       "SPORE_HOUND",
       "SECURITY_DRONE",
@@ -408,8 +408,8 @@
     },
     {
      "minute": 17,
-     "minimum": 68,
-     "frequency": 600,
+     "minimum": 110,
+     "frequency": 570,
      "enemies": [
       "COLONIST",
       "SERGEANT",
@@ -419,8 +419,8 @@
     },
     {
      "minute": 18,
-     "minimum": 72,
-     "frequency": 600,
+     "minimum": 137,
+     "frequency": 540,
      "enemies": [
       "SPORE_HOUND",
       "SPORE_CARRIER",
@@ -431,8 +431,8 @@
     },
     {
      "minute": 19,
-     "minimum": 76,
-     "frequency": 600,
+     "minimum": 163,
+     "frequency": 510,
      "enemies": [
       "COLONIST",
       "SMELTER",
@@ -442,8 +442,8 @@
     },
     {
      "minute": 20,
-     "minimum": 80,
-     "frequency": 550,
+     "minimum": 162,
+     "frequency": 480,
      "enemies": [
       "SPORE_HOUND",
       "SERGEANT",
@@ -472,8 +472,8 @@
     },
     {
      "minute": 21,
-     "minimum": 84,
-     "frequency": 550,
+     "minimum": 206,
+     "frequency": 460,
      "enemies": [
       "COLONIST",
       "SECURITY_DRONE",
@@ -483,8 +483,8 @@
     },
     {
      "minute": 22,
-     "minimum": 88,
-     "frequency": 500,
+     "minimum": 222,
+     "frequency": 440,
      "enemies": [
       "SPORE_HOUND",
       "SPORE_CARRIER",
@@ -494,8 +494,8 @@
     },
     {
      "minute": 23,
-     "minimum": 92,
-     "frequency": 500,
+     "minimum": 238,
+     "frequency": 420,
      "enemies": [
       "COLONIST",
       "SERGEANT",
@@ -506,8 +506,8 @@
     },
     {
      "minute": 24,
-     "minimum": 96,
-     "frequency": 500,
+     "minimum": 254,
+     "frequency": 400,
      "enemies": [
       "SPORE_HOUND",
       "SECURITY_DRONE",
@@ -518,8 +518,8 @@
     },
     {
      "minute": 25,
-     "minimum": 100,
-     "frequency": 450,
+     "minimum": 230,
+     "frequency": 380,
      "enemies": [
       "COLONIST",
       "SMELTER",
@@ -548,8 +548,8 @@
     },
     {
      "minute": 26,
-     "minimum": 110,
-     "frequency": 450,
+     "minimum": 278,
+     "frequency": 360,
      "enemies": [
       "SPORE_HOUND",
       "SERGEANT",
@@ -560,8 +560,8 @@
     },
     {
      "minute": 27,
-     "minimum": 120,
-     "frequency": 400,
+     "minimum": 285,
+     "frequency": 340,
      "enemies": [
       "COLONIST",
       "SMELTER",
@@ -572,8 +572,8 @@
     },
     {
      "minute": 28,
-     "minimum": 130,
-     "frequency": 400,
+     "minimum": 292,
+     "frequency": 320,
      "enemies": [
       "SPORE_HOUND",
       "WELDER",
@@ -584,8 +584,8 @@
     },
     {
      "minute": 29,
-     "minimum": 140,
-     "frequency": 350,
+     "minimum": 255,
+     "frequency": 300,
      "enemies": [
       "COLONIST",
       "SPORE_HOUND",
@@ -622,6 +622,96 @@
     "from": 420,
     "to": 1800,
     "end": 0.15
+   },
+   "hpCurve": [
+    [
+     0,
+     1.0
+    ],
+    [
+     15,
+     1.0
+    ],
+    [
+     20,
+     1.6
+    ],
+    [
+     25,
+     3.0
+    ],
+    [
+     30,
+     5.0
+    ]
+   ],
+   "dmgCurve": [
+    [
+     0,
+     1.0
+    ],
+    [
+     18,
+     1.0
+    ],
+    [
+     24,
+     3.0
+    ],
+    [
+     30,
+     8.0
+    ]
+   ],
+   "hordes": {
+    "types": [
+     "COLONIST",
+     "SPORE_HOUND"
+    ],
+    "bursts": [
+     {
+      "at": 675,
+      "length": 16,
+      "minimum": 75,
+      "frequency": 250
+     },
+     {
+      "at": 825,
+      "length": 16,
+      "minimum": 95,
+      "frequency": 250
+     },
+     {
+      "at": 975,
+      "length": 16,
+      "minimum": 130,
+      "frequency": 250
+     },
+     {
+      "at": 1125,
+      "length": 16,
+      "minimum": 180,
+      "frequency": 250
+     },
+     {
+      "at": 1245,
+      "length": 16,
+      "minimum": 240,
+      "frequency": 250
+     },
+     {
+      "at": 1420,
+      "length": 16,
+      "minimum": 290,
+      "frequency": 250
+     },
+     {
+      "at": 1545,
+      "length": 16,
+      "minimum": 290,
+      "frequency": 250
+     }
+    ]
    },
    "timedBosses": [
     {
@@ -733,7 +823,7 @@
     },
     {
      "minute": 5,
-     "minimum": 22,
+     "minimum": 40,
      "frequency": 1000,
      "enemies": [
       "SPORE_HOUND",
@@ -762,7 +852,7 @@
     },
     {
      "minute": 6,
-     "minimum": 28,
+     "minimum": 40,
      "frequency": 900,
      "enemies": [
       "COLONIST",
@@ -773,7 +863,7 @@
     },
     {
      "minute": 7,
-     "minimum": 34,
+     "minimum": 40,
      "frequency": 850,
      "enemies": [
       "SPORE_HOUND",
@@ -784,7 +874,7 @@
     },
     {
      "minute": 8,
-     "minimum": 38,
+     "minimum": 40,
      "frequency": 800,
      "enemies": [
       "COLONIST",
@@ -795,7 +885,7 @@
     },
     {
      "minute": 9,
-     "minimum": 42,
+     "minimum": 40,
      "frequency": 750,
      "enemies": [
       "SPORE_HOUND",
@@ -806,7 +896,7 @@
     },
     {
      "minute": 10,
-     "minimum": 46,
+     "minimum": 42,
      "frequency": 750,
      "enemies": [
       "COLONIST",
@@ -834,8 +924,30 @@
      }
     },
     {
+     "minute": 11,
+     "minimum": 54,
+     "frequency": 750,
+     "enemies": [
+      "COLONIST",
+      "SECURITY_DRONE",
+      "SPORE_CARRIER"
+     ],
+     "bosses": []
+    },
+    {
      "minute": 12,
-     "minimum": 52,
+     "minimum": 58,
+     "frequency": 700,
+     "enemies": [
+      "SPORE_HOUND",
+      "SERGEANT",
+      "VIRE"
+     ],
+     "bosses": []
+    },
+    {
+     "minute": 13,
+     "minimum": 61,
      "frequency": 700,
      "enemies": [
       "SPORE_HOUND",
@@ -846,7 +958,7 @@
     },
     {
      "minute": 14,
-     "minimum": 60,
+     "minimum": 65,
      "frequency": 650,
      "enemies": [
       "COLONIST",
@@ -857,7 +969,7 @@
     },
     {
      "minute": 15,
-     "minimum": 64,
+     "minimum": 68,
      "frequency": 600,
      "enemies": [
       "SPORE_HOUND",
@@ -885,9 +997,31 @@
      }
     },
     {
-     "minute": 17,
-     "minimum": 72,
+     "minute": 16,
+     "minimum": 95,
      "frequency": 600,
+     "enemies": [
+      "SPORE_HOUND",
+      "SECURITY_DRONE",
+      "SPORE_CARRIER"
+     ],
+     "bosses": []
+    },
+    {
+     "minute": 17,
+     "minimum": 110,
+     "frequency": 570,
+     "enemies": [
+      "COLONIST",
+      "SMELTER",
+      "VIRE"
+     ],
+     "bosses": []
+    },
+    {
+     "minute": 18,
+     "minimum": 137,
+     "frequency": 540,
      "enemies": [
       "COLONIST",
       "SMELTER",
@@ -897,8 +1031,8 @@
     },
     {
      "minute": 19,
-     "minimum": 80,
-     "frequency": 550,
+     "minimum": 163,
+     "frequency": 510,
      "enemies": [
       "SPORE_HOUND",
       "WELDER",
@@ -908,8 +1042,8 @@
     },
     {
      "minute": 20,
-     "minimum": 84,
-     "frequency": 550,
+     "minimum": 162,
+     "frequency": 480,
      "enemies": [
       "SERGEANT",
       "SMELTER",
@@ -936,9 +1070,31 @@
      }
     },
     {
+     "minute": 21,
+     "minimum": 206,
+     "frequency": 460,
+     "enemies": [
+      "SERGEANT",
+      "SMELTER",
+      "VIRE"
+     ],
+     "bosses": []
+    },
+    {
      "minute": 22,
-     "minimum": 92,
-     "frequency": 500,
+     "minimum": 222,
+     "frequency": 440,
+     "enemies": [
+      "SPORE_HOUND",
+      "SPORE_CARRIER",
+      "WELDER"
+     ],
+     "bosses": []
+    },
+    {
+     "minute": 23,
+     "minimum": 238,
+     "frequency": 420,
      "enemies": [
       "SPORE_HOUND",
       "SPORE_CARRIER",
@@ -948,8 +1104,8 @@
     },
     {
      "minute": 24,
-     "minimum": 100,
-     "frequency": 450,
+     "minimum": 254,
+     "frequency": 400,
      "enemies": [
       "COLONIST",
       "SMELTER",
@@ -960,8 +1116,8 @@
     },
     {
      "minute": 25,
-     "minimum": 110,
-     "frequency": 450,
+     "minimum": 230,
+     "frequency": 380,
      "enemies": [
       "SPORE_HOUND",
       "WELDER",
@@ -990,9 +1146,20 @@
      }
     },
     {
+     "minute": 26,
+     "minimum": 278,
+     "frequency": 360,
+     "enemies": [
+      "SPORE_HOUND",
+      "WELDER",
+      "SMELTER"
+     ],
+     "bosses": []
+    },
+    {
      "minute": 27,
-     "minimum": 120,
-     "frequency": 400,
+     "minimum": 285,
+     "frequency": 340,
      "enemies": [
       "COLONIST",
       "SPORE_HOUND",
@@ -1007,8 +1174,8 @@
     },
     {
      "minute": 28,
-     "minimum": 130,
-     "frequency": 375,
+     "minimum": 249,
+     "frequency": 320,
      "enemies": [
       "COLONIST",
       "SPORE_HOUND",
@@ -1041,8 +1208,8 @@
     },
     {
      "minute": 29,
-     "minimum": 140,
-     "frequency": 350,
+     "minimum": 300,
+     "frequency": 300,
      "enemies": [
       "COLONIST",
       "SPORE_HOUND",
@@ -1061,6 +1228,96 @@
     "from": 360,
     "to": 1500,
     "end": 0.08
+   },
+   "hpCurve": [
+    [
+     0,
+     1.0
+    ],
+    [
+     15,
+     1.0
+    ],
+    [
+     20,
+     1.6
+    ],
+    [
+     25,
+     3.0
+    ],
+    [
+     30,
+     5.0
+    ]
+   ],
+   "dmgCurve": [
+    [
+     0,
+     1.0
+    ],
+    [
+     18,
+     1.0
+    ],
+    [
+     24,
+     3.0
+    ],
+    [
+     30,
+     8.0
+    ]
+   ],
+   "hordes": {
+    "types": [
+     "COLONIST",
+     "SPORE_HOUND"
+    ],
+    "bursts": [
+     {
+      "at": 675,
+      "length": 16,
+      "minimum": 75,
+      "frequency": 250
+     },
+     {
+      "at": 825,
+      "length": 16,
+      "minimum": 95,
+      "frequency": 250
+     },
+     {
+      "at": 975,
+      "length": 16,
+      "minimum": 130,
+      "frequency": 250
+     },
+     {
+      "at": 1125,
+      "length": 16,
+      "minimum": 180,
+      "frequency": 250
+     },
+     {
+      "at": 1245,
+      "length": 16,
+      "minimum": 240,
+      "frequency": 250
+     },
+     {
+      "at": 1430,
+      "length": 16,
+      "minimum": 290,
+      "frequency": 250
+     },
+     {
+      "at": 1600,
+      "length": 16,
+      "minimum": 290,
+      "frequency": 250
+     }
+    ]
    },
    "tentacles": {
     "minutes": [
@@ -2220,8 +2477,8 @@
  "elites": {
   "first": 180,
   "interval": 125,
-  "min": 90,
-  "shrinkPerMin": 0.01,
+  "min": 60,
+  "shrinkPerMin": 0.02,
   "hpMul": 6,
   "damageMul": 1.5,
   "scale": 1.4,

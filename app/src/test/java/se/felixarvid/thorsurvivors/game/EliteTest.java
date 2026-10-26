@@ -65,22 +65,22 @@ public class EliteTest {
                 double gap = r.eliteAt.get(i) - r.eliteAt.get(i - 1);
                 double want = Elites.interval(d, r.eliteAt.get(i - 1));
                 assertTrue(stage + " gap " + gap + " wanted " + want + " +-10 s", Math.abs(gap - want) <= 10.0);
-                assertTrue("never over 125 s + 10 s, never under the 90 s floor - 10 s: " + gap, gap <= 135 && gap >= 80);
+                assertTrue("never over 125 s + 10 s, never under the 60 s floor - 10 s: " + gap, gap <= 135 && gap >= 50);
             }
-            // 180, then 120 s shrinking to 100 s at the end: 15 to 17 elites in 30 minutes (phase 12: 125 s, floor 90 s)
-            assertTrue(stage + " elites " + r.eliteAt.size(), r.eliteAt.size() >= 15 && r.eliteAt.size() <= 18);
+            // 180, then 120 s shrinking to 100 s at the end: 18 to 22 elites in 30 minutes (phase 13: 125 s less 2% per minute, floor 60 s)
+            assertTrue(stage + " elites " + r.eliteAt.size(), r.eliteAt.size() >= 18 && r.eliteAt.size() <= 23);
             assertTrue("they die too: " + r.eliteKilled, r.eliteKilled >= r.eliteAt.size() - 2);
         }
     }
 
     @Test
-    public void theIntervalShrinksOnePercentAMinuteDownToTheFloor() throws Exception {
+    public void theIntervalShrinksTwoPercentAMinuteDownToTheFloor() throws Exception {
         GameData d = TestData.load();
         assertEquals(125f, Elites.interval(d, 0), 1e-3f);
-        assertEquals(112.5f, Elites.interval(d, 600), 1e-3f);
-        assertEquals("125 x 0.7 = 87.5 is under the floor", 90f, Elites.interval(d, 1800), 1e-3f);
-        assertEquals(100f, Elites.interval(d, 1200), 1e-3f);
-        assertEquals("the floor", 90f, Elites.interval(d, 6000), 1e-3f);
+        assertEquals(100f, Elites.interval(d, 600), 1e-3f);
+        assertEquals("125 x 0.6 = 75", 75f, Elites.interval(d, 1200), 1e-3f);
+        assertEquals("125 x 0.4 = 50 is under the floor", 60f, Elites.interval(d, 1800), 1e-3f);
+        assertEquals("the floor", 60f, Elites.interval(d, 6000), 1e-3f);
     }
 
     @Test
