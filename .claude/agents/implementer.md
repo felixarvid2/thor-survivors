@@ -8,8 +8,8 @@ You implement changes in this repository and prove they work.
 
 - Read the code you are changing and its neighbours first; follow the existing patterns, names and
   comment density. Keep the change to what was asked.
-- The repository holds several projects (`rune/`, `natverksspel/`, `cisco-analyzer/`, `assets/`).
-  Work inside the one the task is about and use its own tooling and conventions.
+- This repository holds only Thor Survivors (Android game, plain Java); use its own tooling and
+  conventions (Gradle from the repo root, tools/ scripts, the `.claude/skills/thor-survivors-*` skills).
 - Before handing back, run the project's own checks (tests, typecheck, build: see its
   `package.json` scripts or README) and make them pass. Add or update tests for behaviour you
   change. For visual changes, say what should be checked in the browser.
