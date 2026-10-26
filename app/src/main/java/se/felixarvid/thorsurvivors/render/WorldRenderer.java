@@ -33,6 +33,7 @@ import se.felixarvid.thorsurvivors.game.Entities.Projectile;
 import se.felixarvid.thorsurvivors.data.EnemyDef;
 import se.felixarvid.thorsurvivors.game.EnemyType;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
+import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.WorldGen;
@@ -61,7 +62,7 @@ public final class WorldRenderer {
     private static final int MAX_TEXTS_DRAWN = 25;
     /** Hit flashes turn into a soft brighten once this many enemies flash at the same time (no white blob). */
     private static final int MANY_FLASHING = 4;
-    private static final int MAX_PROPS = 600, DEST_PROP = -1, FIND_PROP = -2;
+    private static final int MAX_PROPS = 600, DEST_PROP = -1, FIND_PROP = -2, MERCHANT_PROP = -3;
     private static final float FLASH_ON = 0.08f, FLASH_GAP = 0.15f, HIT_TINT = 0.12f, VIGNETTE = 0.35f;
     private static final float HIT_CLIP = 0.18f, ATTACK_CLIP = 0.38f, DEATH_CLIP = 0.7f, BOSS_DEATH_CLIP = 1.3f, FADE = 0.5f;
     private static final int STATE = 4096;
@@ -289,6 +290,7 @@ public final class WorldRenderer {
             if (!menu) {
                 gatherDynamicLights(s);
                 gatherFindLights(s);
+                gatherMerchantLight(s);
             }
             gatherPropLights(c, menu);
             if (!DBG_NO_MASK) light.drawFull(c, w, h);
@@ -310,6 +312,15 @@ public final class WorldRenderer {
             float pu = 0.85f + 0.15f * (float) Math.sin(now * 3.0 + i * 1.3);
             light.add(px, py - 20f * ks, 110f * sc * pu, 0.9f, s.findKind[i] == Sim.FIND_WEAPON ? Lighting.GREEN : Lighting.NEUTRAL);
         }
+    }
+
+    /** The Salvager's amber lantern: a warm pool of light around the stall so it shows in the dark. */
+    private void gatherMerchantLight(Sim s) {
+        if (!s.merchant.present || light.n >= Lighting.MAX - 3) return;
+        int px = sx(s.merchant.x), py = sy(s.merchant.y);
+        if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) return;
+        float pu = 0.9f + 0.1f * (float) Math.sin(now * 2.6);
+        light.add(px, py - 30f * ks, 150f * sc * pu, 0.95f, Lighting.WARM);
     }
 
     /** Fire, flashes and blasts light the ground around them (r70 orange, explosions r150 for a moment). */
@@ -459,6 +470,10 @@ public final class WorldRenderer {
             drawFind(c, s, prA[i], px, py);
             return;
         }
+        if (prKind[i] == MERCHANT_PROP) {
+            drawMerchant(c, s, px, py);
+            return;
+        }
         if (prKind[i] == DEST_PROP) {
             im = s == null ? null : atlas.img(destImg(s.destType(), s.destKind[prA[i]]));
         } else {
@@ -499,6 +514,59 @@ public final class WorldRenderer {
         float is = 38f * ks, iy = py - 78f * ks + (float) Math.sin(now * 2.5 + i) * 4f * ks;
         atlas.drawIcon(c, null, weapon ? "KNIFE" : "combat_helm", px, iy, is);
         atlas.drawIcon(c, null, weapon ? "frame_magic" : "frame_rare", px, iy, is * 1.25f);
+    }
+
+    private static final int AMBER_RGB = 0xFFB347;
+
+    /** The interact radius on the ground around the Salvager: a pulsing amber ring (ellipse like the other ground rings). */
+    private void drawMerchantRing(Canvas c, Sim s, float t) {
+        if (!s.merchant.present) return;
+        int cx = sx(s.merchant.x), cy = sy(s.merchant.y);
+        if (cx < -300 || cx > scrW + 300 || cy < -300 || cy > scrH + 300) return;
+        float pu = 0.5f + 0.5f * (float) Math.sin(t * 3.2f), r = Merchant.TALK_R * sc;
+        fill.setColor(((int) (22 + 22 * pu) << 24) | AMBER_RGB);
+        c.drawOval(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.55f, fill);
+        stroke.setStrokeWidth(2.5f * ks);
+        stroke.setColor(((int) (140 + 100 * pu) << 24) | AMBER_RGB);
+        c.drawOval(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.55f, stroke);
+        float r2 = r * (1.05f + 0.35f * pu); // a second ring breathes outwards
+        stroke.setStrokeWidth(1.5f * ks);
+        stroke.setColor(((int) (90 * (1f - pu)) << 24) | AMBER_RGB);
+        c.drawOval(cx - r2, cy - r2 * 0.55f, cx + r2, cy + r2 * 0.55f, stroke);
+    }
+
+    /** The Salvager: the baked technician (idle, facing the hero), a lantern glow and the label SALVAGER over its head. */
+    private void drawMerchant(Canvas c, Sim s, int px, int py) {
+        Merchant mc = s.merchant;
+        float g = 0.5f + 0.5f * (float) Math.sin(now * 2.6);
+        glow(c, atlas.img("vfx.energy_glow_0"), px, py - 30f * ks, 190f * ks, 0f, fOrange, (int) (70 + 50 * g));
+        drawShadow(c, px, py - 2, Math.round(24 * ks));
+        Model m = atlas.model("technician");
+        int head;
+        Clip idle = m == null ? null : m.clip(SpriteAtlas.C_IDLE);
+        if (idle != null) {
+            int dir = dirOf(s.px - mc.x, s.py - mc.y);
+            bmp.setColorFilter(shadeAt(px, py - 30f * ks, FLOOR_PLAYER));
+            bmp.setAlpha(255);
+            drawFrameAt(c, m, SpriteAtlas.C_IDLE, dir, SpriteAtlas.frameAt(idle, (float) now, 1.5f), px, py, ks, 1f, 1f, 0, bmp);
+            bmp.setColorFilter(null);
+            head = Math.round(m.headPx * ks);
+        } else { // no technician art shipped: the control terminal stands in
+            Img im = atlas.img("prop.control_terminal");
+            head = 70;
+            if (im != null) {
+                bmp.setColorFilter(null);
+                bmp.setAlpha(255);
+                blit(c, im, px, py, ks, bmp);
+                head = Math.round(im.h() * ks);
+            }
+        }
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(20f * ks);
+        text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+        text.setColor(0xFFFFB347);
+        c.drawText("SALVAGER", px, py - head - 14f * ks + (float) Math.sin(now * 2.2) * 3f * ks, text);
+        text.clearShadowLayer();
     }
 
     private static String destImg(String type, int kind) {
@@ -773,6 +841,7 @@ public final class WorldRenderer {
         }
 
         drawHazards(c, s, t);
+        drawMerchantRing(c, s, t);
 
         // 2. pickups, y-sorted (flat on the ground, under the creatures); corpses first
         drawCorpses(c, s);
@@ -832,6 +901,10 @@ public final class WorldRenderer {
             int px = sx(s.findX[i]), py = sy(s.findY[i]);
             if (px < -m || px > w + m || py < -m - 300 || py > h + m) continue;
             addProp(FIND_PROP, i, px, py);
+        }
+        if (s.merchant.present && propN < MAX_PROPS) {
+            int px = sx(s.merchant.x), py = sy(s.merchant.y);
+            if (px >= -m && px <= w + m && py >= -m - 200 && py <= h + m) addProp(MERCHANT_PROP, 0, px, py);
         }
         sort(prKey, prIdx, propN);
         int pj = 0;
@@ -2105,7 +2178,8 @@ public final class WorldRenderer {
             c.drawText("LUMEN TIDE", w / 2f, h * 0.35f, big);
             return;
         }
-        if (ph == Engine.PH_LEVELUP || ph == Engine.PH_PAUSED || ph == Engine.PH_CHEST || ph == Engine.PH_RESULT || ph == Engine.PH_EQUIP) {
+        if (ph == Engine.PH_LEVELUP || ph == Engine.PH_PAUSED || ph == Engine.PH_CHEST || ph == Engine.PH_RESULT || ph == Engine.PH_EQUIP
+                || ph == Engine.PH_MERCHANT) {
             topUi.drawPhase(c, w, h, e, dual);
         }
     }

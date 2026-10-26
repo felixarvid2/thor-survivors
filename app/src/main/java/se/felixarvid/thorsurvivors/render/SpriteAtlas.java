@@ -192,7 +192,7 @@ public final class SpriteAtlas {
             }
             m.clips[id] = k;
         }
-        Clip first = m.clips[C_WALK] != null ? m.clips[C_WALK] : m.clips[C_STATIC];
+        Clip first = m.clips[C_WALK] != null ? m.clips[C_WALK] : m.clips[C_STATIC] != null ? m.clips[C_STATIC] : m.clips[C_IDLE]; // idle: the Salvager
         if (first != null) {
             for (int d = 0; d < 8; d++) {
                 int fo = d * first.count * 6;
