@@ -23,7 +23,7 @@ No class names, file names, PR numbers or build jargon.
    `game_data.json` changes for before -> after values. Verify a value before quoting it.
 4. Sort into: **Nytt** (new weapon, enemy, stage, screen, sound), **Ändrat** (balance and feel, with before -> after
    numbers the player can understand: "Whip: 20 % mer skada på nivå 3"), **Fixat** (what the player saw go wrong, not the
-   technical cause: "Fiender blinkar inte längre när de blir träffade"), **Prestanda**, **Känt** (known issues, README's
+   technical cause: "Fiender blinkar inte längre när de blir träffade"), **Prestanda**, **Känt** (known issues, docs/TEKNIK.md's
    "Ej testat på riktig hårdvara" if still true and relevant).
 5. Merge many small commits about one thing into one line. Skip refactors, tests, tooling and docs. Do not invent
    features: every line must trace to a commit or diff you read.

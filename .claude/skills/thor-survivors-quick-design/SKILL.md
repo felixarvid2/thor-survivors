@@ -57,7 +57,7 @@ Behaviour (Sim): exact rules, formulas with units (ms, world units, per second),
   crit, knockback, 60 vs 120 Hz (dt-scaled), evolution and its passive.
 Visuals: sprite source or procedural drawing, effect kind, readability on the 560-unit-high view.
 Sound: existing event id or a new one (name, line in AUDIO_SPEC.md, limiter values).
-Text: level-up card line (Describe), README line to update (Swedish).
+Text: level-up card line (Describe), docs/TEKNIK.md line to update (Swedish).
 Tests: named JVM tests (SimSmokeTest/WeaponBehaviourTest style, seeded, stationary dummies) with the expected numbers;
   screenshot if visual (skill thor-survivors-screenshots).
 Acceptance: binary checks, e.g. "level 3 deals 1.5x level 1 damage per hit", "never more than 12 live projectiles".

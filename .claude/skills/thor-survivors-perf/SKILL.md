@@ -8,7 +8,7 @@ description: Performance budgets and measuring for Thor Survivors on the AYN Tho
 Adapted from Claude-Code-Game-Studios (MIT), see .claude/CCGS-LICENSE.txt.
 
 Never optimise without a measurement, and never report headroom against a budget nobody measured: unmeasured is
-`NOT MEASURED`. README lists 60 fps with about 300 enemies on the Thor as untested on hardware.
+`NOT MEASURED`. docs/TEKNIK.md lists 60 fps with about 300 enemies on the Thor as untested on hardware.
 
 ## Budgets (proposals; the owner may change them)
 

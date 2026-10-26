@@ -1,13 +1,13 @@
 ---
 name: thor-survivors-release
-description: Ship a change to Thor Survivors (felixarvid2/thor-survivors, repo root) - Android SDK setup in a fresh container, Gradle build and unit tests, rebuilding dist/thor-survivors.apk, README update, PR and merge to main, and the APK handed to the owner. Use for any change to this repo that is to be shipped, when the APK in dist/ must be refreshed, or when the Android SDK is missing.
+description: Ship a change to Thor Survivors (felixarvid2/thor-survivors, repo root) - Android SDK setup in a fresh container, Gradle build and unit tests, rebuilding dist/thor-survivors.apk, docs update, PR and merge to main, and the APK handed to the owner. Use for any change to this repo that is to be shipped, when the APK in dist/ must be refreshed, or when the Android SDK is missing.
 ---
 
 # Shipping Thor Survivors
 
 The game is plain Java Android (no dependencies), package `se.felixarvid.thorsurvivors`, minSdk 29, targetSdk 35,
 for the AYN Thor dual-screen handheld. The owner writes in Swedish; answer in Swedish.
-Standing workflow: implement -> README -> build and tests -> dist APK -> commit -> push -> PR -> merge -> summary.
+Standing workflow: implement -> docs/TEKNIK.md -> build and tests -> dist APK -> commit -> push -> PR -> merge -> summary.
 
 ## SDK (fresh container only)
 
@@ -23,7 +23,7 @@ Standing workflow: implement -> README -> build and tests -> dist APK -> commit 
 - `./gradlew assembleDebug testDebugUnitTest`
 - Add `--offline` once dependencies are cached. Google Maven or Maven Central may answer HTTP 429: wait 10 s, retry.
 - Count results from `app/build/test-results/testDebugUnitTest/*.xml` (sum `tests=`, check `failures=` and `errors=`).
-  `README.md` states the count (89 at last update); update it when the number changes.
+  `docs/TEKNIK.md` states the count; update it when the number changes.
 - Tests use the real `app/src/main/assets/game_data.json`. Robolectric NATIVE graphics tests need
   `android.useAndroidX=true` (already in `gradle.properties`).
 - Known pitfall: a test that depends on random aim must give the weapon a target. Fire Wand (`FIREBALL`) fires a
@@ -42,7 +42,8 @@ Standing workflow: implement -> README -> build and tests -> dist APK -> commit 
 - Balance data: `python3 tools/build_data.py /path/to/REA/data` writes `app/src/main/assets/game_data.json`.
   The source is commercial game data: personal use only, never publish the app.
 - Sprites: see the `thor-survivors-sprites` skill. Visual checks: see `thor-survivors-screenshots`.
-- Update `README.md` (Swedish) whenever behaviour changes.
+- Update `docs/TEKNIK.md` (Swedish) whenever behaviour changes. `README.md` is only a short player-facing
+  description of the game: no stages, numbers or technical details there.
 
 ## Git and PR
 
