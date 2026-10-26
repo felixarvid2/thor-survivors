@@ -21,6 +21,7 @@ import se.felixarvid.thorsurvivors.game.Equipment;
 import se.felixarvid.thorsurvivors.game.Input;
 import se.felixarvid.thorsurvivors.game.Inventory;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
+import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.Offer;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas;
@@ -220,6 +221,10 @@ public final class PanelRenderer {
             case Engine.PH_EQUIP:
                 if (compact) dimOverlay(c, w, h, 0x99000000);
                 equipChoice(c, w, h);
+                break;
+            case Engine.PH_MERCHANT:
+                if (compact) dimOverlay(c, w, h, 0x99000000);
+                merchant(c, w, h);
                 break;
             case Engine.PH_RESULT:
                 if (compact) dimOverlay(c, w, h, 0xAA000000);
@@ -799,6 +804,7 @@ public final class PanelRenderer {
             }
         }
         minimapFinds(c, s, cx, cy, kk, side);
+        minimapMerchant(c, s, cx, cy, kk, side);
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -853,6 +859,44 @@ public final class PanelRenderer {
             fill.setColor(col);
             c.drawPath(path, fill);
         }
+    }
+
+    /** The Salvager: a pulsing amber ring with a dot inside the range, an amber triangle clamped to the edge beyond it. */
+    private void minimapMerchant(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        Merchant m = s.merchant;
+        if (!m.present) return;
+        float u = k.u, lim = side / 2 - 12f * u;
+        float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
+        float dx = (m.x - s.px) * kk, dy = (m.y - s.py) * kk, z = 11f * u * pulse;
+        stroke.setStyle(Paint.Style.STROKE);
+        if (Math.abs(dx) <= lim && Math.abs(dy) <= lim) {
+            float mx = cx + dx, my = cy + dy;
+            stroke.setStrokeWidth(6f * u);
+            stroke.setColor(0xFF05080A);
+            c.drawCircle(mx, my, z * 1.1f, stroke);
+            stroke.setStrokeWidth(3.5f * u);
+            stroke.setColor(AMBER);
+            c.drawCircle(mx, my, z * 1.1f, stroke);
+            fill.setColor(AMBER);
+            c.drawCircle(mx, my, z * 0.4f, fill);
+            return;
+        }
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+        float ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+        float t = Math.min(Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(ux),
+                Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(uy));
+        float mx = cx + ux * t, my = cy + uy * t;
+        path.rewind();
+        path.moveTo(mx + ux * z * 1.3f, my + uy * z * 1.3f);
+        path.lineTo(mx - ux * z * 0.7f + nx * z, my - uy * z * 0.7f + ny * z);
+        path.lineTo(mx - ux * z * 0.7f - nx * z, my - uy * z * 0.7f - ny * z);
+        path.close();
+        stroke.setStrokeJoin(Paint.Join.ROUND);
+        stroke.setStrokeWidth(3.5f * u);
+        stroke.setColor(0xFF05080A);
+        c.drawPath(path, stroke);
+        fill.setColor(AMBER);
+        c.drawPath(path, fill);
     }
 
     private void hudStrip(Canvas c, int w, int h) {
@@ -1014,6 +1058,72 @@ public final class PanelRenderer {
     }
 
     private static final String[] TIER_TAG = {"MAIN BRANCH  I", "MAIN BRANCH  II", "MAIN BRANCH  III"};
+
+    // ---- the Salvager (merchant): three cards of the visit's stock, LEAVE below
+
+    private static final int AMBER = 0xFFFFB347;
+
+    private void merchant(Canvas c, int w, int h) {
+        Sim s = eng.sim;
+        if (s == null) return;
+        Merchant m = s.merchant;
+        float u = k.u;
+        float[] cl = column(w, h, 1100f * u);
+        float x = cl[0], cw = cl[1];
+        // terminal header with the run gold
+        k.plate(c, x, 16f * u, x + cw, 150f * u, 0x28402810, Skin.EDGE, 3f * u);
+        k.rivets(c, x, 16f * u, x + cw, 150f * u, 11f * u, 3f * u);
+        k.text(c, "SALVAGER", x + 30f * u, 84f * u, 62f * u, AMBER, Paint.Align.LEFT);
+        k.body(c, cs(154, "SCAVENGED GEAR FOR GOLD   -   LEAVES IN ", Math.round(m.timeLeft()), " S"), x + 30f * u, 124f * u, 24f * u, DIM, Paint.Align.LEFT);
+        k.well(c, x + cw - 300f * u, 34f * u, x + cw - 24f * u, 134f * u, 6f * u);
+        k.body(c, "GOLD", x + cw - 40f * u, 62f * u, 22f * u, DIM, Paint.Align.RIGHT);
+        k.text(c, cs(153, "", s.gold, ""), x + cw - 40f * u, 120f * u, 58f * u, GOLD, Paint.Align.RIGHT);
+        int n = Merchant.SLOTS;
+        float by = h - 102f * u, stripY = by - 62f * u, top = 172f * u, gap = 14f * u;
+        float ch = Math.min(250f * u, (stripY - gap - top - (n - 1) * gap) / n);
+        for (int i = 0; i < n; i++) {
+            float y = top + i * (ch + gap);
+            boolean f = eng.focus == i, sold = m.sold[i];
+            k.plate(c, x, y, x + cw, y + ch, f ? 0x44FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 5f * u : 2f * u);
+            if (f) k.focusMarks(c, x, y, x + cw, y + ch);
+            hit(x, y, x + cw, y + ch, i, 0);
+            float is = ch - 36f * u, ix = x + 18f * u, iy = y + 18f * u;
+            if (i == Merchant.SLOT_OFFER && m.offer.def != null) {
+                weaponTile(c, m.offer.def, ix, iy, is, false, false);
+            } else if (i == Merchant.SLOT_GEAR && m.gearDef != null) {
+                itemTile(c, m.gearDef, m.gearRar, ix, iy, is, null, u);
+            } else {
+                k.slotWell(c, ix, iy, is);
+                int gk = i == Merchant.SLOT_OFFER ? Skin.G_BOLT : m.supply == Merchant.SUP_MEDKIT ? Skin.G_DECAY
+                        : m.supply == Merchant.SUP_VACUUM ? Skin.G_BOLT : Skin.G_FROST;
+                k.glyph(c, gk, ix + is / 2, iy + is / 2, is * 0.36f, m.supply == Merchant.SUP_MEDKIT || i == Merchant.SLOT_OFFER ? Skin.GOOD : Skin.COOL);
+            }
+            float tx = ix + is + 22f * u, titleSize = Math.min(44f * u, ch * 0.22f);
+            float tagW = 190f * u;
+            k.fit(c, m.name[i], tx, y + 14f * u + titleSize, titleSize, x + cw - tx - tagW - 24f * u, 0xFFFFF4E6, Paint.Align.LEFT);
+            k.text(c, m.tag[i], x + cw - 24f * u, y + 14f * u + titleSize, titleSize * 0.7f, m.tagColor[i], Paint.Align.RIGHT);
+            float lineH = Math.min(32f * u, ch * 0.16f) * 1.16f;
+            float dTop = y + 14f * u + titleSize + 14f * u + lineH * 0.7f;
+            int maxLines = Math.max(1, Math.min(2, (int) ((ch - (dTop - y) - 56f * u) / lineH) + 1));
+            k.wrap(c, m.desc[i], tx, dTop, x + cw - tx - 30f * u, lineH, maxLines, Math.min(32f * u, ch * 0.16f), 0xFFC9BFB0);
+            // price: green when the gold covers it, red when not, SOLD once bought
+            int pc = sold ? DIM : s.gold >= m.price[i] ? Skin.GOOD : Skin.BAD;
+            float ps = Math.min(46f * u, ch * 0.24f);
+            k.text(c, m.priceText[i], x + cw - (sold ? 24f : 108f) * u, y + ch - 20f * u, ps, pc, Paint.Align.RIGHT);
+            if (!sold) k.body(c, "GOLD", x + cw - 24f * u, y + ch - 20f * u, ps * 0.5f, DIM, Paint.Align.RIGHT);
+            if (sold) {
+                r.set(x + 3f * u, y + 3f * u, x + cw - 3f * u, y + ch - 3f * u);
+                fill.setColor(0x88100C0A);
+                c.drawRect(r, fill);
+            }
+        }
+        // one strip for the last purchase result (the Engine's toast) or the controls
+        k.plate(c, x, stripY, x + cw, stripY + 52f * u, 0x28104030, Skin.EDGE, 2f * u);
+        if (eng.toastTimer > 0f) k.text(c, eng.toast, w / 2f, stripY + 37f * u, 32f * u, AMBER, Paint.Align.CENTER);
+        else k.body(c, "TAP A CARD, TAP AGAIN TO BUY    |    D-PAD + A    |    B = LEAVE", w / 2f, stripY + 34f * u, 24f * u, DIM, Paint.Align.CENTER);
+        k.button(c, x, by, x + cw, by + 80f * u, "LEAVE", eng.focus == n);
+        hit(x, by, x + cw, by + 80f * u, n, 0);
+    }
 
     // ---- equipment choice (design section 6): the item in the slot against the one just found
 

@@ -19,6 +19,7 @@ import se.felixarvid.thorsurvivors.render.WorldRenderer;
  * Owned by {@link WorldRenderer}, drawn on the game thread. Allocation-free per frame.
  */
 public final class TopOverlay {
+    private static final int AMBER = 0xFFFFB347;
     private final Skin k = new Skin();
     private final UiArt art = UiArt.get();
     private final Paint fill = k.fill;
@@ -145,9 +146,11 @@ public final class TopOverlay {
         else if (ph == Engine.PH_PAUSED) { t1 = "PAUSED"; col = 0xFFEFE8DC; }
         else if (ph == Engine.PH_CHEST) { t1 = "SUPPLY CACHE"; col = Skin.LUMEN; }
         else if (ph == Engine.PH_EQUIP) { t1 = "NEW EQUIPMENT"; col = Skin.GOLD; }
+        else if (ph == Engine.PH_MERCHANT) { t1 = "SALVAGER"; col = AMBER; }
         else if (e.resultWin) { t1 = "VICTORY"; col = Skin.LUMEN; }
         else { t1 = "YOU DIED"; col = 0xFFE04A32; }
-        if (ph != Engine.PH_RESULT) sub = "CHOOSE ON THE BOTTOM SCREEN";
+        if (ph == Engine.PH_MERCHANT) sub = "TRADE ON THE BOTTOM SCREEN";
+        else if (ph != Engine.PH_RESULT) sub = "CHOOSE ON THE BOTTOM SCREEN";
         fill.setColor(0x99060403);
         c.drawRect(0, 0, w, h, fill);
         float top = h * 0.36f, bot = h * 0.62f;
@@ -210,12 +213,20 @@ public final class TopOverlay {
     /**
      * The nearest untaken find that lies outside the world view: a filled triangle with a dark outline at the screen
      * edge (inset 40 px) pointing toward it, lumen green for a Weapon Cache and blue for a Gear Locker, and its distance
-     * (units / 10) beside it. Allocation-free.
+     * (units / 10) beside it. While the Salvager is on the map the arrow points to it instead, in amber. Allocation-free.
      */
     public void drawFindArrow(Canvas c, int w, int h, Sim s, float sc, float ks) {
+        if (s.merchant.present) { // the Salvager takes the arrow while it is on the map
+            arrowTo(c, w, h, s, sc, ks, s.merchant.x, s.merchant.y, 0xFFB347);
+            return;
+        }
         int i = s.nearestFind();
         if (i < 0) return;
-        float ddx = s.findX[i] - s.px, ddy = s.findY[i] - s.py;
+        arrowTo(c, w, h, s, sc, ks, s.findX[i], s.findY[i], s.findKind[i] == Sim.FIND_WEAPON ? 0x39FF88 : 0x4FA8FF);
+    }
+
+    private void arrowTo(Canvas c, int w, int h, Sim s, float sc, float ks, float tx0, float ty0, int rgb) {
+        float ddx = tx0 - s.px, ddy = ty0 - s.py;
         float dx = ddx * sc, dy = ddy * sc;
         if (Math.abs(dx) < w / 2f - 20f * ks && Math.abs(dy) < h / 2f - 20f * ks) return; // in view
         float len = (float) Math.sqrt(dx * dx + dy * dy);
@@ -232,7 +243,6 @@ public final class TopOverlay {
         path.lineTo(ax - ux * sz * 0.7f + nx * sz * 0.8f, ay - uy * sz * 0.7f + ny * sz * 0.8f);
         path.lineTo(ax - ux * sz * 0.7f - nx * sz * 0.8f, ay - uy * sz * 0.7f - ny * sz * 0.8f);
         path.close();
-        int rgb = s.findKind[i] == Sim.FIND_WEAPON ? 0x39FF88 : 0x4FA8FF;
         k.stroke.setStyle(Paint.Style.STROKE);
         k.stroke.setStrokeJoin(Paint.Join.ROUND);
         k.stroke.setStrokeWidth(5f * ks);

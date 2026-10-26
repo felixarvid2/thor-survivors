@@ -172,7 +172,7 @@ public final class AudioEngine {
         if (MusicDirector.BOSS.equals(t) && !manifest.music.containsKey(t)) t = MusicDirector.stageTrack(stage);
         wantTrack = t;
         ducked = eng.phase == Engine.PH_PAUSED || eng.phase == Engine.PH_LEVELUP || eng.phase == Engine.PH_CHEST
-                || eng.phase == Engine.PH_EQUIP;
+                || eng.phase == Engine.PH_EQUIP || eng.phase == Engine.PH_MERCHANT;
     }
 
     private float rnd() { // xorshift in [0, 1): no allocation, unlike a fresh Random per call

@@ -213,6 +213,8 @@ public final class Sim {
     /** Finds placed this run (0 on the legacy stages). */
     public int findN;
     private boolean findHinted;
+    /** The Salvager (merchant) of the Ashfall stages; see {@link Merchant}. */
+    public final Merchant merchant = new Merchant(this);
 
     private int lastRow = -1;
     private float spawnTimer;
@@ -264,6 +266,7 @@ public final class Sim {
         spawnInitial();
         refreshDestructibles();
         placeFinds(seed == null ? 0L : seed);
+        merchant.init(seed == null ? 0L : seed, hasFinds());
     }
 
     /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
@@ -497,6 +500,7 @@ public final class Sim {
         }
         updatePickups(dt);
         updateFinds();
+        merchant.update();
         updateVisuals(dt);
         if (freezeTimer > 0) freezeTimer -= dt;
         if (invuln > 0) invuln -= dt;
@@ -1803,6 +1807,15 @@ public final class Sim {
         }
     }
 
+    private final Pickup powerTmp = new Pickup();
+
+    /** Gives the effect of a power pickup (K_VACUUM, K_OROLOGION) straight away, as if it had been picked up. */
+    void grantPower(int kind) {
+        powerTmp.kind = kind;
+        powerTmp.value = 0f;
+        collect(powerTmp);
+    }
+
     private void collect(Pickup p) {
         switch (p.kind) {
             case Entities.K_GEM:
@@ -1948,7 +1961,7 @@ public final class Sim {
     }
 
     /** The hero picks an item up: an empty slot equips it, a better one waits for a choice, anything else is salvaged. */
-    private void acquire(EquipDef d, int rar) {
+    void acquire(EquipDef d, int rar) {
         int slot = d.slot;
         EquipDef cur = equip.def[slot];
         if (cur == null) {

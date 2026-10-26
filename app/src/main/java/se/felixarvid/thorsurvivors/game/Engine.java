@@ -16,7 +16,7 @@ import java.util.Random;
  */
 public final class Engine {
     public static final int PH_MENU = 0, PH_SHOP = 1, PH_PLAYING = 2, PH_LEVELUP = 3, PH_PAUSED = 4, PH_CHEST = 5,
-            PH_RESULT = 6, PH_EQUIP = 7;
+            PH_RESULT = 6, PH_EQUIP = 7, PH_MERCHANT = 8;
     public static final int MENU_START = 0, MENU_STAGE = 1, MENU_HERO = 2, MENU_WEAPON = 3, MENU_SHOP = 4,
             MENU_MUSIC = 5, MENU_SFX = 6, MENU_LIGHT = 7, MENU_COUNT = 8;
 
@@ -68,6 +68,8 @@ public final class Engine {
     public volatile Equipment.Diff[] equipDiff = new Equipment.Diff[0];
     public volatile boolean resultNewBest;
 
+    /** The Salvager's cards: a touch focuses a card first and buys on the second tap of the same card. */
+    private boolean merchantTapped;
     private final Random rng = new Random();
     private final float[] tmp = new float[2];
 
@@ -151,6 +153,7 @@ public final class Engine {
                 phase = PH_CHEST;
                 focus = 0;
             } else if (s.equipN > 0) openEquip();
+            else if (s.merchant.wantsOpen()) openMerchant();
         }
     }
 
@@ -161,6 +164,14 @@ public final class Engine {
         offers = OfferGenerator.generate(s.inv, data.weapons.values(), s.stats.luck, rng,
                 s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, offerLevel);
         phase = PH_LEVELUP;
+        focus = 0;
+    }
+
+    /** The hero walked up to the Salvager (nothing else is pending): the shop pauses the run on the bottom screen. */
+    private void openMerchant() {
+        sim.merchant.opened();
+        merchantTapped = false;
+        phase = PH_MERCHANT;
         focus = 0;
     }
 
@@ -233,7 +244,10 @@ public final class Engine {
             case Input.CMD_START: start(); break;
             case Input.CMD_TAP:
                 if (c[1] == phase) {
-                    boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus; // first tap on a tile only focuses it
+                    // first tap on a tile only focuses it (the shop and the Salvager); LEAVE acts at once
+                    boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus
+                            || phase == PH_MERCHANT && c[2] < Merchant.SLOTS && (c[2] != focus || !merchantTapped);
+                    if (phase == PH_MERCHANT) merchantTapped = c[2] < Merchant.SLOTS;
                     focus = c[2];
                     if (!pick) confirm(c[3]);
                 }
@@ -254,6 +268,7 @@ public final class Engine {
             case PH_SHOP: return shopKeys.size() + 1;
             case PH_LEVELUP: return offers.size();
             case PH_EQUIP: return 2;
+            case PH_MERCHANT: return Merchant.SLOTS + 1; // three cards and LEAVE
             case PH_PAUSED: return 2;
             default: return 1;
         }
@@ -282,12 +297,14 @@ public final class Engine {
             case PH_LEVELUP:
             case PH_PAUSED:
             case PH_EQUIP:
+            case PH_MERCHANT:
                 if (dir == Input.UP || dir == Input.LEFT) f = (f + n - 1) % n;
                 else f = (f + 1) % n;
                 break;
             default:
         }
         focus = f;
+        if (phase == PH_MERCHANT) merchantTapped = false; // moving the focus with the pad: a tap focuses first again
         if (phase != PH_PLAYING && phase != PH_CHEST && phase != PH_RESULT && (f != before || changed)) {
             sound.emit(SoundEvents.UI_MOVE);
         }
@@ -369,6 +386,19 @@ public final class Engine {
                 if (f == 0) resume();
                 else quitRun();
                 break;
+            case PH_MERCHANT:
+                if (f >= Merchant.SLOTS) {
+                    resume();
+                } else {
+                    Merchant m = sim.merchant;
+                    int r = m.buy(f);
+                    if (r == Merchant.BUY_OK) toast("Purchased " + m.name[f]);
+                    else {
+                        toast(r == Merchant.BUY_POOR ? "Not enough gold" : "Already sold");
+                        ok = false;
+                    }
+                }
+                break;
             case PH_EQUIP:
                 answerEquip(f == 1); // card 0 = Keep, card 1 = Replace
                 break;
@@ -411,6 +441,7 @@ public final class Engine {
             case PH_PLAYING: phase = PH_PAUSED; focus = 0; break;
             case PH_PAUSED: resume(); break;
             case PH_EQUIP: answerEquip(false); break; // B = keep what you wear
+            case PH_MERCHANT: resume(); break; // B = leave the stall
             case PH_RESULT: phase = PH_MENU; focus = 0; break;
             default:
         }

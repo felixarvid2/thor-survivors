@@ -38,6 +38,7 @@ MODELS = [
     ("characters", "bastion", ["idle", "run", "attack", "attack2", "slam", "dodge", "hit", "death"]),
     ("characters", "spectre", ["idle", "run", "shoot", "throw", "dodge", "hit", "death"]),
     ("characters", "xenomant", ["idle", "run", "cast", "cast2", "slam", "dodge", "hit", "death"]),
+    ("characters", "technician", ["idle"]),  # the Salvager (merchant): only an idle clip exists
     ("enemies", "infected_colonist", ["walk", "attack", "death"]),
     ("enemies", "sergeant", ["walk", "attack", "attack2", "death"]),
     ("enemies", "welder", ["walk", "run", "attack", "death"]),
