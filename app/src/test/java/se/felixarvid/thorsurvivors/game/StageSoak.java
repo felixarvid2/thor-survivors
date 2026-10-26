@@ -119,6 +119,7 @@ public final class StageSoak {
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), hero, seed);
         s.findN = 0; // the soak measures the balance without the map finds (they depend on where the bot wanders)
         s.merchant.enabled = false; // nor the Salvager: the headless Sim never pauses for a shop, and a purchase would change the balance numbers
+        s.pois.enabled = false; // nor the places: a relay terminal screen never closes headless, and vents/nests depend on where the bot wanders
         Random rng = new Random(seed * 7919 + 1);
         Input in = new Input();
         float dt = 1f / 60f;

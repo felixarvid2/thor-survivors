@@ -34,6 +34,7 @@ import se.felixarvid.thorsurvivors.data.EnemyDef;
 import se.felixarvid.thorsurvivors.game.EnemyType;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
+import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.WorldGen;
@@ -62,7 +63,7 @@ public final class WorldRenderer {
     private static final int MAX_TEXTS_DRAWN = 25;
     /** Hit flashes turn into a soft brighten once this many enemies flash at the same time (no white blob). */
     private static final int MANY_FLASHING = 4;
-    private static final int MAX_PROPS = 600, DEST_PROP = -1, FIND_PROP = -2, MERCHANT_PROP = -3;
+    private static final int MAX_PROPS = 600, DEST_PROP = -1, FIND_PROP = -2, MERCHANT_PROP = -3, POI_PROP = -4;
     private static final float FLASH_ON = 0.08f, FLASH_GAP = 0.15f, HIT_TINT = 0.12f, VIGNETTE = 0.35f;
     private static final float HIT_CLIP = 0.18f, ATTACK_CLIP = 0.38f, DEATH_CLIP = 0.7f, BOSS_DEATH_CLIP = 1.3f, FADE = 0.5f;
     private static final int STATE = 4096;
@@ -292,6 +293,7 @@ public final class WorldRenderer {
                 gatherDynamicLights(s);
                 gatherFindLights(s);
                 gatherMerchantLight(s);
+                gatherPoiLights(s);
             }
             gatherPropLights(c, menu);
             if (!DBG_NO_MASK) light.drawFull(c, w, h);
@@ -526,6 +528,10 @@ public final class WorldRenderer {
             drawMerchant(c, s, px, py);
             return;
         }
+        if (prKind[i] == POI_PROP) {
+            drawPoiProp(c, s, prA[i], px, py);
+            return;
+        }
         if (prKind[i] == DEST_PROP) {
             im = s == null ? null : atlas.img(destImg(s.destType(), s.destKind[prA[i]]));
         } else {
@@ -538,6 +544,7 @@ public final class WorldRenderer {
         bmp.setAlpha(255);
         blit(c, im, px, py, sc2, bmp);
         bmp.setColorFilter(null);
+        if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == Sim.DK_NEST) drawNestExtras(c, s, prA[i], px, py);
     }
 
     /**
@@ -621,11 +628,294 @@ public final class WorldRenderer {
         text.clearShadowLayer();
     }
 
+    // ------------------------------------------------------------------ places (Pois): outposts, terminals, vault, nests, vents
+
+    private static final int POI_OUTPOST = 1, POI_TERMINAL = 2, POI_VAULT = 3;
+
+    private void addPoiProps(Sim s, int m) {
+        Pois p = s.pois;
+        if (!p.enabled) return;
+        for (int i = 0; i < p.outN && propN < MAX_PROPS; i++) {
+            int px = sx(p.outX[i]), py = sy(p.outY[i]);
+            if (px >= -m - 200 && px <= scrW + m + 200 && py >= -m - 200 && py <= scrH + m + 100) addProp(POI_PROP, POI_OUTPOST * 100 + i, px, py);
+        }
+        for (int i = 0; i < p.termN && propN < MAX_PROPS; i++) {
+            int px = sx(p.termX[i]), py = sy(p.termY[i]);
+            if (px >= -m && px <= scrW + m && py >= -m - 200 && py <= scrH + m) addProp(POI_PROP, POI_TERMINAL * 100 + i, px, py);
+        }
+        if (p.hasVault && propN < MAX_PROPS) {
+            int px = sx(p.vaultX), py = sy(p.vaultY);
+            if (px >= -m - 200 && px <= scrW + m + 200 && py >= -m - 200 && py <= scrH + m) addProp(POI_PROP, POI_VAULT * 100, px, py);
+        }
+    }
+
+    private void gatherPoiLights(Sim s) {
+        Pois p = s.pois;
+        if (!p.enabled) return;
+        float pu = 0.9f + 0.1f * (float) Math.sin(now * 2.4);
+        for (int i = 0; i < p.outN && light.n < Lighting.MAX - 3; i++) {
+            int px = sx(p.outX[i]), py = sy(p.outY[i]);
+            if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
+            light.add(px, py - 30f * ks, 190f * sc * pu, 0.85f, Lighting.WARM);
+        }
+        for (int i = 0; i < p.termN && light.n < Lighting.MAX - 3; i++) {
+            if (p.termUsed(i)) continue;
+            int px = sx(p.termX[i]), py = sy(p.termY[i]);
+            if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
+            light.add(px, py - 30f * ks, 120f * sc * pu, 0.9f, Lighting.NEUTRAL);
+        }
+        if (p.hasVault && p.vaultState != Pois.V_DONE && light.n < Lighting.MAX - 3) {
+            int px = sx(p.vaultX), py = sy(p.vaultY);
+            if (px >= -300 && px <= scrW + 300 && py >= -300 && py <= scrH + 300) light.add(px, py - 30f * ks, 160f * sc * pu, 0.9f, Lighting.WARM);
+        }
+        for (int i = 0; i < s.destN && light.n < Lighting.MAX - 3; i++) {
+            if (s.destKind[i] != Sim.DK_NEST) continue;
+            int px = sx(s.destX[i]), py = sy(s.destY[i]);
+            if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
+            light.add(px, py - 20f * ks, 130f * sc * pu, 0.9f, Lighting.GREEN);
+        }
+        for (int i = 0; i < p.ventN && light.n < Lighting.MAX - 3; i++) {
+            if (p.ventBurst[i] <= 0f) continue;
+            int px = sx(p.ventX[i]), py = sy(p.ventY[i]);
+            if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
+            light.add(px, py - 10f * ks, 150f * sc, 0.9f, Lighting.WARM);
+        }
+    }
+
+    /** Ground layer: outpost wake rings, sleeping guards, terminal rings, slag vents and steam jets. */
+    private void drawPoiGround(Canvas c, Sim s, float t) {
+        Pois p = s.pois;
+        if (!p.enabled) return;
+        for (int i = 0; i < p.outN; i++) {
+            int cx = sx(p.outX[i]), cy = sy(p.outY[i]);
+            float r = Pois.WAKE_R * sc;
+            if (cx < -r - 100 || cx > scrW + r + 100 || cy < -r - 100 || cy > scrH + r + 100) continue;
+            if (p.outWoken[i]) continue;
+            stroke.setStrokeWidth(2f * ks);
+            stroke.setColor(0x66FF8A2A);
+            c.drawOval(cx - r, cy - r * 0.6f, cx + r, cy + r * 0.6f, stroke);
+        }
+        for (int i = 0; i < s.enemyN; i++) { // a sleeping guard: a calm amber ring under its feet
+            Enemy e = s.enemies[i];
+            if (!e.sleeping) continue;
+            int cx = sx(e.x), cy = sy(e.y);
+            if (cx < -100 || cx > scrW + 100 || cy < -100 || cy > scrH + 100) continue;
+            float r = e.radius * sc * 1.1f, pu = 0.5f + 0.5f * (float) Math.sin(t * 2f + i);
+            stroke.setStrokeWidth(2f * ks);
+            stroke.setColor(((int) (110 + 80 * pu) << 24) | AMBER_RGB);
+            c.drawOval(cx - r, cy - r * 0.5f, cx + r, cy + r * 0.5f, stroke);
+        }
+        for (int i = 0; i < p.termN; i++) {
+            if (p.termUsed(i)) continue;
+            int cx = sx(p.termX[i]), cy = sy(p.termY[i]);
+            if (cx < -200 || cx > scrW + 200 || cy < -200 || cy > scrH + 200) continue;
+            float r = Pois.TERM_R * sc, pu = 0.5f + 0.5f * (float) Math.sin(t * 3f + i);
+            fill.setColor(((int) (18 + 20 * pu) << 24) | 0x40D8FF);
+            c.drawOval(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.55f, fill);
+            stroke.setStrokeWidth(2.5f * ks);
+            stroke.setColor(((int) (130 + 100 * pu) << 24) | 0x40D8FF);
+            c.drawOval(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.55f, stroke);
+            if (p.termNear == i && p.termHold > 0f) { // the 2 s hold fills the ring from the middle
+                float f = Math.min(1f, p.termHold / Pois.TERM_HOLD), rr = r * f;
+                fill.setColor(0x9040D8FF);
+                c.drawOval(cx - rr, cy - rr * 0.55f, cx + rr, cy + rr * 0.55f, fill);
+            }
+        }
+        boolean jets = s.map.mines;
+        for (int i = 0; i < p.ventN; i++) {
+            int cx = sx(p.ventX[i]), cy = sy(p.ventY[i]);
+            float len = (jets ? Pois.JET_LEN : Pois.VENT_R) * sc;
+            if (cx < -len - 100 || cx > scrW + len + 100 || cy < -len - 100 || cy > scrH + len + 100) continue;
+            if (jets) drawJet(c, p, i, cx, cy, t);
+            else drawVent(c, p, i, cx, cy, t);
+        }
+    }
+
+    private void drawVent(Canvas c, Pois p, int i, int cx, int cy, float t) {
+        float r = Pois.VENT_R * sc, ph = p.ventPhase(i);
+        fill.setColor(0xAA14100C); // the crack in the ground
+        c.drawOval(cx - r * 0.35f, cy - r * 0.2f, cx + r * 0.35f, cy + r * 0.2f, fill);
+        glow(c, atlas.img("vfx.crack_0"), cx, cy, r * 1.4f, p.ventX[i] * 3f % 360f, fOrange, 170);
+        if (ph >= Pois.VENT_PERIOD - Pois.VENT_WARN) { // the last second warns: a ring that fills
+            float prog = (ph - (Pois.VENT_PERIOD - Pois.VENT_WARN)) / Pois.VENT_WARN;
+            warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 18f));
+            float ir = r * prog;
+            fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+            c.drawOval(cx - ir, cy - ir * 0.8f, cx + ir, cy + ir * 0.8f, fill);
+            glow(c, atlas.img("vfx.embers_0"), cx, cy - r * 0.2f, r * 1.2f * prog, t * 40f, null, (int) (120 * prog));
+        }
+        float b = p.ventBurst[i];
+        if (b > 0f) { // the geyser: a column of flame and a heat ring
+            float k = b / Pois.VENT_BURST;
+            glow(c, atlas.img("vfx.heat_ring_0"), cx, cy, r * (3.2f - 1.4f * k), 0f, null, (int) (190 * k));
+            glow(c, atlas.img(((int) (t * 14f) & 1) == 0 ? "vfx.flame_1" : "vfx.flame_2"), cx, cy - r * 0.9f * (1.2f - k * 0.2f), r * 2.2f, 0f, null, (int) (255 * Math.min(1f, k * 1.6f)));
+            glow(c, atlas.img("vfx.fire_core_0"), cx, cy - r * 0.5f, r * 1.4f, 0f, null, (int) (230 * k));
+        }
+    }
+
+    private void drawJet(Canvas c, Pois p, int i, int cx, int cy, float t) {
+        float len = Pois.JET_LEN * sc, deg = p.jetAngle(i) * 57.29578f, half = Pois.JET_HALF * 57.29578f;
+        rect.set(-len, -len, len, len);
+        c.save();
+        c.translate(cx, cy);
+        c.scale(1f, 0.8f);
+        c.rotate(deg);
+        fill.setColor(0x26D8F0FF);
+        c.drawArc(rect, -half, half * 2f, true, fill);
+        stroke.setStrokeWidth(2f * ks);
+        stroke.setColor(0x99D8F0FF);
+        c.drawArc(rect, -half, half * 2f, true, stroke);
+        c.restore();
+        float ca = (float) Math.cos(p.jetAngle(i)), sa = (float) Math.sin(p.jetAngle(i));
+        for (int k = 0; k < 4; k++) { // steam puffs travel along the cone
+            float f = ((t * 0.9f + k * 0.25f) % 1f), d = len * (0.12f + 0.88f * f);
+            glow(c, atlas.img("vfx.steam_0"), cx + ca * d, cy + sa * d * 0.8f - 6f * ks, (28f + 90f * f) * ks, t * 30f + k * 70f, null, (int) (190 * (1f - f)));
+        }
+        glow(c, atlas.img("vfx.steam_0"), cx, cy - 4f * ks, 46f * ks, 0f, null, 200);
+        fill.setColor(0xFF1A1D20);
+        c.drawOval(cx - 9f * ks, cy - 5f * ks, cx + 9f * ks, cy + 5f * ks, fill);
+    }
+
+    private void drawPoiProp(Canvas c, Sim s, int a, int px, int py) {
+        Pois p = s.pois;
+        int type = a / 100, idx = a % 100;
+        if (type == POI_OUTPOST) {
+            drawOutpost(c, s, p, idx, px, py);
+            return;
+        }
+        if (type == POI_TERMINAL) {
+            boolean used = p.termUsed(idx);
+            float g = used ? 0.2f : 0.5f + 0.5f * (float) Math.sin(now * 3.0 + idx);
+            if (!used) glow(c, atlas.img("vfx.energy_glow_0"), px, py - 30f * ks, 150f * ks, 0f, fCyan, (int) (70 + 60 * g));
+            drawShadow(c, px, py - 2, Math.round(26 * ks));
+            Img im = atlas.img("prop.control_terminal");
+            if (im != null) {
+                bmp.setColorFilter(used ? shadeAt(px, py, 0.1f) : null);
+                bmp.setAlpha(255);
+                blit(c, im, px, py, ks * 1.05f, bmp);
+                bmp.setColorFilter(null);
+            }
+            if (!used) {
+                text.setTextAlign(Paint.Align.CENTER);
+                text.setTextSize(18f * ks);
+                text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+                text.setColor(0xFF40D8FF);
+                int top = im == null ? 70 : Math.round(im.h() * ks * 1.05f);
+                c.drawText("RELAY", px, py - top - 10f * ks + (float) Math.sin(now * 2.2) * 3f * ks, text);
+                text.clearShadowLayer();
+            }
+            return;
+        }
+        // the vault
+        float g = 0.5f + 0.5f * (float) Math.sin(now * 3.0);
+        if (p.vaultState == Pois.V_SEALED) {
+            drawShadow(c, px, py - 2, Math.round(60 * ks));
+            Img wall = atlas.img("prop.wall_segment");
+            if (wall != null) {
+                bmp.setColorFilter(shadeAt(px, py - 40f * ks, 0.3f));
+                bmp.setAlpha(255);
+                blit(c, wall, px, py, ks * 1.0f, bmp);
+                bmp.setColorFilter(null);
+            }
+            glow(c, atlas.img("vfx.crack_0"), px, py - 52f * ks, 150f * ks, 0f, fGold, (int) (180 + 70 * g)); // the cracks glow gold
+            glow(c, atlas.img("vfx.energy_glow_0"), px, py - 50f * ks, 190f * ks, 0f, fGold, (int) (50 + 50 * g));
+        } else {
+            Img rock = atlas.img("prop.debris_rock");
+            drawShadow(c, px, py - 2, Math.round(40 * ks));
+            if (rock != null) {
+                bmp.setColorFilter(shadeAt(px, py, 0.3f));
+                bmp.setAlpha(255);
+                blit(c, rock, px - Math.round(40 * ks), py, ks * 0.9f, bmp);
+                blit(c, rock, px + Math.round(46 * ks), py + Math.round(4 * ks), ks * 0.7f, bmp);
+                bmp.setColorFilter(null);
+            }
+            if (p.vaultState == Pois.V_OPEN) { // the Fusion Core hovers in the breach
+                float bob = (float) Math.sin(now * 2.6) * 5f * ks;
+                glow(c, atlas.img("vfx.energy_glow_0"), px, py - 52f * ks + bob, 210f * ks, 0f, fGold, (int) (120 + 90 * g));
+                glow(c, atlas.img("vfx.magic_circle_green"), px, py - 52f * ks + bob, 84f * ks, (float) now * 50f, fGold, 230);
+                glow(c, atlas.img("vfx.fire_core_0"), px, py - 52f * ks + bob, 44f * ks, 0f, fGold, 255);
+                text.setTextAlign(Paint.Align.CENTER);
+                text.setTextSize(20f * ks);
+                text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+                text.setColor(0xFFFFD84A);
+                c.drawText("FUSION CORE", px, py - 96f * ks + bob, text);
+                text.clearShadowLayer();
+            }
+        }
+    }
+
+    /** An outpost: a control terminal, a generator and barricades round a Rare gear locker (blue) and a supply chest (amber), locked until the guards are dead. */
+    private void drawOutpost(Canvas c, Sim s, Pois p, int i, int px, int py) {
+        float k = sc;
+        boolean cleared = p.outCleared[i];
+        float g = 0.5f + 0.5f * (float) Math.sin(now * 3.0 + i);
+        prop(c, "prop.barricade", px - Math.round(96 * k), py + Math.round(52 * k), 0.9f);
+        prop(c, "prop.barricade", px + Math.round(96 * k), py + Math.round(58 * k), 0.9f);
+        prop(c, "prop.generator", px + Math.round(84 * k), py - Math.round(46 * k), 0.9f);
+        prop(c, "prop.control_terminal", px - Math.round(78 * k), py - Math.round(44 * k), 0.9f);
+        float lx = px - Pois.LOCKER_DX * k, rx = px + Pois.LOCKER_DX * k;
+        boolean lockerOpen = (p.outLoot[i] & Pois.LOOT_LOCKER) != 0, chestOpen = (p.outLoot[i] & Pois.LOOT_CHEST) != 0;
+        crate(c, "prop.supply_chest", Math.round(lx), py, cleared && !lockerOpen, lockerOpen, cleared, g, fRar[2]);
+        crate(c, "prop.cargo_crate", Math.round(rx), py, cleared && !chestOpen, chestOpen, cleared, g, fOrange);
+    }
+
+    private void prop(Canvas c, String key, int x, int y, float scale) {
+        Img im = atlas.img(key);
+        if (im == null) return;
+        drawShadow(c, x, y - 2, Math.max(10, Math.round(im.w() * ks * scale * 0.36f)));
+        bmp.setColorFilter(shadeAt(x, y - im.ay * ks * 0.3f, FLOOR_PROP));
+        bmp.setAlpha(255);
+        blit(c, im, x, y, ks * scale, bmp);
+        bmp.setColorFilter(null);
+    }
+
+    private void crate(Canvas c, String key, int x, int y, boolean ready, boolean open, boolean cleared, float g, ColorFilter tint) {
+        Img im = atlas.img(key);
+        if (ready) {
+            float bh = 220f * ks;
+            fill.setColor(((int) (30 + 24 * g) << 24) | AMBER_RGB);
+            c.drawRect(x - 12f * ks, y - bh, x + 12f * ks, y, fill);
+            glow(c, atlas.img("vfx.energy_glow_0"), x, y - 12f * ks, 130f * ks, 0f, tint, (int) (110 + 100 * g));
+        }
+        drawShadow(c, x, y - 2, Math.round(24 * ks));
+        if (im == null) return;
+        bmp.setColorFilter(open ? shadeAt(x, y, 0.1f) : cleared ? null : shadeAt(x, y, 0.2f));
+        bmp.setAlpha(open ? 150 : 255);
+        blit(c, im, x, y, ks * 0.8f, bmp);
+        bmp.setColorFilter(null);
+        bmp.setAlpha(255);
+        if (!cleared) { // locked: a small red lamp
+            fill.setColor(0xFFFF3B1F);
+            c.drawCircle(x, y - im.h() * ks * 0.8f * 0.55f, 3f * ks, fill);
+        }
+    }
+
+    /** A lumen nest: a pulsing green glow and a health bar once it is damaged. */
+    private void drawNestExtras(Canvas c, Sim s, int d, int px, int py) {
+        float pu = 0.5f + 0.5f * (float) Math.sin(now * 3.4 + s.destX[d]);
+        glow(c, atlas.img("vfx.energy_glow_1"), px, py - 20f * ks, 120f * ks, 0f, fGreen, (int) (60 + 80 * pu));
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(17f * ks);
+        text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+        text.setColor(0xFF39FF88);
+        c.drawText("LUMEN NEST", px, py - 76f * ks, text);
+        text.clearShadowLayer();
+        float f = Math.max(0f, s.destHp[d] / Pois.NEST_HP);
+        if (f < 0.999f) {
+            float w = 44f * ks, y = py - 66f * ks;
+            fill.setColor(0xCC000000);
+            c.drawRect(px - w / 2f - 2f * ks, y - 2f * ks, px + w / 2f + 2f * ks, y + 6f * ks, fill);
+            fill.setColor(0xFF39FF88);
+            c.drawRect(px - w / 2f, y, px - w / 2f + w * f, y + 4f * ks, fill);
+        }
+    }
+
     private static String destImg(String type, int kind) {
         switch (kind) {
             case Sim.DK_BARREL: return "prop.explosive_barrel";
             case Sim.DK_CHEST: return "prop.supply_chest";
             case Sim.DK_PYLON: return "prop.stim_pylon";
+            case Sim.DK_NEST: return "prop.spore_nest";
             default: return "CANDELABRA".equals(type) ? "prop.supply_chest" : "prop.explosive_barrel";
         }
     }
@@ -894,6 +1184,7 @@ public final class WorldRenderer {
 
         drawHazards(c, s, t);
         drawMerchantRing(c, s, t);
+        drawPoiGround(c, s, t);
 
         // 2. pickups, y-sorted (flat on the ground, under the creatures); corpses first
         drawCorpses(c, s);
@@ -958,6 +1249,7 @@ public final class WorldRenderer {
             int px = sx(s.merchant.x), py = sy(s.merchant.y);
             if (px >= -m && px <= w + m && py >= -m - 200 && py <= h + m) addProp(MERCHANT_PROP, 0, px, py);
         }
+        addPoiProps(s, m);
         sort(prKey, prIdx, propN);
         int pj = 0;
 
@@ -2320,7 +2612,7 @@ public final class WorldRenderer {
             return;
         }
         if (ph == Engine.PH_LEVELUP || ph == Engine.PH_PAUSED || ph == Engine.PH_CHEST || ph == Engine.PH_RESULT || ph == Engine.PH_EQUIP
-                || ph == Engine.PH_MERCHANT) {
+                || ph == Engine.PH_MERCHANT || ph == Engine.PH_TERMINAL) {
             topUi.drawPhase(c, w, h, e, dual);
         }
     }

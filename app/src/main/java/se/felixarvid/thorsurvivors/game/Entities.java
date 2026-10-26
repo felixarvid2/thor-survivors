@@ -65,6 +65,9 @@ public final class Entities {
         public float ashLeft;
         /** A tentacle still warning: it cannot be hit and does not hurt. A silent enemy leaves without a kill or drops. */
         public boolean dormant, silent;
+        /** A place's guard asleep (stands still, does not attack, can be hit) and the place it belongs to: an outpost index, Pois.POI_HOUND, or -1. */
+        public boolean sleeping;
+        public int poi = -1;
         /** Width in world units of this enemy's charge telegraph (0 = from its radius). */
         public float teleW;
 
@@ -86,7 +89,8 @@ public final class Entities {
             phase = mods = cnt = bag = 0;
             mt0 = mt1 = mt2 = etrail = t2 = t3 = armor = ashLeft = teleW = 0f;
             shotMul = 1f;
-            dormant = silent = false;
+            dormant = silent = sleeping = false;
+            poi = -1;
         }
 
         /**

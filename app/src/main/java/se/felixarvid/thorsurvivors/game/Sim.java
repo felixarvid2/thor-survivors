@@ -184,7 +184,7 @@ public final class Sim {
             Entities.K_OROLOGION, Entities.K_ROSARY, Entities.K_CLOVER};
     static final float DEST_CELL = 500f, DEST_R = 16f, DEST_CLEAR = 300f, PYLON_CELL = 2000f;
     /** Destructible kinds: the old brazier / candelabra (drops only), explosive barrel, supply chest, stim pylon. */
-    public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3;
+    public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3, DK_NEST = 4;
     /** Barrel blast (design 9.1): radius 80, 5P (50) to every enemy and to the hero if within range; the hero takes 15 (an approximation: 5P on the hero would be half its health). */
     public static final float BARREL_R = 80f, BARREL_DMG = 50f, BARREL_HERO_DMG = 10f;
     /** A stim pylon heals 30% of max HP when destroyed; it works again 60 s after its last use. */
@@ -192,6 +192,10 @@ public final class Sim {
     /** The destructibles of the cells around the player that are still standing (swap-remove compacted). */
     public final float[] destX = new float[MAX_DEST], destY = new float[MAX_DEST];
     public final byte[] destKind = new byte[MAX_DEST];
+    /** Hit points of a Lumen Nest (DK_NEST) and the seconds to its next hound pack, per destructible slot (see {@link Pois}). */
+    public final float[] destHp = new float[MAX_DEST], destT = new float[MAX_DEST];
+    /** Damage of a weapon hit on a nest; a barrel blast sets {@link #BARREL_DMG} while it breaks things. */
+    private float hitDestDmg = 10f;
     private final long[] destKey = new long[MAX_DEST];
     public int destN;
     public int destsBroken;
@@ -219,6 +223,8 @@ public final class Sim {
     private boolean findHinted;
     /** The Salvager (merchant) of the Ashfall stages; see {@link Merchant}. */
     public final Merchant merchant = new Merchant(this);
+    /** Outposts, nests, relay terminals, hazard fields and the vault of the Ashfall stages; see {@link Pois}. */
+    public final Pois pois = new Pois(this);
 
     // ------------------------------------------------------------------ weapon fusions (design v1.3 section 1)
 
@@ -340,6 +346,9 @@ public final class Sim {
         refreshDestructibles();
         placeFinds(seed == null ? 0L : seed);
         merchant.init(seed == null ? 0L : seed, hasFinds());
+        pois.init(seed == null ? 0L : seed, hasFinds());
+        destCx = Integer.MIN_VALUE; // list the destructibles again: the places add their own
+        refreshDestructibles();
     }
 
     /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
@@ -495,6 +504,7 @@ public final class Sim {
         PlayerStats old = stats;
         statsLevel = level;
         stats = PlayerStats.compute(inv, meta, extraLuck, hero, level, equip, data);
+        pois.applyBuff(stats);
         float nm = (float) stats.baseHp * (float) stats.maxHpMul;
         if (old != null) hp += Math.max(0, nm - maxHp);
         maxHp = nm;
@@ -601,6 +611,7 @@ public final class Sim {
         updateFinds();
         updateFusionReady(dt);
         merchant.update();
+        pois.update(dt);
         updateVisuals(dt);
         if (freezeTimer > 0) freezeTimer -= dt;
         if (invuln > 0) invuln -= dt;
@@ -748,8 +759,10 @@ public final class Sim {
         return false;
     }
 
-    private void addDest(float x, float y, int kind, long key) {
+    void addDest(float x, float y, int kind, long key) {
         if (destN >= MAX_DEST || isBroken(key)) return;
+        destHp[destN] = Pois.NEST_HP;
+        destT[destN] = 2f;
         destX[destN] = x;
         destY[destN] = y;
         destKind[destN] = (byte) kind;
@@ -780,6 +793,7 @@ public final class Sim {
                 }
             }
         }
+        pois.addDests(cx, cy);
         if (!stage.destructible.equals("MIXED_MINES")) return;
         // stim pylons: rare, one per ~2000 x 2000 u
         int p0x = (int) Math.floor((cx - 2) * DEST_CELL / PYLON_CELL), p1x = (int) Math.floor((cx + 3) * DEST_CELL / PYLON_CELL);
@@ -802,15 +816,25 @@ public final class Sim {
         for (int i = destN - 1; i >= 0; i--) {
             if (i >= destN) continue; // a barrel chain removed several
             float dx = destX[i] - x, dy = destY[i] - y, rr = r + DEST_R;
-            if (dx * dx + dy * dy < rr * rr) breakDest(i);
+            if (dx * dx + dy * dy < rr * rr) strikeDest(i);
         }
+    }
+
+    /** A hit on destructible i: a nest loses hit points first, everything else breaks. */
+    private void strikeDest(int i) {
+        if (destKind[i] == DK_NEST && (destHp[i] -= hitDestDmg) > 0f) {
+            addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 50f, 0f, 0.12f, 0, false);
+            spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
+            return;
+        }
+        breakDest(i);
     }
 
     /** Same for a box centred on (cx, cy), w x h (the whip). */
     private void hitDestBox(float cx, float cy, float w, float h) {
         for (int i = destN - 1; i >= 0; i--) {
             if (i >= destN) continue;
-            if (Math.abs(destX[i] - cx) < w / 2f + DEST_R && Math.abs(destY[i] - cy) < h / 2f + DEST_R) breakDest(i);
+            if (Math.abs(destX[i] - cx) < w / 2f + DEST_R && Math.abs(destY[i] - cy) < h / 2f + DEST_R) strikeDest(i);
         }
     }
 
@@ -829,11 +853,14 @@ public final class Sim {
         brokenN = Math.min(broken.length, brokenN + 1);
         float x = destX[i], y = destY[i];
         int kind = destKind[i];
+        long key = destKey[i];
         destN--;
         destX[i] = destX[destN];
         destY[i] = destY[destN];
         destKey[i] = destKey[destN];
         destKind[i] = destKind[destN];
+        destHp[i] = destHp[destN];
+        destT[i] = destT[destN];
         destsBroken++;
         switch (kind) {
             case DK_BARREL:
@@ -848,6 +875,9 @@ public final class Sim {
                 break;
             case DK_PYLON:
                 usePylon(x, y);
+                break;
+            case DK_NEST:
+                pois.nestBroken(x, y, key);
                 break;
             default: // the old brazier / candelabra
                 sound.emit(SoundEvents.BRAZIER_BREAK);
@@ -879,6 +909,7 @@ public final class Sim {
         for (int q = 0; q < chainN; q++) {
             float bx = chainX[q], by = chainY[q];
             sound.emit(SoundEvents.BARREL_EXPLODE);
+            pois.onBlast(bx, by);
             addFx(Entities.FX_FLASH, bx, by - 10f, 170f, 0f, 0.35f, 0, false);
             addFx(Entities.FX_BLAST, bx, by, BARREL_R * 0.55f, 1f, 0.3f, 0, false);
             spark(bx, by - 10f, 0xFFFFA030, 14);
@@ -898,8 +929,10 @@ public final class Sim {
             if (hx * hx + hy * hy < BARREL_R * BARREL_R && invuln <= 0f) {
                 hurtHero(Math.max(1f, BARREL_HERO_DMG - (float) stats.armor), 0.5f, true, DMG_BLAST);
             }
+            hitDestDmg = BARREL_DMG;
             hitDest(bx, by, BARREL_R - DEST_R); // other barrels, chests and pylons inside the blast break too (and chain)
         }
+        hitDestDmg = 10f;
         chainN = 0;
         inChain = false;
     }
@@ -1064,7 +1097,7 @@ public final class Sim {
         updateTimedBosses();
         updateElites();
         if (stage.tentacleMinutes.length > 0) updateTentacles(dt);
-        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f);
+        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f) * pois.spawnMul;
         if (spawnTimer >= row.frequencyMs) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
@@ -1151,6 +1184,49 @@ public final class Sim {
         bannerName = e.type.nameUpper;
     }
 
+    /** True while a place acts (its update, {@link #poiSpawn}, its sparks): particles and first timers then draw from the places' own random, not {@link #rng}. */
+    boolean quietRng;
+
+    /** The random an enemy's first timers are drawn from: {@link #rng}, except while {@link #poiSpawn} runs (then the places' own). */
+    java.util.Random initRng() {
+        return quietRng ? pois.quiet() : rng;
+    }
+
+    /**
+     * An enemy of a place (outpost guard, nest hound) at (x, y), belonging to {@code poi}; an elite gets the elite stats (HP, damage,
+     * size, speed, XP from the data) without the escort. Never draws from {@link #rng}. Null when the pool is nearly full.
+     */
+    Enemy poiSpawn(EnemyType t, float x, float y, int poi, boolean elite, int mods) {
+        if (t == null || enemyN >= MAX_ENEMIES - 4) return null;
+        Enemy e = enemies[enemyN++];
+        boolean was = quietRng;
+        quietRng = true;
+        initEnemy(e, t, false);
+        quietRng = was;
+        e.x = x;
+        e.y = y;
+        e.poi = poi;
+        if (elite) {
+            e.elite = true;
+            e.mods = mods;
+            float dmgMul = (float) data.elite("damageMul", 1.5);
+            e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
+            e.power *= dmgMul;
+            e.shotMul = dmgMul;
+            e.radius *= (float) data.elite("scale", 1.4);
+            e.speed *= (float) data.elite("speedMul", 0.9);
+            e.xp *= (float) data.elite("xpMul", 8);
+            if ((mods & Elites.M_ARMORED) != 0) {
+                e.armor = (float) data.elite("armor", Elites.FLAT_ARMOR);
+                e.kbMul = 0f;
+            }
+            e.mt0 = 1.5f;
+            e.mt1 = 2.5f;
+            e.mt2 = Elites.RAISE_EVERY * 0.5f;
+        }
+        return e;
+    }
+
     /** A summoned enemy near (x, y) (Vire raises colonists); false when the pool is full. */
     boolean spawnMinion(String key, float x, float y) {
         EnemyType t = type(key);
@@ -1197,7 +1273,7 @@ public final class Sim {
         e.flash = 0;
         e.softFlash = false;
         e.textSlot = -1;
-        e.anim = rng.nextFloat() * 6f;
+        e.anim = initRng().nextFloat() * 6f;
         e.clearTicks();
         e.clearHits();
         e.clearStatus();
@@ -1231,6 +1307,7 @@ public final class Sim {
                 if (!frozen) boss.tentacle(e, dt);
                 continue;
             }
+            if (e.sleeping) continue; // an outpost guard that has not woken: stands still
             if (d2 > RECYCLE_DIST * RECYCLE_DIST && e.type.arch != EnemyDef.ARCH_TENTACLE) { // far behind the player: recycle to the opposite edge
                 recycle(e, dx, dy, (float) Math.sqrt(d2));
                 continue;
@@ -1539,7 +1616,7 @@ public final class Sim {
         float best = 0;
         for (int i = 0; i < enemyN; i++) {
             Enemy e = enemies[i];
-            if (e.dead || e.stun > 0 || e.dormant) continue; // a stunned enemy cannot attack, a tentacle that still warns does not hurt
+            if (e.dead || e.stun > 0 || e.dormant || e.sleeping) continue; // a stunned enemy cannot attack, a tentacle that still warns does not hurt
             float dx = e.x - px, dy = e.y - py, rr = e.radius * 0.8f + PLAYER_R * 0.8f;
             if (dx * dx + dy * dy < rr * rr) best = Math.max(best, e.power * e.dmgMul); // Decay lowers what it deals
         }
@@ -3011,6 +3088,7 @@ public final class Sim {
     }
 
     void spark(float x, float y, int color, int count) {
+        java.util.Random rng = quietRng ? pois.quiet() : this.rng;
         for (int i = 0; i < count; i++) {
             Particle q = parts[partHead];
             partHead = (partHead + 1) % MAX_PART;

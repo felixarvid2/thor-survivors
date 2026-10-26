@@ -23,6 +23,7 @@ public final class FusionBalance {
         s.enemyN = 0;
         s.findN = 0;
         s.merchant.enabled = false;
+        s.pois.enabled = false;
         s.inv.weapons[0].level = level == 0 ? s.inv.weapons[0].def.maxLevel() : level;
         s.recomputeAll();
         Random r = new Random(seed * 31 + 5);
