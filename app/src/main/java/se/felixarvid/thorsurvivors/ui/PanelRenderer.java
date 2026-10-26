@@ -798,6 +798,7 @@ public final class PanelRenderer {
                 c.drawCircle(cx + dx, cy + dy, 4f * u, fill);
             }
         }
+        minimapFinds(c, s, cx, cy, kk, side);
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -812,6 +813,46 @@ public final class PanelRenderer {
         c.drawRect(x + side - bk, y + side - bw, x + side, y + side, fill);
         c.drawRect(x + side - bw, y + side - bk, x + side, y + side, fill);
         k.body(c, "N", cx, y + 26f * u, 22f * u, 0xFF4F8A6C, Paint.Align.CENTER);
+    }
+
+    /**
+     * Untaken finds: a pulsing diamond in its colour (lumen green cache / blue locker) inside the range, a triangle
+     * clamped to the edge and pointing outward toward it beyond it.
+     */
+    private void minimapFinds(Canvas c, Sim s, float cx, float cy, float kk, float side) {
+        float u = k.u, lim = side / 2 - 12f * u;
+        float pulse = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
+        for (int i = 0; i < s.findN; i++) {
+            if (s.findTaken[i]) continue;
+            float dx = (s.findX[i] - s.px) * kk, dy = (s.findY[i] - s.py) * kk;
+            int col = s.findKind[i] == Sim.FIND_WEAPON ? 0xFF39FF88 : 0xFF4FA8FF;
+            float z = 11f * u * pulse;
+            path.rewind();
+            if (Math.abs(dx) <= lim && Math.abs(dy) <= lim) {
+                float mx = cx + dx, my = cy + dy;
+                path.moveTo(mx, my - z);
+                path.lineTo(mx + z, my);
+                path.lineTo(mx, my + z);
+                path.lineTo(mx - z, my);
+            } else {
+                float len = (float) Math.sqrt(dx * dx + dy * dy);
+                float ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+                float t = Math.min(Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(ux),
+                        Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : lim / Math.abs(uy));
+                float mx = cx + ux * t, my = cy + uy * t;
+                path.moveTo(mx + ux * z * 1.3f, my + uy * z * 1.3f);
+                path.lineTo(mx - ux * z * 0.7f + nx * z, my - uy * z * 0.7f + ny * z);
+                path.lineTo(mx - ux * z * 0.7f - nx * z, my - uy * z * 0.7f - ny * z);
+            }
+            path.close();
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeJoin(Paint.Join.ROUND);
+            stroke.setStrokeWidth(3.5f * u);
+            stroke.setColor(0xFF05080A);
+            c.drawPath(path, stroke);
+            fill.setColor(col);
+            c.drawPath(path, fill);
+        }
     }
 
     private void hudStrip(Canvas c, int w, int h) {

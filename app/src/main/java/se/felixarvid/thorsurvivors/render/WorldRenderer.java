@@ -61,7 +61,7 @@ public final class WorldRenderer {
     private static final int MAX_TEXTS_DRAWN = 25;
     /** Hit flashes turn into a soft brighten once this many enemies flash at the same time (no white blob). */
     private static final int MANY_FLASHING = 4;
-    private static final int MAX_PROPS = 600, DEST_PROP = -1;
+    private static final int MAX_PROPS = 600, DEST_PROP = -1, FIND_PROP = -2;
     private static final float FLASH_ON = 0.08f, FLASH_GAP = 0.15f, HIT_TINT = 0.12f, VIGNETTE = 0.35f;
     private static final float HIT_CLIP = 0.18f, ATTACK_CLIP = 0.38f, DEATH_CLIP = 0.7f, BOSS_DEATH_CLIP = 1.3f, FADE = 0.5f;
     private static final int STATE = 4096;
@@ -104,6 +104,7 @@ public final class WorldRenderer {
 
     // elites and equipment (design phases 9 and 10): the outline tint of each modifier, the rarity glow of a crate
     private final ColorFilter[] fMod = new ColorFilter[Elites.COUNT];
+    private final ColorFilter fLumen = new LightingColorFilter(0xFF39FF88, 0);
     private final ColorFilter[] fRar = {new LightingColorFilter(0xFFC8CCD4, 0), new LightingColorFilter(0xFF4FA8FF, 0),
             new LightingColorFilter(0xFFFFD84A, 0), new LightingColorFilter(0xFFFF8A2A, 0)};
     private static final String[] FRAME_KEYS = {"frame_common", "frame_magic", "frame_rare", "frame_unique"};
@@ -285,7 +286,10 @@ public final class WorldRenderer {
             light.add(sx(s.px), sy(s.py) - 28f * ks, pr, 1f, Lighting.NEUTRAL);
         }
         if (lightMode == MetaProgress.LIGHT_FULL) {
-            if (!menu) gatherDynamicLights(s);
+            if (!menu) {
+                gatherDynamicLights(s);
+                gatherFindLights(s);
+            }
             gatherPropLights(c, menu);
             if (!DBG_NO_MASK) light.drawFull(c, w, h);
         } else if (lightMode == MetaProgress.LIGHT_LOW) {
@@ -296,6 +300,17 @@ public final class WorldRenderer {
     }
 
     private int propLightN;
+
+    /** Weapon Caches and Gear Lockers carry a small light of their own so they show in the dark (green / blue). */
+    private void gatherFindLights(Sim s) {
+        for (int i = 0; i < s.findN && light.n < Lighting.MAX - 3; i++) {
+            if (s.findTaken[i]) continue;
+            int px = sx(s.findX[i]), py = sy(s.findY[i]);
+            if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
+            float pu = 0.85f + 0.15f * (float) Math.sin(now * 3.0 + i * 1.3);
+            light.add(px, py - 20f * ks, 110f * sc * pu, 0.9f, s.findKind[i] == Sim.FIND_WEAPON ? Lighting.GREEN : Lighting.NEUTRAL);
+        }
+    }
 
     /** Fire, flashes and blasts light the ground around them (r70 orange, explosions r150 for a moment). */
     private void gatherDynamicLights(Sim s) {
@@ -440,6 +455,10 @@ public final class WorldRenderer {
         int i = prIdx[j];
         int px = prSx[i], py = prSy[i];
         Img im;
+        if (prKind[i] == FIND_PROP) {
+            drawFind(c, s, prA[i], px, py);
+            return;
+        }
         if (prKind[i] == DEST_PROP) {
             im = s == null ? null : atlas.img(destImg(s.destType(), s.destKind[prA[i]]));
         } else {
@@ -452,6 +471,34 @@ public final class WorldRenderer {
         bmp.setAlpha(255);
         blit(c, im, px, py, sc2, bmp);
         bmp.setColorFilter(null);
+    }
+
+    /**
+     * An untaken find: a cargo crate (Weapon Cache, lumen green) or supply chest (Gear Locker, blue) with a pulsing glow,
+     * a vertical beam and its icon hovering over it. Drawn above the lightmap, so it reads in the dark.
+     */
+    private void drawFind(Canvas c, Sim s, int i, int px, int py) {
+        boolean weapon = s.findKind[i] == Sim.FIND_WEAPON;
+        int rgb = weapon ? 0x39FF88 : 0x4FA8FF;
+        ColorFilter tint = weapon ? fLumen : fRar[1];
+        float g = 0.5f + 0.5f * (float) Math.sin(now * 3.0 + i * 1.3);
+        float bh = 300f * ks;
+        fill.setColor(((int) (34 + 26 * g) << 24) | rgb);
+        c.drawRect(px - 16f * ks, py - bh, px + 16f * ks, py, fill);
+        fill.setColor(((int) (70 + 60 * g) << 24) | rgb);
+        c.drawRect(px - 5f * ks, py - bh * 0.8f, px + 5f * ks, py, fill);
+        glow(c, atlas.img("vfx.energy_glow_0"), px, py - 14f * ks, 170f * ks, 0f, tint, (int) (110 + 110 * g));
+        drawShadow(c, px, py - 2, Math.round(30 * ks));
+        Img im = atlas.img(weapon ? "prop.cargo_crate" : "prop.supply_chest");
+        if (im != null) {
+            bmp.setColorFilter(null);
+            bmp.setAlpha(255);
+            blit(c, im, px, py, ks * (weapon ? 0.95f : 0.9f), bmp);
+        }
+        glow(c, atlas.img("vfx.energy_glow_1"), px, py - 10f * ks, 80f * ks, 0f, tint, 200);
+        float is = 38f * ks, iy = py - 78f * ks + (float) Math.sin(now * 2.5 + i) * 4f * ks;
+        atlas.drawIcon(c, null, weapon ? "KNIFE" : "combat_helm", px, iy, is);
+        atlas.drawIcon(c, null, weapon ? "frame_magic" : "frame_rare", px, iy, is * 1.25f);
     }
 
     private static String destImg(String type, int kind) {
@@ -779,6 +826,12 @@ public final class WorldRenderer {
                 if (px < -m || px > w + m || py < -m || py > h + m) continue;
                 addProp(DEST_PROP, i, px, py);
             }
+        }
+        for (int i = 0; i < s.findN && propN < MAX_PROPS; i++) {
+            if (s.findTaken[i]) continue;
+            int px = sx(s.findX[i]), py = sy(s.findY[i]);
+            if (px < -m || px > w + m || py < -m - 300 || py > h + m) continue;
+            addProp(FIND_PROP, i, px, py);
         }
         sort(prKey, prIdx, propN);
         int pj = 0;
@@ -2038,6 +2091,7 @@ public final class WorldRenderer {
                 c.drawRect(0, 0, w, h, fill);
             }
             drawBossBarTop(c, w, s);
+            if (ph == Engine.PH_PLAYING) topUi.drawFindArrow(c, w, h, s, sc, ks);
             drawToasts(c, w, h, s, dual);
         }
         if (menu) { // only without the UI art (the title screen is TopOverlay.drawMenu)

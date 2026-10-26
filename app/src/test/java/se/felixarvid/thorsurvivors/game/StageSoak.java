@@ -116,6 +116,7 @@ public final class StageSoak {
         boolean plan = policy.equals("plan");
         boolean noGear = "0".equals(System.getenv("GEAR")); // A/B: the same run without any equipment worn
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), hero, seed);
+        s.findN = 0; // the soak measures the balance without the map finds (they depend on where the bot wanders)
         Random rng = new Random(seed * 7919 + 1);
         Input in = new Input();
         float dt = 1f / 60f;
