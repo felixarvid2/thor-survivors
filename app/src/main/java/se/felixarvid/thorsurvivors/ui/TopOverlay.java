@@ -219,13 +219,13 @@ public final class TopOverlay {
         float dx = ddx * sc, dy = ddy * sc;
         if (Math.abs(dx) < w / 2f - 20f * ks && Math.abs(dy) < h / 2f - 20f * ks) return; // in view
         float len = (float) Math.sqrt(dx * dx + dy * dy);
-        float ux = dx / len, uy = dy / len, inset = 40f * ks;
+        float ux = dx / len, uy = dy / len, inset = 56f * ks;
         float tx = Math.abs(ux) < 1e-4f ? Float.MAX_VALUE : (w / 2f - inset) / Math.abs(ux);
         float ty = Math.abs(uy) < 1e-4f ? Float.MAX_VALUE : (h / 2f - inset - 20f * ks) / Math.abs(uy);
         float t = Math.min(tx, ty);
         float ax = w / 2f + ux * t, ay = h / 2f + uy * t;
         float pulse = 0.85f + 0.15f * (float) Math.sin(s.time * 6.0);
-        float sz = 26f * ks * pulse, nx = -uy, ny = ux;
+        float sz = 40f * ks * pulse, nx = -uy, ny = ux;
         Path path = k.path;
         path.rewind();
         path.moveTo(ax + ux * sz, ay + uy * sz);
@@ -253,8 +253,8 @@ public final class TopOverlay {
         }
         k.tp.setTypeface(art.bold);
         k.tp.setTextAlign(Paint.Align.CENTER);
-        k.tp.setTextSize(26f * ks);
-        float tyy = ay + (uy > 0 ? -sz - 10f * ks : sz * 1.0f + 24f * ks);
+        k.tp.setTextSize(32f * ks);
+        float tyy = ay + (uy > 0 ? -sz - 12f * ks : sz * 1.0f + 30f * ks);
         k.tp.setStyle(Paint.Style.STROKE);
         k.tp.setStrokeWidth(5f * ks);
         k.tp.setColor(0xF0080604);
