@@ -98,9 +98,9 @@ ENEMIES = {
                                         orderEvery=12, guards=6, guardGap=46, guardDist=230, orderStand=1.8,
                                         guardLane=22, stopDist=170)),
     "OVERSEER_UNIT_7": dict(name="Overseer Unit 7", archetype="BOSS", boss=True, maxHp=300, speed=80, power=24, xp=100,
-                            sprite="security_drone", scale=3.0,
+                            sprite="security_drone", scale=4.2,
                             description="Hovers out of reach: bullet spiral, sweeping laser, drone deployment.",
-                            params=dict(pattern=9, hpRamp=20, radius=8, tintRGB=0xFF6A55, gearSlot=2, xpPileLevels=1.5,
+                            params=dict(pattern=9, hpRamp=20, radius=8, tintRGB=0xFF4A3A, gearSlot=2, xpPileLevels=1.5,
                                         hover=220, spiralTele=0.9, spiralTime=4.5, spiralArms=3, spiralGap=0.28,
                                         spiralTurn=0.3, spiralSpeed=170, spiralDmg=9, spiralLife=2.0, liveMax=24,
                                         laserLen=520, laserW=46, laserWarn=1.0, laserLife=2.4, laserSpin=0.75,
@@ -146,15 +146,26 @@ HERO_TUNE = {
     "SPECTRE.hp": 105, "SPECTRE.armor": 1, "SPECTRE.regen": 0.5, "SPECTRE.perLevel.maxHp": 0.004,
     "SPECTRE.perLevel.damageTaken": -0.007,
     "BASTION.regen": 0.3,   # was 0.4: the tank survived 90% of the Mines runs once the early deaths were gone
+    # v1.3.1 hero parity (mid bot, 32 seeds): Spectre and Xenomant died of contact late (the damage curve makes a Colonist hit 96 at 30:00, Xenomant
+    # had 95 HP and no armor), Bastion survived 3 in 4. Defence now grows with the level for all three.
+    "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
+    "SPECTRE.perLevel.power": 0.006, "SPECTRE.perLevel.maxHp": 0.005,              # new / was 0.004 (damageTaken stays -0.007)
+    "XENOMANT.hp": 100, "XENOMANT.armor": 1,                                       # was 95 / 0
+    "XENOMANT.perLevel.maxHp": 0.004, "XENOMANT.perLevel.damageTaken": -0.0015,    # new
 }
 MAIN_TUNE = {
     "HAMMER.power": 1.2, "HAMMER.params.slamPower": 1.8, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
     "CASTER.power": 0.8, "CASTER.params.burstPower": 0.4,                              # was 1.2 / 0.5
     # PISTOLS stay as they were (0.6, no pierce): pierce 1 made Spectre the strongest main weapon (111% of the Whip) without helping his survival
 }
-HERO_TEXT = {"SPECTRE": "Twin Pistols fire a volley down the aim line. Fragile and fast. Each level: +1% crit chance, +0.5% move speed, -0.7% damage taken."}
+HERO_TEXT = {
+    "BASTION": "Hydraulic Hammer swings in a cone and slams every third swing. Tough and slow. Each level: +1% might, +0.7% max HP.",
+    "SPECTRE": "Twin Pistols fire a volley down the aim line. Fragile and fast. Each level: +1% crit chance, +0.5% move speed, +0.6% might, +0.5% max HP, -0.7% damage taken.",
+    "XENOMANT": "Lumen Caster sends a piercing bolt and a Spore Burst every fourth cast. Each level: +1% area, +1% pickup range, +0.4% max HP, -0.15% damage taken.",
+}
 # the gem value of a kill fades with the run time (StageDef.xpFade): keeps the early levels, stops the XP flood (level 140 -> about 75 at 30:00)
-XP_FADE = {"FLATS": dict(**{"from": 420, "to": 1800, "end": 0.15}), "MINES": dict(**{"from": 360, "to": 1500, "end": 0.08})}
+# v1.3.1: deeper and earlier end (level at 30:00 of the survivors 120 -> about 90): Flats 0.15 at 30:00 -> 0.02 at 23:00, Mines 0.08 at 25:00 -> 0.02 at 22:00
+XP_FADE = {"FLATS": dict(**{"from": 420, "to": 1380, "end": 0.02}), "MINES": dict(**{"from": 360, "to": 1320, "end": 0.02})}
 FLATS_HEALTH, MINES_HEALTH = 1.2, 1.5   # EnemyHealthMultiplier (the Ashfall bosses scale with it too)
 
 # slot, name, icon (atlas key icon.<icon>), values (PlayerStats keys; a base item's values are the Common ones)
@@ -300,7 +311,7 @@ MINES_ROWS = [
 DIFF_FROM = 5                                   # minutes 0..4 are left as they were (the weak hero is already swamped there)
 MIN_TABLE = [[5, 40], [9, 40], [10, 50], [14, 65], [17, 110], [20, 190], [25, 270], [29, 300]]   # [minute, minimum alive]: linear between, flat after
 FREQ_TABLE = [[16, 600], [20, 480], [25, 380], [29, 300]]   # [minute, ms between spawn ticks] from minute 16 (earlier rows keep their original frequency)
-DMG_CURVE = [[0, 1.0], [18, 1.0], [24, 3.0], [30, 8.0]]   # [minute, multiplier on contact and bolt damage of wave enemies]
+DMG_CURVE = [[0, 0.8], [4, 0.85], [7, 1.0], [16, 1.0], [20, 3.0], [24, 8.5], [30, 18.0]]   # [minute, multiplier on contact and bolt damage of wave enemies]; v1.3.1: 0.8 at the start (minutes 1-4 softer), 18 at 30:00
 HP_CURVE = [[0, 1.0], [15, 1.0], [20, 1.6], [25, 3.0], [30, 5.0]]   # [minute, multiplier on the wave enemy HP]
 HORDE_TYPES = ["COLONIST", "SPORE_HOUND"]
 # [start s, minimum]; nominal starts 675, 825, ..., 1575 (every 150 s), shifted where a burst would sit on a v1.3/v1.4 boss spawn or event:

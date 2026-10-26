@@ -14,7 +14,7 @@ import java.util.Random;
  * weapon at the nearest enemy and kites away from the crowd, with one of three policies.
  *
  * <ul>
- * <li><b>immortal</b>: hp is refilled every step; checks NaN, pool limits, the 300 cap and counts everything.</li>
+ * <li><b>immortal</b>: hp is refilled every step and a lethal hit is undone; checks NaN, pool limits, the 300 cap and counts everything.</li>
  * <li><b>mid</b>: mortal, takes level-ups and chests like a player who prefers weapons and branches.</li>
  * <li><b>naked</b>: mortal, takes no level-up card at all (the main weapon alone).</li>
  * <li><b>still</b>: mortal, takes cards like <b>mid</b> but never moves (it only dodges).</li>
@@ -253,6 +253,10 @@ public final class StageSoak {
             if ((bolt || crowd >= 6) && s.dodgeCd <= 0f) in.dodgeReq = true;
             if (immortal) s.hp = s.maxHp;
             s.update(dt, in);
+            if (immortal && s.ended == 1) { // v1.3.1: late hits are bigger than the whole health bar, so a refill per step is not enough: undo the death
+                s.ended = 0;
+                s.hp = s.maxHp;
+            }
             step++;
             while (s.pendingLevelUps > 0) {
                 int lvl = s.level - s.pendingLevelUps + 1;

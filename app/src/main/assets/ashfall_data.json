@@ -620,8 +620,8 @@
    ],
    "xpFade": {
     "from": 420,
-    "to": 1800,
-    "end": 0.15
+    "to": 1380,
+    "end": 0.02
    },
    "hpCurve": [
     [
@@ -648,19 +648,31 @@
    "dmgCurve": [
     [
      0,
+     0.8
+    ],
+    [
+     4,
+     0.85
+    ],
+    [
+     7,
      1.0
     ],
     [
-     18,
+     16,
      1.0
     ],
     [
-     24,
+     20,
      3.0
     ],
     [
+     24,
+     8.5
+    ],
+    [
      30,
-     8.0
+     18.0
     ]
    ],
    "hordes": {
@@ -1226,8 +1238,8 @@
    "spawnType": "HORIZONTAL",
    "xpFade": {
     "from": 360,
-    "to": 1500,
-    "end": 0.08
+    "to": 1320,
+    "end": 0.02
    },
    "hpCurve": [
     [
@@ -1254,19 +1266,31 @@
    "dmgCurve": [
     [
      0,
+     0.8
+    ],
+    [
+     4,
+     0.85
+    ],
+    [
+     7,
      1.0
     ],
     [
-     18,
+     16,
      1.0
     ],
     [
-     24,
+     20,
      3.0
     ],
     [
+     24,
+     8.5
+    ],
+    [
      30,
-     8.0
+     18.0
     ]
    ],
    "hordes": {
@@ -1400,7 +1424,7 @@
   "BASTION": {
    "name": "Bastion",
    "role": "Tank, melee",
-   "description": "Hydraulic Hammer swings in a cone and slams every third swing. Tough and slow. Each level: +1% might, +1% max HP.",
+   "description": "Hydraulic Hammer swings in a cone and slams every third swing. Tough and slow. Each level: +1% might, +0.7% max HP.",
    "hp": 130,
    "armor": 1,
    "regen": 0.3,
@@ -1409,7 +1433,7 @@
    "critMul": 2,
    "perLevel": {
     "power": 0.01,
-    "maxHp": 0.01
+    "maxHp": 0.007
    },
    "main": "HAMMER",
    "model": "bastion"
@@ -1417,7 +1441,7 @@
   "SPECTRE": {
    "name": "Spectre",
    "role": "Glass cannon, kiter",
-   "description": "Twin Pistols fire a volley down the aim line. Fragile and fast. Each level: +1% crit chance, +0.5% move speed, -0.7% damage taken.",
+   "description": "Twin Pistols fire a volley down the aim line. Fragile and fast. Each level: +1% crit chance, +0.5% move speed, +0.6% might, +0.5% max HP, -0.7% damage taken.",
    "hp": 105,
    "armor": 1,
    "regen": 0.5,
@@ -1427,8 +1451,9 @@
    "perLevel": {
     "critChance": 0.01,
     "moveSpeed": 0.005,
-    "maxHp": 0.004,
-    "damageTaken": -0.007
+    "maxHp": 0.005,
+    "damageTaken": -0.007,
+    "power": 0.006
    },
    "main": "PISTOLS",
    "model": "spectre"
@@ -1436,16 +1461,18 @@
   "XENOMANT": {
    "name": "Xenomant",
    "role": "Caster, controller",
-   "description": "Lumen Caster sends a piercing bolt and a Spore Burst every fourth cast. Each level: +1% area, +1% pickup range.",
-   "hp": 95,
-   "armor": 0,
+   "description": "Lumen Caster sends a piercing bolt and a Spore Burst every fourth cast. Each level: +1% area, +1% pickup range, +0.4% max HP, -0.15% damage taken.",
+   "hp": 100,
+   "armor": 1,
    "regen": 0.2,
    "moveSpeed": 1.0,
    "crit": 0.05,
    "critMul": 2,
    "perLevel": {
     "area": 0.01,
-    "magnet": 0.01
+    "magnet": 0.01,
+    "maxHp": 0.004,
+    "damageTaken": -0.0015
    },
    "main": "CASTER",
    "model": "xenomant"
@@ -2328,13 +2355,13 @@
    "power": 24,
    "xp": 100,
    "sprite": "security_drone",
-   "scale": 3.0,
+   "scale": 4.2,
    "description": "Hovers out of reach: bullet spiral, sweeping laser, drone deployment.",
    "params": {
     "pattern": 9,
     "hpRamp": 20,
     "radius": 8,
-    "tintRGB": 16738901,
+    "tintRGB": 16730682,
     "gearSlot": 2,
     "xpPileLevels": 1.5,
     "hover": 220,

@@ -69,6 +69,7 @@ public class EventsTest {
     public void eachEventStartsAndEndsOnTimeOnItsStage() throws Exception {
         String[][] ids = {{"FLATS", "SIGNAL_TOWER", "SLAG_RAIN", "LUMEN_SURGE", "BEACON", "TIDE"},
                 {"MINES", "SIGNAL_TOWER", "COLLAPSE", "LUMEN_SURGE", "BEACON", "TIDE"}};
+        untouchable = true; // the damage curve of minutes 20-30 one-shots a test hero
         for (String[] row : ids) {
             Sim s = sim(row[0], 5, true);
             assertTrue(row[0], s.events.enabled);
@@ -325,6 +326,7 @@ public class EventsTest {
 
     @Test
     public void beaconFallingTriggersAHorde() throws Exception {
+        untouchable = true;
         Sim s = sim("MINES", 9, true);
         toEvent(s, "BEACON");
         Events ev = s.events;

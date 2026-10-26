@@ -88,7 +88,7 @@ public class NewBossTest {
     public void theFiveBossesAreDataDrivenWithModelTintAndScale() throws Exception {
         GameData d = TestData.load();
         String[] model = {"spore_carrier", "welder", "sergeant", "security_drone", "vire"};
-        double[] scale = {2.2, 2.0, 2.2, 3.0, 2.0};
+        double[] scale = {2.2, 2.0, 2.2, 4.2, 2.0};
         double[] hp = {220, 420, 400, 300, 650};
         int[] gear = {EquipDef.NECK, EquipDef.RING, EquipDef.HEAD, EquipDef.GLOVES, EquipDef.BODY};
         for (int i = 0; i < KEYS.length; i++) {
