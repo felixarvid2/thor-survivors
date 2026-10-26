@@ -213,7 +213,7 @@ public final class TopOverlay {
     /**
      * The nearest untaken find that lies outside the world view: a filled triangle with a dark outline at the screen
      * edge (inset 40 px) pointing toward it, lumen green for a Weapon Cache and blue for a Gear Locker, and its distance
-     * (units / 10) beside it. Allocation-free.
+     * (units / 10) beside it. While the Salvager is on the map the arrow points to it instead, in amber. Allocation-free.
      */
     public void drawFindArrow(Canvas c, int w, int h, Sim s, float sc, float ks) {
         if (s.merchant.present) { // the Salvager takes the arrow while it is on the map
