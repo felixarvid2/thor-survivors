@@ -7,7 +7,7 @@ Survivors stages FOREST and LIBRARY), so the XP and gold curves stay familiar. D
 x1.25 and speed x1.05 on top of the LIBRARY mods (it is the second stage).
 
 Run from thor-survivors/:  python3 tools/build_ashfall_stages.py
-Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `equipment` and `equipmentRules`
+Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `equipment`, `equipmentRules` and `fusions`
 are touched, plus the balance numbers listed in HERO_TUNE and MAIN_TUNE (design phase 12: they are applied on top of the
 heroes and mainWeapons that are already in the file; names, texts and branches stay as they are).
 """
@@ -197,6 +197,59 @@ UNIQUES = {
 EQUIPMENT_RULES = dict(mult=[1.0, 1.6, 2.4], uniqueValue=3.0, salvage=5, common=60, uncommon=32, rare=8,
                        shiftPerMin=1.2, fromMinute=3, commonMin=10, luckPoints=20)
 
+# --------------------------------------------------------------------------- weapon fusions (design v1.3 section 1)
+# Seven fusions of two mastered weapons (base weapon at max level or its evolved form), 6 levels each. Level 1 is the full
+# stat block, levels 2-6 are deltas (the same layout as the weapons of game_data.json): +8% power per level, and either
+# +1 amount at levels 3 and 5 (Needle Choir, Miasma Censer, Faraday Halo) or -5% interval at level 4 (the others).
+# Power starts at 1.5 x the stronger parent's maximum, interval near the mean of the parents x0.9; the numbers below are the
+# result of measuring each fusion against its parents on a seeded 200-enemy field (see TEKNIK.md "Vapenfusioner").
+FUSION_KEYS = ["STORMLASH", "FOUNDRY_SPILL", "NEEDLE_CHOIR", "MIASMA_CENSER", "RICOCHET_ORDNANCE", "FARADAY_HALO", "KILN_BREATH"]
+FUSIONS = {
+    "STORMLASH": dict(
+        name="Stormlash", parents=["WHIP", "LIGHTNING"], amountSteps=False,
+        description="Vibro Lash slashes that chain lightning: every enemy hit passes half the damage to the 2 nearest others.",
+        l1=dict(interval=1500, repeatInterval=100, power=10.3, area=1.3, speed=1, amount=2, critChance=0.2, critMul=2)),
+    "FOUNDRY_SPILL": dict(
+        name="Foundry Spill", parents=["FIREBALL", "HOLYWATER"], amountSteps=False,
+        description="A flask that leaves a burning pool. The pool lobs a fire burst every half second.",
+        l1=dict(interval=3800, repeatInterval=300, power=1.6, area=1.75, speed=1, amount=3, duration=4000, hitBoxDelay=500, knockback=0)),
+    "NEEDLE_CHOIR": dict(
+        name="Needle Choir", parents=["MAGIC_MISSILE", "KNIFE"], amountSteps=True,
+        description="A fan of homing needles toward the nearest enemy. Piercing, fast repeat.",
+        l1=dict(interval=700, repeatInterval=100, power=6.2, area=1, speed=1.3, amount=3, penetrating=2, knockback=0.2, critChance=0.2, critMul=2)),
+    "MIASMA_CENSER": dict(
+        name="Miasma Censer", parents=["GARLIC", "HOLYBOOK"], amountSteps=True,
+        description="Censers orbit you, each with its own toxic aura. The orbit breathes in and out.",
+        l1=dict(interval=3000, repeatInterval=0, power=1.06, area=1.2, speed=1.2, amount=3, duration=4000, hitBoxDelay=600, knockback=0.1)),
+    "RICOCHET_ORDNANCE": dict(
+        name="Ricochet Ordnance", parents=["AXE", "CROSS"], amountSteps=False,
+        description="A boomerang bomb. It detonates at the turn point and again on the way back.",
+        l1=dict(interval=1800, repeatInterval=100, power=8.9, area=1.2, speed=1.5, amount=1, critChance=0.2, critMul=2)),
+    "FARADAY_HALO": dict(
+        name="Faraday Halo", parents=["HOLYBOOK", "LIGHTNING"], amountSteps=True,
+        description="Drones orbit you and call a lightning bolt on the nearest enemy.",
+        l1=dict(interval=3000, repeatInterval=0, power=2.7, area=1.5, speed=1.3, amount=4, duration=4000, hitBoxDelay=800, knockback=0.1)),
+    "KILN_BREATH": dict(
+        name="Kiln Breath", parents=["GARLIC", "FIREBALL"], amountSteps=False,
+        description="A burning aura that sends out an expanding ring of fire every three seconds.",
+        l1=dict(interval=1000, repeatInterval=0, power=0.22, area=1.4, speed=1, amount=1, knockback=0)),
+}
+
+
+def fusion_rows(f):
+    l1 = dict(f["l1"])
+    rows = [l1]
+    for lv in range(2, 7):
+        d = {"power": round(l1["power"] * 0.08, 4)}
+        if f["amountSteps"]:
+            if lv in (3, 5):
+                d["amount"] = 1
+        elif lv == 4:
+            d["interval"] = -round(l1["interval"] * 0.05)
+        rows.append(d)
+    return rows
+
+
 # --------------------------------------------------------------------------- wave tables (design 9.3)
 K = dict(COL="COLONIST", HND="SPORE_HOUND", SGT="SERGEANT", DRN="SECURITY_DRONE", WLD="WELDER", SPC="SPORE_CARRIER",
          SML="SMELTER", VIR="VIRE")
@@ -281,6 +334,8 @@ def main():
             if r["minute"] in tre:
                 t = tre[r["minute"]]
                 r["treasure"] = {k: t[k] for k in ("chances", "level", "prizeTypes")}
+                # design v1.3 1.4: FUSION before EVOLUTION in every boss chest (the first slot), a mini-boss chest included
+                r["treasure"]["prizeTypes"] = ["FUSION", "EVOLUTION"] + list(t["prizeTypes"][1:])
             out_rows.append(r)
         o = dict(name=name, mods=mods, startingSpawns=starting, destructibleType=destructible, rows=out_rows)
         if spawn_type:
@@ -312,6 +367,8 @@ def main():
         eq[key] = dict(name=name, slot=slot, icon=icon, values=values, unique=True, source=source)
     data["equipment"] = eq
     data["equipmentRules"] = EQUIPMENT_RULES
+    data["fusions"] = {k: dict(name=FUSIONS[k]["name"], description=FUSIONS[k]["description"],
+                               parents=FUSIONS[k]["parents"], rarity=1, rows=fusion_rows(FUSIONS[k])) for k in FUSION_KEYS}
     for table, root in ((HERO_TUNE, data["heroes"]), (MAIN_TUNE, data["mainWeapons"])):
         for dotted, value in table.items():
             keys = dotted.split(".")

@@ -237,7 +237,8 @@
       ],
       "level": 1,
       "prizeTypes": [
-       "EXISTING_WEAPON",
+       "FUSION",
+       "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -310,6 +311,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -384,6 +386,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -458,6 +461,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -533,6 +537,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -603,6 +608,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -723,7 +729,8 @@
       ],
       "level": 1,
       "prizeTypes": [
-       "EXISTING_WEAPON",
+       "FUSION",
+       "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -795,6 +802,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -845,6 +853,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -895,6 +904,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EVOLUTION",
        "EVOLUTION",
@@ -948,6 +958,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -997,6 +1008,7 @@
       ],
       "level": 1,
       "prizeTypes": [
+       "FUSION",
        "EVOLUTION",
        "EXISTING_ANY",
        "EXISTING_ANY",
@@ -2406,5 +2418,273 @@
   "fromMinute": 3,
   "commonMin": 10,
   "luckPoints": 20
+ },
+ "fusions": {
+  "STORMLASH": {
+   "name": "Stormlash",
+   "description": "Vibro Lash slashes that chain lightning: every enemy hit passes half the damage to the 2 nearest others.",
+   "parents": [
+    "WHIP",
+    "LIGHTNING"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 1500,
+     "repeatInterval": 100,
+     "power": 10.3,
+     "area": 1.3,
+     "speed": 1,
+     "amount": 2,
+     "critChance": 0.2,
+     "critMul": 2
+    },
+    {
+     "power": 0.824
+    },
+    {
+     "power": 0.824
+    },
+    {
+     "power": 0.824,
+     "interval": -75
+    },
+    {
+     "power": 0.824
+    },
+    {
+     "power": 0.824
+    }
+   ]
+  },
+  "FOUNDRY_SPILL": {
+   "name": "Foundry Spill",
+   "description": "A flask that leaves a burning pool. The pool lobs a fire burst every half second.",
+   "parents": [
+    "FIREBALL",
+    "HOLYWATER"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 3800,
+     "repeatInterval": 300,
+     "power": 1.6,
+     "area": 1.75,
+     "speed": 1,
+     "amount": 3,
+     "duration": 4000,
+     "hitBoxDelay": 500,
+     "knockback": 0
+    },
+    {
+     "power": 0.128
+    },
+    {
+     "power": 0.128
+    },
+    {
+     "power": 0.128,
+     "interval": -190
+    },
+    {
+     "power": 0.128
+    },
+    {
+     "power": 0.128
+    }
+   ]
+  },
+  "NEEDLE_CHOIR": {
+   "name": "Needle Choir",
+   "description": "A fan of homing needles toward the nearest enemy. Piercing, fast repeat.",
+   "parents": [
+    "MAGIC_MISSILE",
+    "KNIFE"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 700,
+     "repeatInterval": 100,
+     "power": 6.2,
+     "area": 1,
+     "speed": 1.3,
+     "amount": 3,
+     "penetrating": 2,
+     "knockback": 0.2,
+     "critChance": 0.2,
+     "critMul": 2
+    },
+    {
+     "power": 0.496
+    },
+    {
+     "power": 0.496,
+     "amount": 1
+    },
+    {
+     "power": 0.496
+    },
+    {
+     "power": 0.496,
+     "amount": 1
+    },
+    {
+     "power": 0.496
+    }
+   ]
+  },
+  "MIASMA_CENSER": {
+   "name": "Miasma Censer",
+   "description": "Censers orbit you, each with its own toxic aura. The orbit breathes in and out.",
+   "parents": [
+    "GARLIC",
+    "HOLYBOOK"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 3000,
+     "repeatInterval": 0,
+     "power": 1.06,
+     "area": 1.2,
+     "speed": 1.2,
+     "amount": 3,
+     "duration": 4000,
+     "hitBoxDelay": 600,
+     "knockback": 0.1
+    },
+    {
+     "power": 0.0848
+    },
+    {
+     "power": 0.0848,
+     "amount": 1
+    },
+    {
+     "power": 0.0848
+    },
+    {
+     "power": 0.0848,
+     "amount": 1
+    },
+    {
+     "power": 0.0848
+    }
+   ]
+  },
+  "RICOCHET_ORDNANCE": {
+   "name": "Ricochet Ordnance",
+   "description": "A boomerang bomb. It detonates at the turn point and again on the way back.",
+   "parents": [
+    "AXE",
+    "CROSS"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 1800,
+     "repeatInterval": 100,
+     "power": 8.9,
+     "area": 1.2,
+     "speed": 1.5,
+     "amount": 1,
+     "critChance": 0.2,
+     "critMul": 2
+    },
+    {
+     "power": 0.712
+    },
+    {
+     "power": 0.712
+    },
+    {
+     "power": 0.712,
+     "interval": -90
+    },
+    {
+     "power": 0.712
+    },
+    {
+     "power": 0.712
+    }
+   ]
+  },
+  "FARADAY_HALO": {
+   "name": "Faraday Halo",
+   "description": "Drones orbit you and call a lightning bolt on the nearest enemy.",
+   "parents": [
+    "HOLYBOOK",
+    "LIGHTNING"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 3000,
+     "repeatInterval": 0,
+     "power": 2.7,
+     "area": 1.5,
+     "speed": 1.3,
+     "amount": 4,
+     "duration": 4000,
+     "hitBoxDelay": 800,
+     "knockback": 0.1
+    },
+    {
+     "power": 0.216
+    },
+    {
+     "power": 0.216,
+     "amount": 1
+    },
+    {
+     "power": 0.216
+    },
+    {
+     "power": 0.216,
+     "amount": 1
+    },
+    {
+     "power": 0.216
+    }
+   ]
+  },
+  "KILN_BREATH": {
+   "name": "Kiln Breath",
+   "description": "A burning aura that sends out an expanding ring of fire every three seconds.",
+   "parents": [
+    "GARLIC",
+    "FIREBALL"
+   ],
+   "rarity": 1,
+   "rows": [
+    {
+     "interval": 1000,
+     "repeatInterval": 0,
+     "power": 0.22,
+     "area": 1.4,
+     "speed": 1,
+     "amount": 1,
+     "knockback": 0
+    },
+    {
+     "power": 0.0176
+    },
+    {
+     "power": 0.0176
+    },
+    {
+     "power": 0.0176,
+     "interval": -50
+    },
+    {
+     "power": 0.0176
+    },
+    {
+     "power": 0.0176
+    }
+   ]
+  }
  }
 }

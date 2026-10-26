@@ -20,6 +20,7 @@ public final class OfferGenerator {
         for (WeaponDef d : defs) {
             if (d.evolution) continue;
             int owned = inv.levelOf(d.key);
+            if (d.fusion && owned == 0) continue; // a fusion is made, never offered as a new weapon (it levels up like any weapon)
             if (owned > 0) {
                 if (owned < d.maxLevel()) {
                     out.add(new Offer(d.powerUp ? Offer.PASSIVE_LEVEL : Offer.WEAPON_LEVEL, d, owned + 1));
@@ -75,24 +76,29 @@ public final class OfferGenerator {
     public static List<Offer> generate(Inventory inv, Collection<WeaponDef> defs, double luck, Random rng,
                                        MainWeaponDef mw, int[] tiers, int level) {
         List<Offer> pool = candidates(inv, defs);
+        double[] weight = new double[pool.size()];
+        for (int i = 0; i < weight.length; i++) weight[i] = weightOf(inv, defs, pool.get(i));
         int count = 3;
         if (rng.nextDouble() < Math.min(0.75, Math.max(0, luck))) count = 4;
         List<Offer> branches = branchOffers(mw, tiers, level, rng);
         count -= branches.size();
         List<Offer> out = new ArrayList<>();
-        while (out.size() < count && !pool.isEmpty()) {
-            long total = 0;
-            for (Offer o : pool) total += o.def.rarity;
-            long r = (long) (rng.nextDouble() * total);
-            int pick = pool.size() - 1;
-            for (int i = 0; i < pool.size(); i++) {
-                r -= pool.get(i).def.rarity;
+        int left = pool.size();
+        while (out.size() < count && left > 0) {
+            double total = 0;
+            for (int i = 0; i < left; i++) total += weight[i];
+            double r = rng.nextDouble() * total;
+            int pick = left - 1;
+            for (int i = 0; i < left; i++) {
+                r -= weight[i];
                 if (r < 0) {
                     pick = i;
                     break;
                 }
             }
             out.add(pool.remove(pick));
+            System.arraycopy(weight, pick + 1, weight, pick, left - pick - 1);
+            left--;
         }
         if (out.isEmpty() && branches.isEmpty()) {
             out.add(new Offer(Offer.HEAL, null, 0));
@@ -100,5 +106,45 @@ public final class OfferGenerator {
         }
         out.addAll(branches);
         return out;
+    }
+
+    /** Draw weight of a card: the def's rarity, x3 for the synergy passive of a maxed weapon you own, x1.5 for a new weapon whose fusion partner you own (design v1.3 1.6). */
+    static double weightOf(Inventory inv, Collection<WeaponDef> defs, Offer o) {
+        double w = o.def.rarity;
+        if (o.def.powerUp) {
+            for (int i = 0; i < inv.weaponCount; i++) {
+                Inventory.Slot s = inv.weapons[i];
+                if (s.def.evolution || s.def.fusion || s.level < s.def.maxLevel()) continue;
+                if (s.def.evoSynergy.contains(o.def.key)) return w * 3.0;
+            }
+            return w;
+        }
+        o.partner = hasMasteredPartner(inv, defs, o.def);
+        if (o.partner && o.kind == Offer.NEW_WEAPON) w *= 1.5;
+        return w;
+    }
+
+    /** True when {@code d} is a parent of a fusion whose other parent is mastered in the inventory (and the fusion is not owned yet). */
+    static boolean hasMasteredPartner(Inventory inv, Collection<WeaponDef> defs, WeaponDef d) {
+        if (d.powerUp || d.evolution || d.fusion) return false;
+        for (WeaponDef f : defs) {
+            if (!f.fusion || f.parents.size() < 2 || inv.weaponLevel(f.key) > 0) continue;
+            String other = f.parents.get(0).equals(d.key) ? f.parents.get(1) : f.parents.get(1).equals(d.key) ? f.parents.get(0) : null;
+            if (other != null && ownsMastered(inv, defs, other)) return true;
+        }
+        return false;
+    }
+
+    private static boolean ownsMastered(Inventory inv, Collection<WeaponDef> defs, String baseKey) {
+        for (int i = 0; i < inv.weaponCount; i++) {
+            Inventory.Slot s = inv.weapons[i];
+            if (s.def.fusion) continue;
+            if (s.def.key.equals(baseKey)) {
+                if (s.level >= s.def.maxLevel()) return true;
+            } else if (s.def.evolution) {
+                for (WeaponDef b : defs) if (b.key.equals(baseKey) && s.def.key.equals(b.evoInto)) return true;
+            }
+        }
+        return false;
     }
 }

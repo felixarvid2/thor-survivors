@@ -64,7 +64,8 @@ public class AshfallStageTest {
         assertNotNull(f.treasureAt(5 * 60 + 1));
         assertEquals(forest.treasureAt(10 * 60).chances[0], f.treasureAt(10 * 60).chances[0], 0.0);
         assertEquals(library.treasureAt(15 * 60).chances[1], m.treasureAt(15 * 60).chances[1], 0.0);
-        assertEquals("EVOLUTION", f.treasureAt(15 * 60).prizeAt(0));
+        assertEquals("FUSION", f.treasureAt(15 * 60).prizeAt(0));
+        assertEquals("EVOLUTION", f.treasureAt(15 * 60).prizeAt(1));
         // lighting
         assertEquals(0.65f, d.lightingOf("FLATS")[0], 1e-6);
         assertEquals(240f, d.lightingOf("FLATS")[1], 1e-6);

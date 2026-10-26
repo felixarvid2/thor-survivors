@@ -30,6 +30,8 @@ public final class GameData {
     public static final String[] HERO_ORDER = {"BASTION", "SPECTRE", "XENOMANT"};
 
     public final Map<String, WeaponDef> weapons = new LinkedHashMap<>();
+    /** The weapon fusions (ashfall_data.json "fusions", also in {@link #weapons}) in file order; empty without the overlay. */
+    public WeaponDef[] fusions = new WeaponDef[0];
     public final Map<String, StageDef> stages = new LinkedHashMap<>();
     public final Map<String, EnemyDef> enemies = new HashMap<>();
     public final Map<String, ItemDef> items = new HashMap<>();
@@ -79,6 +81,18 @@ public final class GameData {
                 PowerUpDef p = powerUps.get(id);
                 if (p != null) powerUps.put(id, p.withName(o.optString("name", p.name)));
             }
+        }
+        JSONObject fu = root.optJSONObject("fusions");
+        if (fu != null) {
+            List<WeaponDef> list = new ArrayList<>();
+            Iterator<String> it = fu.keys();
+            while (it.hasNext()) {
+                String key = it.next();
+                WeaponDef f = parseFusion(key, fu.getJSONObject(key));
+                weapons.put(key, f);
+                list.add(f);
+            }
+            fusions = list.toArray(new WeaponDef[0]);
         }
         JSONObject en = root.optJSONObject("enemies");
         if (en != null) {
@@ -149,6 +163,13 @@ public final class GameData {
                 if (o != null) heroes.put(key, parseHero(key, o));
             }
         }
+    }
+
+    /** A fusion: `rows` like a base weapon (row 0 the level 1 block, later rows deltas), `parents` the two base weapon keys. */
+    private static WeaponDef parseFusion(String key, JSONObject o) throws JSONException {
+        List<Map<String, Double>> rows = numericRows(o.getJSONArray("rows"));
+        return new WeaponDef(key, o.optString("name", key), o.optString("description", ""), null, null, false, false,
+                (int) Math.max(1, o.optDouble("rarity", 1)), rows, strings(o.optJSONArray("parents")));
     }
 
     /** Design section 4: stats in the VS units of the ZOMBIE row (hp 1.0 = one Z), archetype and its numbers. */

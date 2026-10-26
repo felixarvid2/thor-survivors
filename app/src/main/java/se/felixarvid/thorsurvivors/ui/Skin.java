@@ -100,7 +100,8 @@ public final class Skin {
                 if (sp > pos) end = sp;
             }
             if (lines == maxLines - 1 && end < s.length()) {
-                c.drawText(s.substring(pos, end) + "...", x, y + lines * lineH, tp);
+                c.drawText(s, pos, end, x, y + lines * lineH, tp); // the cut-off line and its dots, drawn apart so nothing is concatenated
+                c.drawText("...", x + tp.measureText(s, pos, end), y + lines * lineH, tp);
             } else {
                 c.drawText(s, pos, end, x, y + lines * lineH, tp);
             }

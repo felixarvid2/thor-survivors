@@ -47,6 +47,9 @@ public final class Sim {
         /** Garlic / Soul Eater aura radius in world units (50 u x area); the renderer draws the aura with it. */
         public float auraRadius;
         public int pending, shotIndex, side;
+        /** Fusions.* id when this slot holds a weapon fusion (0 = none) and a timer for it. */
+        public int fusion;
+        public float aux;
     }
 
     public final GameData data;
@@ -118,6 +121,7 @@ public final class Sim {
     final EnemyAi ai = new EnemyAi(this);
     final BossAi boss = new BossAi(this, ai);
     final Elites elites = new Elites(this);
+    final Fusions fusions = new Fusions(this);
     /** Hero statuses from enemy hazards (design section 7): seconds left of Burn, Slow and Decay. */
     public float heroBurnT, heroSlowT, heroDecayT;
     private float statusAcc;
@@ -215,6 +219,75 @@ public final class Sim {
     private boolean findHinted;
     /** The Salvager (merchant) of the Ashfall stages; see {@link Merchant}. */
     public final Merchant merchant = new Merchant(this);
+
+    // ------------------------------------------------------------------ weapon fusions (design v1.3 section 1)
+
+    /** The fusion that can be made now (null = none), since when (run seconds, -1 = not ready), and the Arms Crates waiting to be opened. */
+    public WeaponDef fusionReady;
+    public double fuseReadySince = -1;
+    public int pendingArms;
+    /** K_CHEST pickup value of an elite's Arms Crate (a timed boss's chest carries its item count 1..3, a plain chest 0). */
+    public static final float ARMS_CRATE = -1f;
+    /** Seconds a pair must be ready before the FUSE level-up card may appear, and the least number of level-ups between two FUSE cards. */
+    public static final double FUSE_CARD_AFTER = 90.0;
+    public static final int FUSE_CARD_EVERY = 2;
+    private float fuseCheckT;
+    private int levelUpSeq, lastFuseCardSeq = -100;
+    /** The latest fusion made (for the chest line and the cards): its two parents as they were and the result. */
+    public WeaponDef lastFusedA, lastFusedB, lastFusedTo;
+    /** Chest table of an Arms Crate (elite drop from the 2nd elite): five items: fusion, evolution, a weapon level, then two random levels. */
+    static final Treasure ARMS_TREASURE =
+            new Treasure(new double[]{100, 0, 0}, 1, new String[]{Treasure.FUSION, Treasure.EVOLUTION, Treasure.EXISTING_WEAPON});
+
+    private void updateFusionReady(float dt) {
+        if ((fuseCheckT -= dt) > 0f) return;
+        fuseCheckT = 0.5f;
+        fusionReady = data.fusions.length == 0 ? null : inv.readyFusion(data.fusions, data.weapons);
+        if (fusionReady == null) fuseReadySince = -1;
+        else if (fuseReadySince < 0) fuseReadySince = time;
+    }
+
+    /** True when a fusion can be made now. */
+    public boolean fusionAvailable() {
+        return data.fusions.length > 0 && inv.readyFusion(data.fusions, data.weapons) != null;
+    }
+
+    /**
+     * Called for every level-up: when a pair has been ready for 90 s (no chest took it) and no FUSE card came in the last
+     * level-up, the last non-branch card becomes the gold FUSE card. It can be declined by picking another card.
+     */
+    public void addFuseCard(List<Offer> cards) {
+        levelUpSeq++;
+        if (fusionReady == null || fuseReadySince < 0 || time - fuseReadySince < FUSE_CARD_AFTER
+                || levelUpSeq - lastFuseCardSeq < FUSE_CARD_EVERY || cards.isEmpty()) return;
+        WeaponDef f = inv.readyFusion(data.fusions, data.weapons);
+        if (f == null) return;
+        Offer o = Offer.fuse(f, inv.weapons[inv.fuseA].def, inv.weapons[inv.fuseB].def);
+        int at = cards.size() - 1;
+        while (at > 0 && cards.get(at).kind == Offer.BRANCH) at--;
+        if (cards.get(at).kind == Offer.BRANCH) cards.add(o);
+        else cards.set(at, o);
+        lastFuseCardSeq = levelUpSeq;
+    }
+
+    /** Fuses the pair of {@code f}: frees a weapon slot, starts the fusion at its level and resets what depended on the slots. Returns false when the pair is not ready. */
+    public boolean fuseNow(WeaponDef f) {
+        if (!inv.canFuse(f, data.weapons)) return false;
+        int low = inv.fuseA;
+        lastFusedA = inv.weapons[inv.fuseA].def;
+        lastFusedB = inv.weapons[inv.fuseB].def;
+        lastFusedTo = f;
+        inv.fuse(f, data.weapons);
+        for (int i = projN - 1; i >= 0; i--) if (projs[i].kind == Entities.P_BOOK) removeProj(i); // orbiting drones belong to slot numbers that moved
+        strikeN = 0;
+        for (int i = low; i < weapons.length; i++) weapons[i].def = null; // fresh cooldowns for the slots that changed
+        fusionReady = null;
+        fuseReadySince = -1;
+        sound.emit(SoundEvents.EVOLUTION);
+        toast("FUSION: " + f.name, 0xFFFFD84A);
+        recomputeAll();
+        return true;
+    }
 
     private int lastRow = -1;
     private float spawnTimer;
@@ -356,6 +429,11 @@ public final class Sim {
         }
     }
 
+    /** Tests: collects a find as walking over it does. */
+    public void collectFindForTest(int kind) {
+        collectFind(kind);
+    }
+
     private void collectFind(int kind) {
         sound.emit(SoundEvents.CHEST_OPEN);
         if (kind == FIND_GEAR) {
@@ -364,6 +442,20 @@ public final class Sim {
             return;
         }
         final int green = 0xFF39FF88;
+        WeaponDef fus = inv.readyFusion(data.fusions, data.weapons);
+        if (fus != null) { // a ready pair is fused, else a mastered weapon with its synergy passive evolves
+            fuseNow(fus);
+            toast("WEAPON CACHE: FUSION", green);
+            return;
+        }
+        int evo = inv.firstEvolvable(data.weapons);
+        if (evo >= 0) {
+            WeaponDef to = inv.evolve(evo, data.weapons);
+            sound.emit(SoundEvents.EVOLUTION);
+            recomputeAll();
+            toast("WEAPON CACHE: " + to.name, green);
+            return;
+        }
         java.util.List<Offer> cand = OfferGenerator.candidates(inv, data.weapons.values());
         java.util.ArrayList<Offer> fresh = new java.util.ArrayList<>(), up = new java.util.ArrayList<>();
         for (Offer o : cand) {
@@ -413,6 +505,12 @@ public final class Sim {
 
     private static int behaviorOf(String key) {
         switch (key) {
+            case "STORMLASH": return B_WHIP;
+            case "FOUNDRY_SPILL": return B_WATER;
+            case "NEEDLE_CHOIR": return B_KNIFE;
+            case "MIASMA_CENSER": case "FARADAY_HALO": return B_BOOK;
+            case "RICOCHET_ORDNANCE": return B_CROSS;
+            case "KILN_BREATH": return B_GARLIC;
             case "WHIP": case "VAMPIRICA": return B_WHIP;
             case "MAGIC_MISSILE": case "HOLY_MISSILE": return B_MISSILE;
             case "KNIFE": case "THOUSAND": return B_KNIFE;
@@ -435,6 +533,7 @@ public final class Sim {
         w.level = s.level;
         w.behavior = behaviorOf(s.def.key);
         w.evo = s.def.evolution;
+        w.fusion = Fusions.idOf(s.def.key);
         Map<String, Double> m = s.def.statsAt(s.level);
         w.dmg = g(m, "power", 1) * 10f * (float) stats.might;
         w.interval = (float) Math.max(50, g(m, "interval", 1000)) / 1000f * (float) stats.cooldownMul;
@@ -445,7 +544,7 @@ public final class Sim {
         w.hasHitDelay = m.containsKey("hitBoxDelay");
         w.hitDelay = Math.max(0.05f, g(m, "hitBoxDelay", 500) / 1000f);
         w.auraRadius = 50f * w.area;
-        w.endless = s.def.key.equals("VESPERS");
+        w.endless = s.def.key.equals("VESPERS") || w.fusion == Fusions.CENSER || w.fusion == Fusions.FARADAY;
         w.knock = g(m, "knockback", 0.3f);
         w.critChance = (g(m, "critChance", 0) + (float) stats.critBonus) * (1f + (float) stats.luck);
         w.critMul = g(m, "critMul", 2);
@@ -500,6 +599,7 @@ public final class Sim {
         }
         updatePickups(dt);
         updateFinds();
+        updateFusionReady(dt);
         merchant.update();
         updateVisuals(dt);
         if (freezeTimer > 0) freezeTimer -= dt;
@@ -1525,7 +1625,7 @@ public final class Sim {
     // ------------------------------------------------------------------ damage & kills
 
     /** Set while a lightning strike deals its damage: those hits show a soft brighten instead of the white silhouette. */
-    private boolean softHit;
+    boolean softHit;
 
     public void hurt(Enemy e, float dmg, float chance, float critMul, float kx, float ky, float knock) {
         if (e.dead || e.dormant) return;
@@ -1889,7 +1989,8 @@ public final class Sim {
                 break;
             case Entities.K_CHEST:
                 pendingChests++;
-                if (p.value >= 1f && bossChestN < bossChestQ.length) bossChestQ[bossChestN++] = Math.round(p.value);
+                if (p.value >= 1f && bossChestN < bossChestQ.length) bossChestQ[bossChestN++] = Math.round(p.value); // a timed boss's chest: item count
+                else if (p.value < -0.5f) pendingArms++; // an elite's Arms Crate (ARMS_CRATE)
                 break;
             case Entities.K_EQUIP: {
                 int code = (int) (p.value + 0.5f);
@@ -1957,6 +2058,7 @@ public final class Sim {
     private void eliteRewards(Enemy e) {
         sound.emit(SoundEvents.ELITE_DIE);
         eliteKilled++;
+        if (eliteKilled >= 2 && time >= 300.0) addPickup(Entities.K_CHEST, e.x + 36f, e.y + 8f, ARMS_CRATE); // Arms Crate, next to the gear crate
         if (!data.baseItems.isEmpty()) {
             dropEquipment(e.x, e.y, data.baseItems.get(rng.nextInt(data.baseItems.size())), rollRarity());
         }
@@ -2266,6 +2368,9 @@ public final class Sim {
             case Offer.BRANCH:
                 if (main != null) main.pick(o.branchIdx, o.newLevel);
                 break;
+            case Offer.FUSE:
+                if (!fuseNow(o.def)) gold += 25; // the pair is gone (stale card): pay the salvage instead
+                return;
             default:
                 gold += 25;
         }
@@ -2274,14 +2379,14 @@ public final class Sim {
 
     /** Used when the stage has no treasure table at or before the current minute: one evolution, else one upgrade. */
     private static final Treasure DEFAULT_TREASURE =
-            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.EVOLUTION});
+            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.FUSION, Treasure.EVOLUTION});
 
     /**
-     * The chest of a v1.3 timed boss: always 1..3 items (its pickup carries the count), first an evolution, then upgrades of
-     * owned weapons. TODO(fusions): the prize order becomes FUSION, EVOLUTION, EXISTING_WEAPON when weapon fusions land.
+     * The chest of a v1.3 timed boss: always 1..3 items (its pickup carries the count): a fusion, else an evolution, then
+     * upgrades of owned weapons.
      */
     private static final Treasure BOSS_TREASURE =
-            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.EVOLUTION, Treasure.EXISTING_WEAPON});
+            new Treasure(new double[]{0, 0, 100}, 1, new String[]{Treasure.FUSION, Treasure.EVOLUTION, Treasure.EXISTING_WEAPON});
     private final int[] bossChestQ = new int[8];
     private int bossChestN, forcedItems;
 
@@ -2291,6 +2396,11 @@ public final class Sim {
         if (bossChestN > 0) { // a timed boss's chest first
             forcedItems = bossChestQ[--bossChestN];
             return openChest(BOSS_TREASURE);
+        }
+        if (pendingArms > pendingChests - bossChestN) pendingArms = Math.max(0, pendingChests - bossChestN);
+        if (pendingArms > 0) { // an elite's Arms Crate: fusion, evolution, a weapon level
+            pendingArms--;
+            return openChest(ARMS_TREASURE);
         }
         Treasure t = stage.treasureAt(time);
         return openChest(t != null ? t : DEFAULT_TREASURE);
@@ -2313,6 +2423,16 @@ public final class Sim {
         forcedItems = 0;
         for (int i = 0; i < n; i++) {
             String type = t.prizeAt(i);
+            if (Treasure.FUSION.equals(type)) { // FUSION first; with no pair ready the slot tries EVOLUTION, then a level
+                WeaponDef f = inv.readyFusion(data.fusions, data.weapons);
+                if (f != null) {
+                    String a = inv.weapons[inv.fuseA].def.name, b = inv.weapons[inv.fuseB].def.name;
+                    fuseNow(f);
+                    lines.add("FUSION! " + a + " + " + b + " -> " + f.name);
+                    continue;
+                }
+                type = Treasure.EVOLUTION;
+            }
             if (Treasure.EVOLUTION.equals(type)) {
                 int slot = inv.firstEvolvable(data.weapons);
                 if (slot >= 0) {
@@ -2394,7 +2514,7 @@ public final class Sim {
                     if (w.cd < 0) w.cd = w.interval;
                     return;
                 }
-                w.pending = w.amount;
+                w.pending = w.fusion == Fusions.NEEDLE ? 1 : w.amount; // Needle Choir fires its whole fan at once
                 w.shotIndex = 0;
                 w.shotCd = dt; // the first shot goes out this very frame
                 w.phase = rng.nextFloat();
@@ -2413,7 +2533,7 @@ public final class Sim {
         }
     }
 
-    private Enemy nearest(float maxDist) {
+    Enemy nearest(float maxDist) {
         Enemy best = null;
         float bd = maxDist * maxDist;
         for (int i = 0; i < enemyN; i++) {
@@ -2451,12 +2571,14 @@ public final class Sim {
         return n == 0 ? null : enemies[pickBuf[rng.nextInt(n)]];
     }
 
-    private Projectile newProj(int kind, int slot, WeaponState w) {
+    Projectile newProj(int kind, int slot, WeaponState w) {
         if (projN >= MAX_PROJ) return null;
         Projectile p = projs[projN++];
         p.kind = kind;
         p.slot = slot;
-        p.evo = w.evo;
+        p.evo = w.evo || w.fusion != 0;
+        p.fusion = w.fusion;
+        p.aux = p.aux2 = p.blastR = 0f;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 2f;
         p.radius = 10f;
@@ -2488,6 +2610,7 @@ public final class Sim {
         p.sub = sub;
         p.slot = 255;
         p.evo = false;
+        p.fusion = 0;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 1f;
         p.radius = 8f;
@@ -2528,6 +2651,7 @@ public final class Sim {
                 break;
             }
             case B_KNIFE: {
+                if (w.fusion == Fusions.NEEDLE) { fusions.needles(w, slot); break; }
                 Projectile p = newProj(Entities.P_KNIFE, slot, w);
                 if (p == null) return;
                 sound.emit(SoundEvents.KNIFE);
@@ -2585,6 +2709,7 @@ public final class Sim {
                 p.life = p.maxLife = 3f;
                 p.hitsLeft = 100000;
                 p.spin = 10f;
+                if (w.fusion == Fusions.ORDNANCE) p.blastR = Fusions.BLAST_R * w.area;
                 break;
             }
             case B_FIRE: {
@@ -2645,9 +2770,11 @@ public final class Sim {
             if (e.dead) continue;
             if (Math.abs(e.x - cx) < W / 2f + e.radius && Math.abs(e.y - cy) < H / 2f + e.radius) {
                 hurt(e, w.dmg, w.critChance, w.critMul, side, 0, w.knock);
+                if (w.fusion == Fusions.STORM) fusions.slashHit(w, e);
                 hits++;
             }
         }
+        if (w.fusion == Fusions.STORM) fusions.slashEnd(w);
         if (w.evo && hits > 0) leech(w, Math.min(3f, hits * w.dmg * 0.08f));
     }
 
@@ -2678,7 +2805,7 @@ public final class Sim {
         }
     }
 
-    private void strike(WeaponState w, float tx, float ty) {
+    void strike(WeaponState w, float tx, float ty) {
         float r = 25f * w.area;
         lastAttack = tNow;
         sound.emit(SoundEvents.LIGHTNING);
@@ -2699,6 +2826,7 @@ public final class Sim {
     }
 
     private void garlic(WeaponState w, int slot, float dt) {
+        if (w.fusion == Fusions.KILN) fusions.kiln(w, dt);
         w.cd -= dt;
         if (w.cd > 0) return;
         w.cd += Math.max(0.15f, w.hasHitDelay ? w.hitDelay : w.interval);
@@ -2716,7 +2844,7 @@ public final class Sim {
             if (d2 < rr * rr) {
                 float d = (float) Math.sqrt(d2) + 0.01f;
                 hurt(e, w.dmg, 0, 1, dx / d, dy / d, Math.max(0.15f, w.knock));
-                applyStatus(e, Entities.ST_DECAY, w.evo ? 2 : 1, w.dmg, 0f); // Toxic Vent: Decay
+                applyStatus(e, w.fusion == Fusions.KILN ? Entities.ST_BURN : Entities.ST_DECAY, w.evo ? 2 : 1, w.dmg, 0f); // Toxic Vent: Decay (Kiln Breath: Burn)
                 e.kbMul = Math.min(3f, e.kbMul + 0.1f); // every tick lowers its knockback resistance
                 hits++;
             }
@@ -2753,6 +2881,7 @@ public final class Sim {
             p.hitsLeft = 1 << 30;
             p.x = px + (float) Math.cos(p.orbitAngle) * p.orbitRadius;
             p.y = py + (float) Math.sin(p.orbitAngle) * p.orbitRadius;
+            if (w.fusion != 0) fusions.setupBook(w, p, i);
         }
     }
 
@@ -2768,6 +2897,7 @@ public final class Sim {
             Projectile p = projs[i];
             p.life -= dt;
             if (p.life <= 0) {
+                if (p.fusion != 0) fusions.expire(p);
                 if (p.blast > 0f && main != null) main.explode(p); // grenades, bomblets, the slug's end of range
                 removeProj(i);
                 continue;
@@ -2816,6 +2946,7 @@ public final class Sim {
                 default:
                     break;
             }
+            if (p.fusion != 0 && fusions.update(p, dt)) { removeProj(i); continue; }
             // off-screen culling (books and puddles stay; the cross dies by lifetime)
             if (p.kind != Entities.P_BOOK && p.kind != Entities.P_PUDDLE && p.kind != Entities.P_CROSS) {
                 float dx = p.x - px, dy = p.y - py;
@@ -2845,6 +2976,7 @@ public final class Sim {
                     applyStatus(e, Entities.ST_DECAY, 1, p.dmg, 0f);
                     applyStatus(e, Entities.ST_FROST, e.frost < 1 ? 1 : 0, p.dmg, 0f);
                 }
+                if (p.fusion != 0) fusions.onHit(p, e);
                 if (main != null && (p.kind == Entities.P_MAIN || p.sub != Entities.SUB_NONE)) main.onHit(p, e);
                 if (p.kind == Entities.P_FIRE || p.kind == Entities.P_AXE) { // a small burst where it hits
                     addFx(Entities.FX_BLAST, e.x, e.y, p.kind == Entities.P_FIRE ? 34f : 24f, p.kind == Entities.P_FIRE ? 1f : 0f, 0.28f, 0, p.evo);
