@@ -120,7 +120,7 @@ public class FlatsAddonTest {
         r.strikeN = 1;
         s.update(DT, new Input()); // not in a storm: the ring still resolves
         float expected = Math.max(1f, FlatsRules.STRIKE_DMG - (float) s.stats.armor) * (float) s.stats.damageTaken;
-        assertEquals(expected, before - s.hp, 0.01f);
+        assertEquals(expected, before - s.hp, 0.05f); // + the hero's regeneration of one step
         // outside the ring: nothing
         s.hp = s.maxHp;
         s.invuln = 0f;

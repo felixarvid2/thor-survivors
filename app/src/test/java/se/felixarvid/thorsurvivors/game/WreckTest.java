@@ -683,7 +683,8 @@ public class WreckTest {
         assertEquals(1, wr.bursts);
         assertTrue("the burst kills it", b.dead);
         float lost = 1000f - s.hp;
-        assertTrue("about 20 damage: " + lost, lost >= 20f - armor - 0.5f && lost <= 20.5f);
+        float burst = 20f * (float) s.stage.dmgMul(s.time); // contact and burst damage grow with the run time (v1.4 harder)
+        assertTrue("about 20 damage (x the damage curve): " + lost, lost >= burst - armor - 0.5f && lost <= burst + 0.5f);
         // the cap
         Sim t = run(8);
         for (int i = 0; i < 12; i++) t.spawnAt("BREACHER", 600f + i, 0f, false);

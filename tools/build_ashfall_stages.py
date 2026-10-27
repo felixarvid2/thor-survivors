@@ -347,13 +347,21 @@ STAGE_TUNE = {
     "HYDRO": dict(extra_types=[], horde_types=["COLONIST", "SPORE_HOUND", "MYCELID"],   # the 975 s horde moves to 990: the 16:00 Sporefall runs 960-980
                   hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [990, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),
     "REFINERY": dict(extra_types=[]),
-    "WRECK": dict(extra_types=[]),
-    "FLATS": dict(extra_types=[]),   # v1.4: the Flats rows already carry Sergeants; extra ones made 5-10 min lethal (14 of 32 Xenomants died there)
+    "WRECK": dict(extra_types=[],   # the 825 and 1125 s hordes move off the Vacuum Breaches (840 and 1140, 25 s each)
+                  hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [875, 140], [975, 170], [1170, 200], [1245, 250], [1420, 290], [1545, 290]]),
+    "FLATS": dict(extra_types=[],
+                  hordes=[[200, 50], [370, 70], [565, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),   # 520 -> 565: the first convoy crosses 495-555   # v1.4: the Flats rows already carry Sergeants; extra ones made 5-10 min lethal (14 of 32 Xenomants died there)
     "MINES": dict(hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1430, 290], [1600, 290]], extra_types=[[1, "SGT"], [3, "DRN"]],
                   dmg_curve=[[0, 1.4], [3, 1.45], [6, 1.45], [10, 1.72], [13, 2.0], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]]),
 }
 # Hordes sit between the bosses and events: nominal starts 675, 825, ..., 1575 (every 150 s) shifted off every timed boss (7:30, 12:30,
 # 17:30, 22:30, Kade 27:30 Flats / 26:30 Mines) and event start (Signal Tower 1260, Lumen Surge 1440, Beacon Flats 1560, Collapse Mines 1405-1430).
+
+
+def set_hordes(st, key):
+    """A stage copied from Flats gets the hordes of its own tune (TUNE_DEFAULT plus its overrides), not Flats' (which sit between the convoys)."""
+    tn = tune_of(key)
+    st["hordes"] = dict(types=tn["horde_types"], bursts=[dict(at=a, length=tn["horde_len"], minimum=mn, frequency=tn["horde_freq"]) for a, mn in tn["hordes"]])
 
 
 def tune_of(stage):
@@ -528,6 +536,7 @@ def refinery_tune(st, data):
             r["treasure"] = old[r["minute"]]["treasure"]
         out.append(r)
     st["rows"] = out
+    set_hordes(st, "REFINERY")
     st["timedBosses"] = [dict(t=t, boss=b) for t, b in REFINERY_TIMED]
     st["events"] = [dict(id=i, at=t) for i, t in REFINERY_EVENTS]
 
@@ -617,7 +626,7 @@ def hydro_stage(st):
     st["rows"] = rows
     st["timedBosses"] = [dict(t=t, boss=b) for t, b in HYDRO_TIMED]
     st["events"] = [dict(id=i, at=t) for i, t in HYDRO_EVENTS]
-    st["hordes"] = dict(types=tn["horde_types"], bursts=[dict(at=a, length=tn["horde_len"], minimum=mn, frequency=tn["horde_freq"]) for a, mn in tn["hordes"]])
+    set_hordes(st, "HYDRO")
     st["destructibleType"] = "MIXED_FLATS"
 
 
@@ -709,7 +718,6 @@ WRECK_TIMED = [(450, "HULL_BREACHER_ALPHA"), (750, "SALVAGE_WARDEN"), (1050, "CO
 # The Vacuum Breaches (4:00, 9:00, 14:00, 19:00, 24:00, 25 s each) are WreckRules; nothing here overlaps them.
 WRECK_EVENTS = [("SIGNAL_TOWER", 1260), ("COLLAPSE", 1380), ("LUMEN_SURGE", 1480), ("BEACON", 1560)]
 # the Flats bursts, moved off the breaches (14:00-14:25 and 19:00-19:25 each with their 2 s warning)
-WRECK_HORDES = [[675, 75], [875, 95], [975, 130], [1170, 180], [1245, 240], [1420, 290], [1545, 290]]
 WRECK_DENSITY = 1.10     # "the highest density of the five stages": +10% over Flats at equal minutes (the wave cap of 300 still holds)
 # stage rules parameters (StageDef.rules, read by WreckRules with defaults of the same value)
 WRECK_RULES = dict(padR=70, padChannel=0.5, padCooldown=12, padShockR=140, padShockDmg=30, wellR=220, wellOn=10, wellOff=6,
@@ -732,7 +740,7 @@ def add_wreck(data):
         r["minimum"] = min(300, int(round(r["minimum"] * WRECK_DENSITY)))
     st["timedBosses"] = [dict(t=t, boss=b) for t, b in WRECK_TIMED]
     st["events"] = [dict(id=i, at=t) for i, t in WRECK_EVENTS]
-    # hordes: inherited from the Flats copy (TUNE_DEFAULT, v1.4 harder); the old WRECK_HORDES numbers are not applied any more
+    set_hordes(st, "WRECK")   # TUNE_DEFAULT + the Wreck overrides (STAGE_TUNE); the old WRECK_HORDES numbers are not applied any more
     st["rules"] = dict(WRECK_RULES)
     data["lighting"]["WRECK"] = dict(ambient=0.62, radius=230)
     data["equipment"]["ECHO_OF_THE_PILLAR"] = dict(ECHO_OF_THE_PILLAR)

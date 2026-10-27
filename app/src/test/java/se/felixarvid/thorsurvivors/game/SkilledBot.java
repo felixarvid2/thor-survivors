@@ -3,6 +3,12 @@ package se.felixarvid.thorsurvivors.game;
 import se.felixarvid.thorsurvivors.data.EnemyDef;
 import se.felixarvid.thorsurvivors.data.WeaponDef;
 import se.felixarvid.thorsurvivors.game.Entities.Enemy;
+import se.felixarvid.thorsurvivors.game.layout.StreetsLayout;
+import se.felixarvid.thorsurvivors.game.stage.FlatsRules;
+import se.felixarvid.thorsurvivors.game.stage.HydroRules;
+import se.felixarvid.thorsurvivors.game.stage.MinesRules;
+import se.felixarvid.thorsurvivors.game.stage.RefineryRules;
+import se.felixarvid.thorsurvivors.game.stage.WreckRules;
 
 import java.util.List;
 import java.util.Random;
@@ -17,6 +23,11 @@ import java.util.Random;
  * picks the safest heading with some persistence. When nothing threatens it circles the crowd at a distance where the weapons reach.</li>
  * <li><b>Dodges</b> on imminent contact with a heavy hitter, a bolt about to land, a bomb about to blast under it, or a charge line.</li>
  * <li><b>Collects</b>: food when hurt, crates and chests, gems and coins when it is safe, vacuum and clover.</li>
+ * <li><b>Reads the stage</b> (v1.4): Wreck: stays inside the breach bubble, keeps out of running gravity wells and now and then
+ * uses a teleport pad (to get out of a crowd, or about once a minute when calm); Refinery: never stands still while the heat
+ * climbs, keeps off furnace gates and molten metal, steps out of a Heat Wave and dodges through one; Hydroponic Vaults: leaves
+ * growth patches and floods, goes for a Bloom Heart (and aims at it) when the field is thin and the hero healthy; Mines: keeps out of
+ * the cart lane while the cart comes, away from a lit firedamp fuse; Flats: off the lightning rings.</li>
  * <li><b>Builds</b>: at most four attack weapons plus the passives that evolve them, fusions and branches first, defence when hurt.</li>
  * </ul>
  */
@@ -30,6 +41,19 @@ final class SkilledBot {
     private int tick;
     private final Random shopRng = new Random(77);
     private float goalX, goalY;
+    // ---- v1.4 stage knowledge (rules of the running stage, bound once per steer)
+    private RefineryRules rr;
+    private WreckRules wr;
+    private HydroRules hr;
+    private MinesRules mr;
+    private FlatsRules fr;
+    private final Random stageRng = new Random(31);
+    private double padNext = 60.0;
+    private float stageGx, stageGy;
+    /** Pad the bot is walking to (index into WreckRules.pad*), -1 = none. */
+    private int padGoal = -1;
+    /** Bloom Heart the bot is hunting (index into HydroRules.h*), -1 = none; read by the aim. */
+    int heartGoal = -1;
     /** Near enemies copied once per decision. */
     private final float[] ex = new float[600], ey = new float[600], er = new float[600], ev = new float[600], ew = new float[600];
     private int en;
@@ -46,6 +70,11 @@ final class SkilledBot {
     // ------------------------------------------------------------------ movement
 
     void steer(Sim s, Input in) {
+        rr = s.rules instanceof RefineryRules ? (RefineryRules) s.rules : null;
+        wr = s.rules instanceof WreckRules ? (WreckRules) s.rules : null;
+        hr = s.rules instanceof HydroRules ? (HydroRules) s.rules : null;
+        mr = s.rules instanceof MinesRules ? (MinesRules) s.rules : null;
+        fr = s.rules instanceof FlatsRules ? (FlatsRules) s.rules : null;
         shop(s, shopRng);
         boolean decide = (tick++ % 5) == 0;
         if (decide) decideHeading(s);
@@ -64,6 +93,14 @@ final class SkilledBot {
             }
         }
         if (s.bossNow != null && Math.hypot(s.bossNow.x - s.px, s.bossNow.y - s.py) < 420) aimAt = s.bossNow;
+        if (hr != null && heartGoal >= 0 && heartGoal < hr.heartN && s.hp > 0.55f * s.maxHp) { // attack a Bloom Heart when it is the target and nothing heavy is on top of the hero
+            float dx = hr.hx[heartGoal] - s.px, dy = hr.hy[heartGoal] - s.py, m = (float) Math.sqrt(dx * dx + dy * dy) + 1e-3f;
+            if (m < 330f && (aimAt == null || bd > 90f * 90f)) {
+                in.aimStickX = dx / m;
+                in.aimStickY = dy / m;
+                aimAt = null;
+            }
+        }
         if (aimAt != null) {
             float dx = aimAt.x - s.px, dy = aimAt.y - s.py, m = (float) Math.sqrt(dx * dx + dy * dy) + 1e-3f;
             in.aimStickX = dx / m;
@@ -108,6 +145,32 @@ final class SkilledBot {
                 if (dx * dx + dy * dy < hz.r * hz.r) return true;
             }
             if (hz.kind == Entities.HZ_LANE && hz.variant != Entities.LV_MARK && hz.warn > 0f && hz.warn < 0.22f && inLane(hz, px, py, 6f)) return true;
+        }
+        return stageImminent(s);
+    }
+
+    /** Stage dangers that land within ~0.25 s on the hero's spot: a Heat Wave front, a lightning strike, a firedamp fuse. */
+    private boolean stageImminent(Sim s) {
+        float px = s.px, py = s.py;
+        if (rr != null) {
+            for (int w = 0; w < RefineryRules.MAXW; w++) {
+                if (!rr.wLive[w] || rr.waveWarning(w)) continue;
+                float ahead = (px - rr.waveEdge(w, s.time)) * rr.wDir[w];
+                if (ahead > -RefineryRules.WAVE_THICK && ahead < 70f && (ahead > 0f || ahead > -RefineryRules.WAVE_THICK + 20f)) return true;
+            }
+        }
+        if (fr != null) {
+            for (int i = 0; i < fr.strikeN; i++) {
+                float dx = px - fr.strikeX[i], dy = py - fr.strikeY[i];
+                if (fr.strikeT[i] < 0.22f && dx * dx + dy * dy < (FlatsRules.STRIKE_R + 6f) * (FlatsRules.STRIKE_R + 6f)) return true;
+            }
+        }
+        if (mr != null) {
+            for (int i = 0; i < mr.pocketN; i++) {
+                if (mr.pocketFuse[i] < 0f || mr.pocketFuse[i] > 0.3f) continue;
+                float dx = px - mr.pocketX[i], dy = py - mr.pocketY[i];
+                if (dx * dx + dy * dy < MinesRules.BLAST_R * MinesRules.BLAST_R) return true;
+            }
         }
         return false;
     }
@@ -256,6 +319,9 @@ final class SkilledBot {
             gx += ncx / nearChaser * 0.55f;
             gy += ncy / nearChaser * 0.55f;
         }
+        stageGoal(s, cn, nearest);
+        gx += stageGx;
+        gy += stageGy;
         float gl = (float) Math.sqrt(gx * gx + gy * gy);
         if (gl > 1.5f) { gx = gx / gl * 1.5f; gy = gy / gl * 1.5f; }
         goalX = gx;
@@ -312,23 +378,148 @@ final class SkilledBot {
                     float along = dx * e.ax + dy * e.ay, across = -dx * e.ay + dy * e.ax;
                     if (along > -30f && along < e.teleLen + 50f && Math.abs(across) < e.radius + 44f) c += 4f;
                 }
+                c += stageCost(s, hx, hy, t);
                 cost += c * TW[ti];
             }
             // goal pull, a little persistence, a small cost for standing still when nothing forces it
             cost -= (ux * goalX + uy * goalY) * 0.9f;
             if (lastLen > 0.1f) cost -= (ux * lastX + uy * lastY) * 0.25f;
-            if (k < 0) cost += 0.25f;
+            if (k < 0) cost += 0.25f + (rr != null && rr.heat > 12f ? 3f + rr.heat * 0.05f : 0f); // Refinery: standing still heats the hero
             if (cost < bestCost) {
                 bestCost = cost;
                 bestK = k;
             }
         }
-        if (bestK < 0) {
+        if (bestK < 0 || (padGoal >= 0 && standOnPad(s) && bestCost < 2f)) {
             lastX = 0f;
             lastY = 0f;
         } else {
             lastX = cs[bestK];
             lastY = sn[bestK];
+        }
+    }
+
+    // ------------------------------------------------------------------ v1.4 stage knowledge
+
+    /** True when the hero is on the pad it walks to: it then stands still for the channel. */
+    private boolean standOnPad(Sim s) {
+        if (wr == null || padGoal < 0 || padGoal >= wr.padN) return false;
+        float dx = s.px - wr.padX[padGoal], dy = s.py - wr.padY[padGoal];
+        float r = wr.padRadius() * 0.5f;
+        return dx * dx + dy * dy < r * r;
+    }
+
+    /** Extra cost of standing at (hx, hy) {@code t} seconds from now, from what the stage does there. */
+    private float stageCost(Sim s, float hx, float hy, float t) {
+        float c = 0f;
+        double when = s.time + t;
+        if (rr != null) {
+            int tx = (int) Math.floor(hx / WorldGen.TILE), ty = (int) Math.floor(hy / WorldGen.TILE);
+            for (int o = 0; o < 5; o++) { // the tile under the hero and the four 30 u around it
+                int ox = o == 1 ? 1 : o == 2 ? -1 : 0, oy = o == 3 ? 1 : o == 4 ? -1 : 0;
+                int sf = StreetsLayout.surfaceAt((int) Math.floor((hx + ox * 30f) / WorldGen.TILE), (int) Math.floor((hy + oy * 30f) / WorldGen.TILE));
+                if ((sf & WorldGen.SURF_FURNACE_GATE) != 0) c += o == 0 ? 6f : 1.5f;
+                else if ((sf & WorldGen.SURF_MOLTEN) != 0) c += o == 0 ? 4f : 1f;
+            }
+            for (int w = 0; w < RefineryRules.MAXW; w++) { // a Heat Wave: its band at that time (the warning one at its start)
+                if (!rr.wLive[w]) continue;
+                double tw = Math.max(when, rr.wT0[w]);
+                float rel = (hx - rr.waveEdge(w, tw)) * rr.wDir[w];
+                if (rel <= 30f && rel >= -RefineryRules.WAVE_THICK - 30f) c += 7f;
+            }
+        }
+        if (wr != null) {
+            if (wr.bubbleOn) { // the breach: inside the bubble or the air is gone
+                float dx = hx - wr.bubbleX, dy = hy - wr.bubbleY, d = (float) Math.sqrt(dx * dx + dy * dy);
+                if (d > wr.bubbleR * 0.92f) c += 2.5f + (d - wr.bubbleR * 0.92f) / wr.bubbleR * 12f;
+            }
+            for (int i = 0; i < wr.wellN; i++) {
+                if (!wr.wellOn(i) && !wr.wellFlicker(i)) continue;
+                float dx = hx - wr.wellX[i], dy = hy - wr.wellY[i], d = (float) Math.sqrt(dx * dx + dy * dy);
+                float r = wr.wellR[i] + 20f;
+                if (d < r) c += 2.5f * (1f - d / r) + (d < 90f ? 5f : 0f); // the core in the middle burns
+            }
+            for (int i = 0; i < WreckRules.MAX_TEMP; i++) {
+                if (wr.tmpLife[i] <= 0f) continue;
+                float dx = hx - wr.tmpX[i], dy = hy - wr.tmpY[i], d = (float) Math.sqrt(dx * dx + dy * dy);
+                if (d < wr.tmpR[i] + 20f) c += 3f;
+            }
+        }
+        if (hr != null) {
+            if (hr.inPatch(hx, hy)) c += heartGoal >= 0 ? 0.8f : 2f; // slowed, no regeneration; a little less when it is the target's own patch
+            if (hr.inFlood(hx, hy)) c += 2.5f;
+        }
+        if (mr != null) {
+            if (mr.cartOn && Math.abs(hy) < MinesRules.CART_HALF_W + 45f && (hx - mr.cartX) * mr.cartDir > -MinesRules.CART_LEN) c += 6f;
+            for (int i = 0; i < mr.pocketN; i++) {
+                if (mr.pocketFuse[i] < 0f) continue; // only the lit ones
+                float dx = hx - mr.pocketX[i], dy = hy - mr.pocketY[i], rad = MinesRules.BLAST_R + 40f;
+                float q = dx * dx + dy * dy;
+                if (q < rad * rad) c += 6f * (1f - (float) Math.sqrt(q) / rad * 0.5f);
+            }
+        }
+        if (fr != null) {
+            for (int i = 0; i < fr.strikeN; i++) {
+                if (fr.strikeT[i] < t - 0.25f) continue; // the ring will be gone by then
+                float dx = hx - fr.strikeX[i], dy = hy - fr.strikeY[i], rad = FlatsRules.STRIKE_R + 30f;
+                float q = dx * dx + dy * dy;
+                if (q < rad * rad) c += 6f;
+            }
+        }
+        return c;
+    }
+
+    /** Goals the stage adds (into stageGx / stageGy): a pad, a Bloom Heart, out of the cart lane, back into the bubble. */
+    private void stageGoal(Sim s, int crowd, float nearest) {
+        stageGx = stageGy = 0f;
+        float px = s.px, py = s.py;
+        heartGoal = -1;
+        padGoal = -1;
+        if (wr != null) {
+            if (wr.bubbleOn && !wr.inBubble(px, py)) { // outside the bubble: straight back
+                float dx = wr.bubbleX - px, dy = wr.bubbleY - py, m = (float) Math.sqrt(dx * dx + dy * dy) + 1e-3f;
+                stageGx += dx / m * 1.5f;
+                stageGy += dy / m * 1.5f;
+            } else if (!wr.bubbleOn && wr.padsOn && !wr.pillarDead) {
+                boolean escape = s.hp < 0.45f * s.maxHp && crowd >= 6;
+                boolean stroll = crowd <= 3 && s.hp > 0.7f * s.maxHp && s.time >= padNext;
+                if (escape || stroll) {
+                    int best = -1;
+                    float bd = 450f * 450f;
+                    for (int i = 0; i < wr.padN; i++) {
+                        if (wr.padKind[i] != WreckRules.PK_PAIR || wr.padCd[i] > 0f || wr.padTwin[i] < 0) continue;
+                        float dx = wr.padX[i] - px, dy = wr.padY[i] - py, q = dx * dx + dy * dy;
+                        if (q < bd) { bd = q; best = i; }
+                    }
+                    if (best >= 0) {
+                        padGoal = best;
+                        float dx = wr.padX[best] - px, dy = wr.padY[best] - py, m = (float) Math.sqrt(dx * dx + dy * dy) + 1e-3f;
+                        stageGx += dx / m * (escape ? 1.6f : 1.0f);
+                        stageGy += dy / m * (escape ? 1.6f : 1.0f);
+                        if (m < wr.padRadius() * 0.5f) padNext = s.time + 70.0 + stageRng.nextInt(70); // arrived: the next stroll is a while off
+                    }
+                }
+            }
+        }
+        if (hr != null && hr.heartN > 0 && s.hp > 0.6f * s.maxHp && crowd < 5 && nearest > 90f) {
+            int best = -1;
+            float bd = 750f * 750f;
+            for (int i = 0; i < hr.heartN; i++) {
+                float dx = hr.hx[i] - px, dy = hr.hy[i] - py, q = dx * dx + dy * dy;
+                if (q < bd) { bd = q; best = i; }
+            }
+            if (best >= 0) {
+                heartGoal = best;
+                float dx = hr.hx[best] - px, dy = hr.hy[best] - py, m = (float) Math.sqrt(dx * dx + dy * dy) + 1e-3f;
+                float want = Math.max(110f, hr.heartR(best) * 0.55f + 60f); // close enough for the weapons / the burn, not the whole way into the patch
+                if (m > want) {
+                    stageGx += dx / m * 1.0f;
+                    stageGy += dy / m * 1.0f;
+                }
+            }
+        }
+        if (mr != null && mr.cartOn && Math.abs(py) < MinesRules.CART_HALF_W + 90f && (px - mr.cartX) * mr.cartDir > -MinesRules.CART_LEN * 2f) {
+            stageGy += (py >= 0f ? 1f : -1f) * 1.5f; // out of the lane the quick way
         }
     }
 

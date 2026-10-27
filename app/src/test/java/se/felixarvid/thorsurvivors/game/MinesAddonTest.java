@@ -134,7 +134,7 @@ public class MinesAddonTest {
             } else {
                 assertEquals(1, r.cartHeroHits);
                 float expected = Math.max(1f, MinesRules.CART_HERO - (float) s.stats.armor) * (float) s.stats.damageTaken;
-                assertEquals(expected, s.maxHp - s.hp, 0.01f);
+                assertEquals(expected, s.maxHp - s.hp, 0.05f); // + the hero's regeneration of one step
                 assertEquals("shoved aside 60 u", MinesRules.CART_SHOVE * (float) s.stats.knockbackTaken, Math.abs(s.py - yBefore), 1.0f);
             }
         }

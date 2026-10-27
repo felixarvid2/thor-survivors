@@ -162,6 +162,9 @@ PORTRAITS = {"boss_CARGO_LOADER": "drowned_engine", "boss_SLAGBORN": "pyre_warde
 # ---- v1.4 chunk D (Meridian Wreck): existing paintings stand in until the artist chunk makes their own
 PORTRAITS.update({"boss_HULL_BREACHER_ALPHA": "drowned_engine", "boss_SALVAGE_WARDEN": "warden", "boss_THE_PILLAR": "the_prism"})
 # ---- end chunk D
+# ---- v1.4 chunk B (Hydroponic Vaults): existing paintings stand in
+PORTRAITS.update({"boss_VERDANT_WELDER": "frozen_welder", "boss_ROOTMIND": "vire"})
+# ---- end chunk B
 # ---- v1.4 chunk C: Foreman Brass, Stoker Captain, The Ironheart (existing paintings that suit them until the owner generates new ones)
 PORTRAITS.update({"boss_FOREMAN_BRASS": "foreman_dray", "boss_STOKER_CAPTAIN": "pyre_warden", "boss_IRONHEART": "warden"})
 # ---- end chunk C

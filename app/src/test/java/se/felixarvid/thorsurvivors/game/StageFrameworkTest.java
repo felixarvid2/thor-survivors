@@ -110,7 +110,8 @@ public class StageFrameworkTest {
     }
 
     /**
-     * State hashes of seeded runs recorded on main (v1.3.1, before the framework): five minutes of each old stage, and a window
+     * State hashes of seeded runs (recorded on main v1.3.1 before the framework; re-recorded at the v1.4 merge, when the harder data
+     * (curves, hordes, heroes) replaced the v1.3.1 numbers; the framework itself had matched the old hashes bit for bit): five minutes of each old stage, and a window
      * over the Flats ash storm (12:00) so the moved storm code is covered. Any change to Flats or Mines behaviour moves them.
      * Chunk E: these are recorded with the add-ons OFF ({@code StageRules.addonsEnabled = false}), which is how they still prove that
      * the framework and the hooks changed nothing; the add-ons' own behaviour is in FlatsAddonTest / MinesAddonTest, and the test below
@@ -118,10 +119,10 @@ public class StageFrameworkTest {
      */
     @Test
     public void flatsAndMinesRunsAreBitIdenticalToBefore() throws Exception {
-        assertEquals("FLATS 5 min", -1522504880372771192L, stateHash("FLATS", 12345L, 0, 300));
-        assertEquals("MINES 5 min", -875118384609229854L, stateHash("MINES", 12345L, 0, 300));
-        assertEquals("FLATS storm window", 3223518685959396603L, stateHash("FLATS", 777L, 705, 60));
-        assertEquals("MINES same window", -3313226611156784373L, stateHash("MINES", 777L, 705, 60));
+        assertEquals("FLATS 5 min", -17717800225745701L, stateHash("FLATS", 12345L, 0, 300));
+        assertEquals("MINES 5 min", 8133837233524524462L, stateHash("MINES", 12345L, 0, 300));
+        assertEquals("FLATS storm window", 5816888918436928257L, stateHash("FLATS", 777L, 705, 60));
+        assertEquals("MINES same window", 3075974996198938137L, stateHash("MINES", 777L, 705, 60));
     }
 
     @Test
@@ -152,7 +153,7 @@ public class StageFrameworkTest {
             assertEquals(KEYS[i] + " difficulty rises along the order", i + 1, def.difficulty);
             assertTrue(KEYS[i] + " blurb fits the card: " + def.blurb, def.blurb.length() > 10 && def.blurb.length() <= 48);
             assertEquals(KEYS[i].equals("REFINERY") ? 6 : 5, def.timedAt.length); // the Refinery adds the finale at 28:00 ...
-            assertEquals(KEYS[i].equals("REFINERY") || KEYS[i].equals("WRECK") ? 4 : 5, def.eventAt.length); // ... in place of The Tide (Wreck: the gate and the finale)
+            assertEquals(KEYS[i].equals("REFINERY") || KEYS[i].equals("WRECK") ? 4 : KEYS[i].equals("HYDRO") ? 1 : 5, def.eventAt.length); // ... in place of The Tide (Wreck: the gate and the finale; Hydro: its events run from HydroRules, the data keeps the Beacon)
             assertNotNull(def.rules);
             if (i == 0) assertEquals(null, def.unlockKey);
             else assertEquals("each stage opens on the one before it", prev, def.unlockKey);

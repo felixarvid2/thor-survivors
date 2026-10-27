@@ -736,7 +736,7 @@
       "frequency": 250
      },
      {
-      "at": 520,
+      "at": 565,
       "length": 16,
       "minimum": 90,
       "frequency": 250
@@ -3576,7 +3576,7 @@
       "frequency": 250
      },
      {
-      "at": 825,
+      "at": 875,
       "length": 16,
       "minimum": 140,
       "frequency": 250
@@ -3588,7 +3588,7 @@
       "frequency": 250
      },
      {
-      "at": 1125,
+      "at": 1170,
       "length": 16,
       "minimum": 200,
       "frequency": 250
