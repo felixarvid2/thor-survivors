@@ -831,7 +831,11 @@
    ],
    "difficulty": 1,
    "blurb": "Open ash plains. Storms, vents, convoys.",
-   "rules": {}
+   "rules": {
+    "convoyAt0": 495,
+    "convoyAt1": 990,
+    "convoyAt2": 1485
+   }
   },
   "MINES": {
    "name": "Deep Mines",
@@ -4797,6 +4801,34 @@
     "blast": 12,
     "drawScale": 2.0,
     "tintRGB": 16769162
+   }
+  },
+  "CONVOY_TANKER": {
+   "name": "Convoy Tanker",
+   "archetype": "CONVOY",
+   "maxHp": 1.0,
+   "speed": 0,
+   "power": 0,
+   "xp": 6,
+   "knockback": 0,
+   "sprite": "cargo_loader",
+   "params": {
+    "radius": 26,
+    "drawScale": 1.5,
+    "tintRGB": 7117480
+   }
+  },
+  "DARK_LURKER": {
+   "name": "Dark Lurker",
+   "archetype": "LURKER",
+   "maxHp": 2.0,
+   "speed": 100,
+   "power": 12,
+   "xp": 2,
+   "sprite": "infected_colonist",
+   "params": {
+    "radius": 11,
+    "tintRGB": 4868710
    }
   },
   "LUMEN_TENTACLE": {

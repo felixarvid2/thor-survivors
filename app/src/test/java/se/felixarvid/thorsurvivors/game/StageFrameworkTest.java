@@ -40,8 +40,14 @@ public class StageFrameworkTest {
      * and light values.
      */
     static long stateHash(String stage, long seed, double from, double seconds) throws Exception {
+        return stateHash(stage, seed, from, seconds, false);
+    }
+
+    /** As above; {@code addons} switches the v1.4 chunk E Flats / Mines add-ons (storm lightning and wind, convoy, blooms, carts, firedamp, Lurkers) on. */
+    static long stateHash(String stage, long seed, double from, double seconds, boolean addons) throws Exception {
         GameData d = StageSoak.data();
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), "BASTION", seed);
+        s.rules.addonsEnabled = addons;
         s.time = from;
         Random rng = new Random(seed * 31 + 5);
         Input in = new Input();
@@ -106,6 +112,9 @@ public class StageFrameworkTest {
     /**
      * State hashes of seeded runs recorded on main (v1.3.1, before the framework): five minutes of each old stage, and a window
      * over the Flats ash storm (12:00) so the moved storm code is covered. Any change to Flats or Mines behaviour moves them.
+     * Chunk E: these are recorded with the add-ons OFF ({@code StageRules.addonsEnabled = false}), which is how they still prove that
+     * the framework and the hooks changed nothing; the add-ons' own behaviour is in FlatsAddonTest / MinesAddonTest, and the test below
+     * pins that switching them on changes the runs.
      */
     @Test
     public void flatsAndMinesRunsAreBitIdenticalToBefore() throws Exception {
@@ -113,6 +122,16 @@ public class StageFrameworkTest {
         assertEquals("MINES 5 min", -875118384609229854L, stateHash("MINES", 12345L, 0, 300));
         assertEquals("FLATS storm window", 3223518685959396603L, stateHash("FLATS", 777L, 705, 60));
         assertEquals("MINES same window", -3313226611156784373L, stateHash("MINES", 777L, 705, 60));
+    }
+
+    @Test
+    public void theAddonsChangeTheRunsAndStayDeterministic() throws Exception {
+        long off = stateHash("MINES", 12345L, 0, 300, false);
+        long on = stateHash("MINES", 12345L, 0, 300, true);
+        assertEquals("deterministic with the add-ons on", on, stateHash("MINES", 12345L, 0, 300, true));
+        assertTrue("carts from 3:00 move the run", on != off);
+        long flatsOff = stateHash("FLATS", 777L, 705, 60, false), flatsOn = stateHash("FLATS", 777L, 705, 60, true);
+        assertTrue("storm wind and lightning move the run", flatsOn != flatsOff);
     }
 
     // ------------------------------------------------------------------ keys, rules, layouts

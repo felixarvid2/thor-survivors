@@ -125,6 +125,14 @@ ENEMIES = {
                        sprite="vire",
                        params=dict(radius=12, warn=0.9, up=8.0, hitR=60, ring=1, blast=12, drawScale=2.0,
                                    tintRGB=0xFFE08A)),
+    # ---- v1.4 chunk E (Flats / Mines add-ons): the convoy's tanker (driven by FlatsRules, HP is set to 400 there) and the Dark Lurker
+    # (a colonist variant that MinesRules draws only inside the light)
+    "CONVOY_TANKER": dict(name="Convoy Tanker", archetype="CONVOY", maxHp=1.0, speed=0, power=0, xp=6, knockback=0,
+                          sprite="cargo_loader",
+                          params=dict(radius=26, drawScale=1.5, tintRGB=0x6C9AA8)),
+    "DARK_LURKER": dict(name="Dark Lurker", archetype="LURKER", maxHp=2.0, speed=100, power=12, xp=2,
+                        sprite="infected_colonist",
+                        params=dict(radius=11, tintRGB=0x4A4A66)),
     # a killable tentacle: bursts from the ground (warn ring, then up for `up` seconds), see BossAi.tentacle.
     # Design 4.1 gives it 150 Z when exposed, which no build kills in the 1.2 s it is up: 8 Z here.
     "LUMEN_TENTACLE": dict(name="Lumen Tentacle", archetype="TENTACLE", maxHp=8.0, speed=0, power=25, xp=5,
@@ -420,7 +428,10 @@ def treasure_rows(vs_stage, mapping):
 # timed bosses, events, curves, hordes) and are tuned by their own chunks; the relative mods are the first guesses of the spec.
 # ---------------------------------------------------------------------------------------------------------------------------
 STAGE_REGISTRY = {
-    "FLATS": dict(difficulty=1, blurb="Open ash plains. Storms, vents, convoys.", unlock=None, rules={}),
+    "FLATS": dict(difficulty=1, blurb="Open ash plains. Storms, vents, convoys.", unlock=None,
+                  # convoy start seconds: 8:00 / 16:00 / 24:00 shifted +15 / +30 / +45 s to keep clear of the timed bosses (7:30, 12:30,
+                  # 17:30, 22:30), the events (Lumen Surge starts 24:00), the horde bursts and the storms (checked in FlatsAddonTest)
+                  rules=dict(convoyAt0=495, convoyAt1=990, convoyAt2=1485)),
     "MINES": dict(difficulty=2, blurb="Dark shafts and carts. Mind the firedamp.", unlock=("FLATS", 600), rules={}),
     "HYDRO": dict(name="Hydroponic Vaults", difficulty=3, blurb="Overgrown domes. Burn the hearts or drown.",
                   unlock=("MINES", 900), rules={}, copy_of="FLATS", lighting=dict(ambient=0.71, radius=240),

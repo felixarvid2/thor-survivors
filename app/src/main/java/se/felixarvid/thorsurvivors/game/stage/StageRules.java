@@ -134,4 +134,32 @@ public abstract class StageRules {
     public boolean hasFinds() {
         return true;
     }
+
+    // ---- chunk E (Flats and Mines add-ons): shared by every stage, all no-ops by default
+
+    /**
+     * Switch for the stage's add-ons (the Flats storm lightning, convoy and blooms; the Mines carts, firedamp and Lurkers): tests and
+     * soaks that must isolate the old behaviour set it to false before the first step. Stages without add-ons ignore it.
+     */
+    public boolean addonsEnabled = true;
+
+    /**
+     * The add-ons' enemies (convoy, bloom hounds, Lurkers) obey {@code Sim.noSpawns} like the waves ("a scenario that only contains the
+     * enemies it adds"): set this to true to let them come anyway (the add-on tests silence the waves but want the add-ons).
+     */
+    public boolean spawnWhenQuiet = false;
+
+    /** An explosion of radius {@code r} went off at (x, y) (barrel, grenade, bomb, fusion blast): firedamp catches it. Called by the code that blows it up. */
+    public void onBlast(float x, float y, float r) {
+    }
+
+    /** True when an enemy must not be recycled to the edge of the screen when it falls far behind (the convoy tanker crossing the map). */
+    public boolean keepFar(Enemy e) {
+        return false;
+    }
+
+    /** True when the renderer must not draw a creature of this type at (x, y) (the Dark Lurker outside the light); it can still be hit. */
+    public boolean hidden(se.felixarvid.thorsurvivors.game.EnemyType t, float x, float y) {
+        return false;
+    }
 }

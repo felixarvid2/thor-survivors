@@ -1364,6 +1364,7 @@ public final class WorldRenderer {
             Enemy en = s.enemies[i];
             int px = sx(en.x), py = sy(en.y);
             if (px < -m || px > w + m || py < -m || py > h + m) continue;
+            if (s.rules.hidden(en.type, en.x, en.y)) continue; // chunk E: a Dark Lurker outside the light is not drawn
             if (en.flash > 0) flashing++;
             Model mo = atlas.model(en.boss ? en.type.bossModel : en.type.model);
             entModel[i] = mo;
@@ -1615,6 +1616,7 @@ public final class WorldRenderer {
             if (!k.active) continue;
             int px = sx(k.x), py = sy(k.y);
             if (px < -200 || px > scrW + 200 || py < -200 || py > scrH + 200) continue;
+            if (s.rules.hidden(k.type, k.x, k.y)) continue; // chunk E: a Dark Lurker's fall is only seen in the light
             Model m = atlas.model(k.boss ? k.type.bossModel : k.type.model);
             if (m == null) continue;
             float life = Sim.CORPSE_LIFE;

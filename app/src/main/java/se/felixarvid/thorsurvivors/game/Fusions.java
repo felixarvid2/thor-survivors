@@ -269,6 +269,7 @@ final class Fusions {
         }
         s.hitDest(x, y, r);
         s.addFx(Entities.FX_BLAST, x, y, r, 1f, 0.3f, 0, true);
+        s.rules.onBlast(x, y, r); // chunk E: firedamp
     }
 
     // ------------------------------------------------------------------ Kiln Breath
