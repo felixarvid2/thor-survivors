@@ -40,6 +40,7 @@ import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.WorldGen;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Clip;
+import se.felixarvid.thorsurvivors.render.stagefx.StageFx;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Img;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Model;
 
@@ -75,6 +76,8 @@ public final class WorldRenderer {
     private static final float ENEMY_GAIN = 1.8f;
     /** Multiply tints of the rock texture per stage: Cinder Flats ash grey, Deep Mines darker and colder. */
     private static final int TINT_FLATS = 0xFF8C8680, TINT_MINES = 0xFF6F7480;
+    /** Multiply tint of the ground rock per {@code WorldGen} layout: flats, mines, domes (green), streets (rust), debris (cold blue). */
+    private static final int[] TINT = {TINT_FLATS, TINT_MINES, 0xFF789080, 0xFF8A7466, 0xFF5E6A82};
 
     private final SpriteAtlas atlas = SpriteAtlas.get();
     private final Paint bmp = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -256,12 +259,11 @@ public final class WorldRenderer {
         oy = h / 2 - camPy;
         String stage = e.stage().key;
         tilePx = Math.max(8, Math.round(WorldGen.TILE * sc));
-        boolean mines = WorldGen.of(stage).mines;
-        ground.setup(WorldGen.of(stage), stage, tilePx, mines ? TINT_MINES : TINT_FLATS);
+        gen = WorldGen.of(stage);
+        ground.setup(gen, stage, tilePx, TINT[gen.layout]);
         bmp.setColorFilter(null);
         bmp.setAlpha(255);
         ground.draw(c, bmp, ox, oy, camPx, camPy, w, h);
-        gen = WorldGen.of(stage);
         listProps();
         float[] lp = e.data.lightingOf(stage);
         setupLights(c, w, h, e, s, menu, lp);
@@ -271,9 +273,10 @@ public final class WorldRenderer {
         } else {
             drawWorld(c, s, stage);
         }
+        if (!menu) StageFx.forKey(s.stage.key).drawGround(this, c, s, w, h);
         if (lightMode == MetaProgress.LIGHT_FULL) light.drawGlows(c);
         drawMood(c, w, h);
-        if (!menu) drawAsh(c, s, w, h);
+        if (!menu) StageFx.forKey(s.stage.key).drawOver(this, c, s, w, h); // Flats: the ash; the v1.4 stages draw their own
         if (!menu) drawEvents(c, s, w, h);
         drawOverlay(c, w, h, e, s, menu, dualScreen);
     }
@@ -282,7 +285,7 @@ public final class WorldRenderer {
 
     /** Collects the lights of the frame and draws the darkness over the ground (FULL: dynamic map, LOW: static, OFF: none). */
     private void setupLights(Canvas c, int w, int h, Engine e, Sim s, boolean menu, float[] lp) {
-        light.begin(Math.max(0f, Math.min(1f, lp[0] - (s != null && !menu ? s.events.ambientLift() : 0f)))); // the Surge lifts the dark, the Tide's lull flickers it
+        light.begin(Math.max(0f, Math.min(1f, lp[0] - (s != null && !menu ? s.events.ambientLift() + s.rules.ambientLift() : 0f)))); // the Surge lifts the dark, the Tide's lull flickers it
         // ash storms shrink the pool of light, a Headlamp or the Heart of Lumen widens it (equipment: lightRadius)
         float pr = lp[1] * sc * (s != null && !menu ? s.lightRadiusMul() * (float) s.stats.lightRadius : 1f);
         if (menu) {
@@ -2476,8 +2479,7 @@ public final class WorldRenderer {
     }
 
     /** Falling ash on Cinder Flats (40 flakes, many more and slanted streaks in a storm), a dust haze and the storm banner. */
-    private void drawAsh(Canvas c, Sim s, int w, int h) {
-        if (!s.stage.key.equals("FLATS")) return;
+    public void drawAsh(Canvas c, Sim s, int w, int h) {
         float storm = s.stormLevel();
         int n = 40 + (int) (130 * storm);
         float tt = (float) now;

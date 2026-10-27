@@ -1,6 +1,8 @@
 package se.felixarvid.thorsurvivors.data;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class StageDef {
     public final String key;
@@ -48,6 +50,23 @@ public final class StageDef {
     public double[][] hordes = new double[0][];
     public String[] hordeTypes = new String[0];
 
+    /**
+     * v1.4 stage framework (ashfall_data.json {@code rules}, {@code unlock}, {@code difficulty}, {@code blurb}): numeric parameters
+     * for the stage's {@code game/stage/StageRules}, the stage and best time that open it ({@code unlockKey} null = open from the
+     * start), the difficulty pips on the stage card (1-5) and the one-line card text.
+     */
+    public Map<String, Double> rules = new HashMap<>();
+    public String unlockKey;
+    public int unlockSec;
+    public int difficulty = 1;
+    public String blurb = "";
+
+    /** A rules parameter (see {@link #rules}), or {@code def} when the stage has none by that name. */
+    public double rule(String name, double def) {
+        Double v = rules.get(name);
+        return v == null ? def : v;
+    }
+
     public StageDef(String key, String name, double timeLimit, double playerSpeed, double enemySpeed,
                     double enemyHealth, double goldMultiplier, double xpBonus, int startingSpawns,
                     boolean horizontalSpawns, String destructible, List<WaveRow> rows) {
@@ -85,6 +104,11 @@ public final class StageDef {
         d.dmgCurve = dmgCurve;
         d.hordes = hordes;
         d.hordeTypes = hordeTypes;
+        d.rules = rules;
+        d.unlockKey = unlockKey;
+        d.unlockSec = unlockSec;
+        d.difficulty = difficulty;
+        d.blurb = blurb;
         return d;
     }
 

@@ -71,6 +71,15 @@ final class EnemyAi {
             case EnemyDef.ARCH_BOSS:
                 s.boss.init(e);
                 break;
+            // ---- v1.4 stage archetypes (chunks B-D): the stage's rules own the behaviour; add nothing else here
+            case EnemyDef.ARCH_HEALER:   // Hydroponic Vaults: Gardener
+            case EnemyDef.ARCH_STOKER:   // Refinery District: Stoker
+            case EnemyDef.ARCH_IRONCLAD: // Refinery District: Ironclad
+            case EnemyDef.ARCH_RIFT:     // Meridian Wreck: Rift Hound
+            case EnemyDef.ARCH_BREACHER: // Meridian Wreck: Breacher
+                s.rules.initArch(e);
+                break;
+            // ---- end v1.4 stage archetypes
             default:
         }
     }
@@ -90,6 +99,15 @@ final class EnemyAi {
             case EnemyDef.ARCH_SUMMONER: summoner(e, dt, moving, dx, dy, d); break;
             case EnemyDef.ARCH_BOSS: s.boss.update(e, dt, moving, dx, dy, d); break;
             case EnemyDef.ARCH_TENTACLE: s.boss.tentacle(e, dt); break;
+            // ---- v1.4 stage archetypes (chunks B-D): the stage's rules own the behaviour; an unfinished one walks like a chaser
+            case EnemyDef.ARCH_HEALER:
+            case EnemyDef.ARCH_STOKER:
+            case EnemyDef.ARCH_IRONCLAD:
+            case EnemyDef.ARCH_RIFT:
+            case EnemyDef.ARCH_BREACHER:
+                if (!s.rules.updateArch(e, dt, moving, dx, dy, d) && moving) walkTo(e, dt, dx, dy, d, 1f);
+                break;
+            // ---- end v1.4 stage archetypes
             default:
         }
     }
@@ -98,7 +116,7 @@ final class EnemyAi {
     static final float ASH_SLOW = 0.8f;
 
     float speedOf(Enemy e) {
-        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul() * s.pois.enemySpeedMul;
+        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul() * s.pois.enemySpeedMul * s.rules.enemySpeedMul(e);
     }
 
     void walkTo(Enemy e, float dt, float dx, float dy, float d, float factor) {

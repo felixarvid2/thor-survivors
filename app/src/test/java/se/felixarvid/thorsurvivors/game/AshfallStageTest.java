@@ -77,7 +77,7 @@ public class AshfallStageTest {
     }
 
     @Test
-    public void theMenuOffersTheTwoNewStagesAndTheOldOnesAreADebugHook() throws Exception {
+    public void theMenuOffersTheFiveStagesAndTheOldOnesAreADebugHook() throws Exception {
         GameData d = TestData.load();
         Engine e = Engine.get();
         e.init(d, new MetaProgress(d, new MetaProgress.Store() {
@@ -88,7 +88,7 @@ public class AshfallStageTest {
             public void putInt(String k, int v) {
             }
         }));
-        assertEquals(java.util.Arrays.asList("FLATS", "MINES"), e.stageKeys);
+        assertEquals(java.util.Arrays.asList("FLATS", "MINES", "HYDRO", "REFINERY", "WRECK"), e.stageKeys);
         assertFalse(e.stageKeys.contains("FOREST"));
         e.selectStage("MINES");
         assertEquals("MINES", e.stage().key);

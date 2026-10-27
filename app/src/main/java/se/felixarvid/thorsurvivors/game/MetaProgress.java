@@ -30,6 +30,15 @@ public final class MetaProgress {
     private String[] heroKeys;
     private final Map<String, Integer> ranks = new HashMap<>();
     private final Map<String, Integer> stageBest = new HashMap<>();
+    private final Map<String, Boolean> stageCleared = new HashMap<>();
+    private final Map<String, String> unlockLines = new HashMap<>();
+    /**
+     * Debug and tests: every stage is open, whatever the records say. Stored as the pref {@code unlockAll} (1 = on) so a device
+     * can be opened up with a saved value; the test harnesses set the field.
+     */
+    public volatile boolean unlockAll;
+    /** Counts record changes (a best time, a cleared flag): the stage cards rebuild their unlock lines when it moves. */
+    public volatile int stageRev;
 
     public MetaProgress(GameData data, Store store) {
         this.data = data;
@@ -40,6 +49,7 @@ public final class MetaProgress {
         musicVol = Math.max(0, Math.min(VOL_MAX, store.getInt("volMusic", 2)));
         sfxVol = Math.max(0, Math.min(VOL_MAX, store.getInt("volSfx", 3)));
         lighting = Math.max(0, Math.min(LIGHT_FULL, store.getInt("lighting", LIGHT_FULL)));
+        unlockAll = store.getInt("unlockAll", 0) != 0;
         heroIdx = Math.max(0, Math.min(Math.max(0, data.heroes.size() - 1), store.getInt("hero", 0)));
         for (String k : data.powerUps.keySet()) ranks.put(k, store.getInt("pu_" + k, 0));
     }
@@ -104,7 +114,63 @@ public final class MetaProgress {
         if (stageKey != null && timeSec > bestTimeOf(stageKey)) {
             stageBest.put(stageKey, timeSec);
             store.putInt("bestTime_" + stageKey, timeSec);
+            stageRev++;
         }
+    }
+
+    /** True when the stage was cleared (the 30:00 survived or its finale killed): the star on its card. Flag {@code cleared_KEY}. */
+    public boolean cleared(String stageKey) {
+        Boolean v = stageCleared.get(stageKey);
+        if (v == null) {
+            v = store.getInt("cleared_" + stageKey, 0) != 0;
+            stageCleared.put(stageKey, v);
+        }
+        return v;
+    }
+
+    public void markCleared(String stageKey) {
+        if (stageKey == null || cleared(stageKey)) return;
+        stageCleared.put(stageKey, true);
+        store.putInt("cleared_" + stageKey, 1);
+        stageRev++;
+    }
+
+    /**
+     * Whether a stage can be played: it has no unlock rule, or the stage that opens it was survived for the required time
+     * ({@link #bestTimeOf}) or cleared. Derived from the records, so no save key of its own.
+     */
+    public boolean unlocked(String stageKey) {
+        if (unlockAll) return true;
+        se.felixarvid.thorsurvivors.data.StageDef d = data.stages.get(stageKey);
+        if (d == null || d.unlockKey == null) return true;
+        return bestTimeOf(d.unlockKey) >= d.unlockSec || cleared(d.unlockKey);
+    }
+
+    /**
+     * The line on a locked card, e.g. "Reach 15:00 on Deep Mines (best 11:20)"; "" for an open stage. Built once per record
+     * change and then handed out as the same String, so drawing it allocates nothing.
+     */
+    public String unlockLine(String stageKey) {
+        se.felixarvid.thorsurvivors.data.StageDef d = data.stages.get(stageKey);
+        if (d == null || d.unlockKey == null) return "";
+        String line = unlockLines.get(stageKey);
+        if (line == null || stageRev != unlockRev) {
+            if (stageRev != unlockRev) {
+                unlockLines.clear();
+                unlockRev = stageRev;
+            }
+            se.felixarvid.thorsurvivors.data.StageDef from = data.stages.get(d.unlockKey);
+            line = "Reach " + clock(d.unlockSec) + " on " + (from == null ? d.unlockKey : from.name) + " (best " + clock(bestTimeOf(d.unlockKey)) + ")";
+            unlockLines.put(stageKey, line);
+        }
+        return line;
+    }
+
+    private int unlockRev;
+
+    private static String clock(int sec) {
+        int m = sec / 60, s = sec % 60;
+        return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
     }
 
     public void recordRun(int timeSec, int kills) {

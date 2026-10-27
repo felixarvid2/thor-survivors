@@ -28,6 +28,7 @@ import se.felixarvid.thorsurvivors.game.Offer;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas;
 import se.felixarvid.thorsurvivors.render.WorldRenderer;
+import se.felixarvid.thorsurvivors.render.stagefx.StageFx;
 
 import java.util.HashMap;
 import java.util.List;
@@ -831,6 +832,7 @@ public final class PanelRenderer {
         minimapMerchant(c, s, cx, cy, kk, side);
         minimapEvents(c, s, cx, cy, kk, side);
         minimapPois(c, s, cx, cy, kk, side);
+        StageFx.forKey(s.stage.key).minimap(c, s, cx, cy, kk, side, u); // stage markers (pads, belts, hearts); none yet
         fill.setColor(0xFFFFFFFF);
         c.drawCircle(cx, cy, 7f * u, fill);
         stroke.setColor(Skin.ORANGE);
@@ -1419,12 +1421,12 @@ public final class PanelRenderer {
 
     private void buildMenuLabels() {
         int key = eng.stageIdx | eng.meta.heroIdx << 4 | eng.weaponIdx << 8 | eng.meta.musicVol << 14 | eng.meta.sfxVol << 16 | eng.meta.lighting << 18
-                | (eng.stageOverride != null ? 1 << 20 : 0);
+                | (eng.stageOverride != null ? 1 << 20 : 0) | (eng.meta.unlocked(eng.stage().key) ? 0 : 1 << 21);
         if (key == menuKey) return;
         menuKey = key;
         menuLabels = new String[]{
                 "START RUN",
-                "STAGE   <  " + eng.stage().name + "  >",
+                "STAGE   <  " + eng.stage().name + "  >" + (eng.meta.unlocked(eng.stage().key) ? "" : "   LOCKED"),
                 "HERO   <  " + heroName() + "  >",
                 "WEAPON   <  " + eng.data.weapons.get(eng.starters.get(eng.weaponIdx)).name + "  >",
                 "POWER-UPS",
@@ -1439,12 +1441,14 @@ public final class PanelRenderer {
     }
 
     private static String regionFile(String stageKey) {
-        return "MINES".equals(stageKey) || "LIBRARY".equals(stageKey) ? "region_mines.webp" : "region_flats.webp";
-    }
-
-    private static String stageBlurb(String stageKey) {
-        return "MINES".equals(stageKey) || "LIBRARY".equals(stageKey) ? "Tight shafts and lumen veins. Little light."
-                : "Open ash plain. Storms at 12:00 and 22:00.";
+        switch (stageKey) {
+            case "MINES":
+            case "LIBRARY": return "region_mines.webp";
+            case "HYDRO": return "region_hydro.webp";
+            case "REFINERY": return "region_refinery.webp";
+            case "WRECK": return "region_wreck.webp";
+            default: return "region_flats.webp";
+        }
     }
 
     /** A triangle arrow of a cycle row; lit when its row has focus. */
@@ -1489,49 +1493,214 @@ public final class PanelRenderer {
         }
         // START RUN
         boolean fs = eng.focus == Engine.MENU_START;
-        k.plate(c, m, 272f * u, w - m, 364f * u, fs ? 0x88FF8A2A : 0x55FF8A2A, Skin.ORANGE, fs ? 5f * u : 3f * u);
-        k.rivets(c, m, 272f * u, w - m, 364f * u, 12f * u, 3.5f * u);
-        k.shadowed(c, "START RUN", w / 2f, 336f * u, 64f * u, 0xFFFFF1DC, Paint.Align.CENTER);
-        if (fs) k.focusMarks(c, m, 272f * u, w - m, 364f * u);
-        hit(m, 272f * u, w - m, 364f * u, Engine.MENU_START, 0);
-        // stage and hero cards
-        float cy = 382f * u, ch = 258f * u, half = (cw - 16f * u) / 2f;
+        k.plate(c, m, 272f * u, w - m, 352f * u, fs ? 0x88FF8A2A : 0x55FF8A2A, Skin.ORANGE, fs ? 5f * u : 3f * u);
+        k.rivets(c, m, 272f * u, w - m, 352f * u, 12f * u, 3.5f * u);
+        k.shadowed(c, "START RUN", w / 2f, 330f * u, 64f * u, 0xFFFFF1DC, Paint.Align.CENTER);
+        if (fs) k.focusMarks(c, m, 272f * u, w - m, 352f * u);
+        hit(m, 272f * u, w - m, 352f * u, Engine.MENU_START, 0);
+        // stage and hero cards (the stage card carries the strip of all stages, so the row is taller than before)
+        float cy = 368f * u, ch = 316f * u, half = (cw - 16f * u) / 2f;
         stageCard(c, m, cy, m + half, cy + ch, u, stageKey);
         heroCard(c, m + half + 16f * u, cy, w - m, cy + ch, u);
         // weapon row
-        weaponCard(c, m, 656f * u, w - m, 752f * u, u);
+        float wy = cy + ch + 12f * u;
+        weaponCard(c, m, wy, w - m, wy + 96f * u, u);
         // salvage terminal
+        float sy = wy + 96f * u + 12f * u;
         boolean fp = eng.focus == Engine.MENU_SHOP;
-        k.plate(c, m, 768f * u, w - m, 846f * u, fp ? 0x40FF8A2A : 0, fp ? Skin.ORANGE : Skin.EDGE, fp ? 4f * u : 2f * u);
-        if (fp) k.focusMarks(c, m, 768f * u, w - m, 846f * u);
-        k.text(c, "POWER-UPS", m + 28f * u, 820f * u, 44f * u, TEXT, Paint.Align.LEFT);
-        k.body(c, "SALVAGE TERMINAL", w - m - 28f * u, 818f * u, 28f * u, Skin.ORANGE, Paint.Align.RIGHT);
-        hit(m, 768f * u, w - m, 846f * u, Engine.MENU_SHOP, 0);
+        k.plate(c, m, sy, w - m, sy + 78f * u, fp ? 0x40FF8A2A : 0, fp ? Skin.ORANGE : Skin.EDGE, fp ? 4f * u : 2f * u);
+        if (fp) k.focusMarks(c, m, sy, w - m, sy + 78f * u);
+        k.text(c, "POWER-UPS", m + 28f * u, sy + 52f * u, 44f * u, TEXT, Paint.Align.LEFT);
+        k.body(c, "SALVAGE TERMINAL", w - m - 28f * u, sy + 50f * u, 28f * u, Skin.ORANGE, Paint.Align.RIGHT);
+        hit(m, sy, w - m, sy + 78f * u, Engine.MENU_SHOP, 0);
         // settings
-        settingRow(c, m, w - m, 860f * u, Engine.MENU_MUSIC, "MUSIC", VOLUME[eng.meta.musicVol], eng.meta.musicVol, 3, u);
-        settingRow(c, m, w - m, 914f * u, Engine.MENU_SFX, "SOUND EFFECTS", VOLUME[eng.meta.sfxVol], eng.meta.sfxVol, 3, u);
-        settingRow(c, m, w - m, 968f * u, Engine.MENU_LIGHT, "LIGHTING", LIGHTING[eng.meta.lighting], eng.meta.lighting, 2, u);
-        k.body(c, "A / TAP: SELECT      D-PAD: NAVIGATE", w / 2f, 1058f * u, 22f * u, DIM, Paint.Align.CENTER);
+        float ry = sy + 78f * u + 10f * u;
+        settingRow(c, m, w - m, ry, Engine.MENU_MUSIC, "MUSIC", VOLUME[eng.meta.musicVol], eng.meta.musicVol, 3, u);
+        settingRow(c, m, w - m, ry + 54f * u, Engine.MENU_SFX, "SOUND EFFECTS", VOLUME[eng.meta.sfxVol], eng.meta.sfxVol, 3, u);
+        settingRow(c, m, w - m, ry + 108f * u, Engine.MENU_LIGHT, "LIGHTING", LIGHTING[eng.meta.lighting], eng.meta.lighting, 2, u);
+        k.body(c, "A / TAP: SELECT      D-PAD: NAVIGATE", w / 2f, ry + 156f * u + 22f * u, 22f * u, DIM, Paint.Align.CENTER);
+    }
+
+    // ---- stage select: the card of the selected stage and the strip of all of them
+
+    private static final int[] DIFF_COL = {0xFF5CCB5F, 0xFFA6D04A, 0xFFF0C040, 0xFFF08A2A, 0xFFE0402A};
+    /** Locked paintings: grey and at 40% brightness (one filter, made once). */
+    private final Paint lockedPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final RectF thumbR = new RectF();
+    /** Per stage (index in {@code eng.stageKeys}): the modifier chips ("HP x1.2", "GOLD x1.35", "XP x1.1"), made once. */
+    private String[][] chipTxt;
+    private final String[] bestTxt = new String[16];
+    private final int[] bestSec = new int[16];
+
+    {
+        android.graphics.ColorMatrix cm = new android.graphics.ColorMatrix(new float[]{
+                0.12f, 0.24f, 0.04f, 0, 0,
+                0.12f, 0.24f, 0.04f, 0, 0,
+                0.12f, 0.24f, 0.04f, 0, 0,
+                0, 0, 0, 1, 0});
+        lockedPaint.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
+    }
+
+    private static String mulText(String label, double v) {
+        double r = Math.round(v * 100.0) / 100.0;
+        return label + " x" + r;
+    }
+
+    private String[] chipsOf(int idx) {
+        if (chipTxt == null || chipTxt.length != eng.stageKeys.size()) {
+            chipTxt = new String[eng.stageKeys.size()][];
+            for (int i = 0; i < chipTxt.length; i++) {
+                se.felixarvid.thorsurvivors.data.StageDef d = eng.data.stages.get(eng.stageKeys.get(i));
+                java.util.ArrayList<String> l = new java.util.ArrayList<>();
+                if (d != null && Math.abs(d.enemyHealth - 1.0) > 0.004) l.add(mulText("HP", d.enemyHealth));
+                if (d != null && Math.abs(d.goldMultiplier - 1.0) > 0.004) l.add(mulText("GOLD", d.goldMultiplier));
+                if (d != null && Math.abs(d.xpBonus - 1.0) > 0.004) l.add(mulText("XP", d.xpBonus));
+                chipTxt[i] = l.toArray(new String[0]);
+            }
+        }
+        return chipTxt[idx];
+    }
+
+    private String bestOf(int slot, int sec) {
+        if (bestTxt[slot] == null || bestSec[slot] != sec) {
+            bestSec[slot] = sec;
+            bestTxt[slot] = sec > 0 ? WorldRenderer.fmtTime(sec) : "--:--";
+        }
+        return bestTxt[slot];
+    }
+
+    /** A skull of side {@code s} with its top-left at (x, y): lit in {@code color}, or a dim outline. */
+    private void skull(Canvas c, float x, float y, float s, boolean on, int color) {
+        int col = on ? color : 0xFF3A322B;
+        fill.setColor(col);
+        c.drawCircle(x + s / 2f, y + s * 0.44f, s * 0.44f, fill);
+        c.drawRect(x + s * 0.27f, y + s * 0.62f, x + s * 0.73f, y + s, fill);
+        fill.setColor(0xFF120D0A);
+        c.drawCircle(x + s * 0.34f, y + s * 0.46f, s * 0.12f, fill);
+        c.drawCircle(x + s * 0.66f, y + s * 0.46f, s * 0.12f, fill);
+        c.drawRect(x + s * 0.40f, y + s * 0.80f, x + s * 0.44f, y + s, fill);
+        c.drawRect(x + s * 0.56f, y + s * 0.80f, x + s * 0.60f, y + s, fill);
+    }
+
+    /** A padlock of side {@code s} centred on (cx, cy). */
+    private void padlock(Canvas c, float cx, float cy, float s, int color) {
+        stroke.setColor(color);
+        stroke.setStrokeWidth(s * 0.13f);
+        r.set(cx - s * 0.24f, cy - s * 0.5f, cx + s * 0.24f, cy + s * 0.06f);
+        c.drawArc(r, 180f, 180f, false, stroke);
+        c.drawLine(cx - s * 0.24f, cy - s * 0.22f, cx - s * 0.24f, cy, stroke);
+        c.drawLine(cx + s * 0.24f, cy - s * 0.22f, cx + s * 0.24f, cy, stroke);
+        fill.setColor(color);
+        r.set(cx - s * 0.38f, cy - s * 0.06f, cx + s * 0.38f, cy + s * 0.5f);
+        c.drawRoundRect(r, s * 0.08f, s * 0.08f, fill);
+        fill.setColor(0xFF120D0A);
+        c.drawCircle(cx, cy + s * 0.2f, s * 0.07f, fill);
+        c.drawRect(cx - s * 0.025f, cy + s * 0.2f, cx + s * 0.025f, cy + s * 0.36f, fill);
+    }
+
+    private void star(Canvas c, float cx, float cy, float rad, int color) {
+        path.reset();
+        for (int i = 0; i < 10; i++) {
+            float a = (float) (-Math.PI / 2 + i * Math.PI / 5), rr = (i & 1) == 0 ? rad : rad * 0.45f;
+            float px = cx + (float) Math.cos(a) * rr, py = cy + (float) Math.sin(a) * rr;
+            if (i == 0) path.moveTo(px, py);
+            else path.lineTo(px, py);
+        }
+        path.close();
+        fill.setColor(color);
+        c.drawPath(path, fill);
     }
 
     private void stageCard(Canvas c, float l, float t, float rr, float b, float u, String stageKey) {
         boolean f = eng.focus == Engine.MENU_STAGE;
+        se.felixarvid.thorsurvivors.data.StageDef d = eng.stage();
+        boolean locked = !eng.meta.unlocked(stageKey);
+        float shake = eng.lockShake > 0f ? (float) Math.sin(eng.lockShake * 75f) * 12f * u * (eng.lockShake / Engine.LOCK_SHAKE) : 0f;
+        // the strip first: its touch areas must win over the card's two halves
+        float pad = 14f * u, gap = 8f * u;
+        int n = eng.stageKeys.size();
+        float tw = (rr - l - 2f * pad - (n - 1) * gap) / n, tb = b - pad, th = 44f * u, thSel = 56f * u;
+        for (int i = 0; i < n; i++) {
+            if (i != eng.stageIdx) hit(l + pad + i * (tw + gap), tb - th, l + pad + i * (tw + gap) + tw, tb, Engine.MENU_STAGE, i - eng.stageIdx);
+        }
+        c.save();
+        c.translate(shake, 0f);
         Bitmap bm = art.get(regionFile(stageKey), UiArt.G_MENU, 640);
         c.save();
         c.clipRect(l, t, rr, b);
-        art.cover(c, bm, l, t, rr, b, 0.5f, 0.5f, null);
-        fadeRect(c, cardFadeV, l, t + (b - t) * 0.35f, rr, b, false);
+        fill.setColor(0xFF0C0908);
+        c.drawRect(l, t, rr, b, fill);
+        art.cover(c, bm, l, t, rr, b, 0.5f, 0.5f, locked ? lockedPaint : null);
+        fadeRect(c, cardFadeV, l, t + (b - t) * 0.3f, rr, b, false);
         c.restore();
         cardFrame(c, l, t, rr, b, f, u);
+        if (eng.lockShake > 0f) { // a refused start: the frame flashes red
+            stroke.setColor(Skin.BAD);
+            stroke.setStrokeWidth(5f * u);
+            r.set(l, t, rr, b);
+            c.drawRect(r, stroke);
+        }
         k.text(c, "STAGE", l + 22f * u, t + 36f * u, 24f * u, Skin.ORANGE, Paint.Align.LEFT);
-        k.shadowed(c, up(eng.stage().name), l + 22f * u, b - 92f * u, 58f * u, 0xFFFFF4E6, Paint.Align.LEFT);
-        k.shadowed(c, stageBlurb(stageKey), l + 22f * u, b - 58f * u, 24f * u, 0xFFD6CCBE, Paint.Align.LEFT);
-        int best = eng.meta.bestTimeOf(stageKey);
-        k.shadowed(c, best > 0 ? tcs(3 + (eng.stageIdx & 1), best) : "--:--", rr - 24f * u, b - 22f * u, 34f * u, GOLD, Paint.Align.RIGHT);
-        k.shadowed(c, "BEST", rr - 24f * u - 108f * u, b - 22f * u, 24f * u, DIM, Paint.Align.RIGHT);
+        // difficulty: five skulls
+        float sk = 22f * u, sx = l + 112f * u;
+        int dc = DIFF_COL[Math.max(0, Math.min(4, d.difficulty - 1))];
+        for (int i = 0; i < 5; i++) skull(c, sx + i * (sk + 5f * u), t + 17f * u, sk, i < d.difficulty, dc);
         cycleArrows(c, l, t, rr, f, u);
-        hit(l, t, l + (rr - l) * 0.22f, b, Engine.MENU_STAGE, -1);
-        hit(l + (rr - l) * 0.22f, t, rr, b, Engine.MENU_STAGE, 1);
+        // name, then the blurb or what opens a locked stage, then the modifier chips and the record
+        k.shadowed(c, up(d.name), l + 22f * u, b - 172f * u, 58f * u, locked ? 0xFFB5ADA3 : 0xFFFFF4E6, Paint.Align.LEFT);
+        if (locked) {
+            padlock(c, l + 36f * u, b - 144f * u, 28f * u, Skin.BAD);
+            k.fit(c, eng.meta.unlockLine(stageKey), l + 62f * u, b - 134f * u, 24f * u, rr - l - 80f * u, 0xFFFF9A86, Paint.Align.LEFT);
+        } else {
+            k.shadowed(c, d.blurb, l + 22f * u, b - 134f * u, 24f * u, 0xFFD6CCBE, Paint.Align.LEFT);
+        }
+        String[] chips = chipsOf(eng.stageIdx);
+        float cx = l + 22f * u, cyy = b - 112f * u, chh = 28f * u;
+        k.tp.setTypeface(art.semi);
+        k.tp.setTextSize(20f * u);
+        for (String chip : chips) {
+            float cwid = k.tp.measureText(chip) + 18f * u;
+            r.set(cx, cyy, cx + cwid, cyy + chh);
+            fill.setColor(0xCC1A1410);
+            c.drawRoundRect(r, 6f * u, 6f * u, fill);
+            stroke.setColor(locked ? 0xFF4A4036 : 0xFF8A6A3A);
+            stroke.setStrokeWidth(Math.max(1.5f, 1.5f * u));
+            c.drawRoundRect(r, 6f * u, 6f * u, stroke);
+            k.body(c, chip, cx + cwid / 2f, cyy + 21f * u, 20f * u, locked ? DIM : 0xFFFFD9A0, Paint.Align.CENTER);
+            cx += cwid + 8f * u;
+        }
+        int best = eng.meta.bestTimeOf(stageKey);
+        float rx = rr - 22f * u;
+        if (eng.meta.cleared(stageKey)) {
+            star(c, rx - 14f * u, cyy + 12f * u, 14f * u, GOLD);
+            rx -= 36f * u;
+        }
+        k.shadowed(c, bestOf(eng.stageIdx % bestTxt.length, best), rx, cyy + 26f * u, 34f * u, locked ? DIM : GOLD, Paint.Align.RIGHT);
+        k.shadowed(c, "BEST", rx - 92f * u, cyy + 25f * u, 22f * u, DIM, Paint.Align.RIGHT);
+        // the strip: one thumbnail per stage, the selected one larger and outlined, a padlock on the locked ones
+        for (int i = 0; i < n; i++) {
+            String key = eng.stageKeys.get(i);
+            boolean sel = i == eng.stageIdx, lk = !eng.meta.unlocked(key);
+            float x0 = l + pad + i * (tw + gap), y0 = tb - (sel ? thSel : th);
+            thumbR.set(x0, y0, x0 + tw, tb);
+            c.save();
+            c.clipRect(thumbR);
+            fill.setColor(0xFF0C0908);
+            c.drawRect(thumbR, fill);
+            art.cover(c, art.get(regionFile(key), UiArt.G_MENU, 640), x0, y0, x0 + tw, tb, 0.5f, 0.5f, lk ? lockedPaint : null);
+            if (!sel) {
+                fill.setColor(0x55000000);
+                c.drawRect(thumbR, fill);
+            }
+            c.restore();
+            stroke.setColor(sel ? Skin.ORANGE : 0xFF4A4036);
+            stroke.setStrokeWidth(sel ? 3.5f * u : 2f * u);
+            c.drawRect(thumbR, stroke);
+            if (lk) padlock(c, x0 + tw / 2f, y0 + (tb - y0) / 2f, (sel ? 30f : 24f) * u, 0xFFE8E0D6);
+        }
+        c.restore();
+        hit(l, t, l + (rr - l) * 0.22f, b - th - pad, Engine.MENU_STAGE, -1);
+        hit(l + (rr - l) * 0.22f, t, rr, b - th - pad, Engine.MENU_STAGE, 1);
     }
 
     private void heroCard(Canvas c, float l, float t, float rr, float b, float u) {

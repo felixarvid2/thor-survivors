@@ -201,6 +201,34 @@ Allt ligger i Ashfall-lagret (`ashfall_data.json`, genererad av `tools/build_ash
 - **XP:** `XP_FADE` Flats från 7:00 till 0,02 vid 23:00 (var 0,15 vid 30:00), Mines från 6:00 till 0,02 vid 22:00 (var 0,08 vid 25:00). Nivån vid 30:00 för de som överlever gick från 116 / 117 till 91 / 90,5, nivå vid 5 / 10 / 15 / 20 / 25 min cirka 18 / 33 / 50 / 67 / 76 (var 18 / 33 / 51 / 75 / 100). Före 10 min ändras nästan ingenting.
 - **Testerna:** `DifficultyTest`, `EliteTest`, `StatusTest` och `MainWeaponTest` har nya siffror (kurvan är 0,8 vid 0:00, hjältarnas nivåvärden), `EventsTest` gör hjälten oskadbar i fler tester och `Phase9ShotsTest.step` sätter `invuln` (en träff vid 29:00 är större än hela livsmätaren), `StageSoak` ångrar en dödlig träff i policyn `immortal` (ett HP-påfyllning per steg räcker inte längre).
 
+## Banramverk och banval (v1.4, del A)
+
+Fem banor i menyn, i ordning: Cinder Flats, Deep Mines, Hydroponic Vaults, Refinery District och Meridian Wreck (`GameData.STAGE_ORDER`, `FLATS`, `MINES`, `HYDRO`, `REFINERY`, `WRECK`). De tre nya är än så länge platshållare: kopior av Flats vågrader, tidsstyrda bossar och händelser med egna modifierare, ljusstyrka och layout, tills deras delar (B till D) fyller dem.
+
+**Regler per bana.** `Sim.rules = StageRules.forKey(stage.key)` (`game/stage/`). Alla krokar är tomma som standard, allokerar ingenting och Sim testar aldrig bankoden själv:
+
+| Krok | Anropas från |
+|---|---|
+| `init(Sim)` | Sim-konstruktorn, efter kartan, före första spawn (rör bara `stage`, `data`, `runSeed`) |
+| `update(dt)` | en gång per steg, efter `events.update` och före `updateWaves` |
+| `push(x, y, out)` + `pushWeight(vem, fiende)` | hjältens rörelse, fienderna (`updateEnemies`) och pickups; `out` är drift som andel av den egna farten, `false` = ingen drift |
+| `enemySpeedMul(e)`, `heroSpeedMul()`, `spawnMul()` | `EnemyAi.speedOf`, `movePlayer`, spawntakten |
+| `damageIn(e, belopp, kategori)` | `Sim.hurt` (`CAT_HIT`) och statustickarna (`CAT_BURN/FROST/ELECTRIFY/DECAY`) |
+| `onEnemyDeath(e)` | `reap`, före drop |
+| `initArch(e)`, `updateArch(...)` | `EnemyAi` för `ARCH_HEALER/STOKER/IRONCLAD/RIFT/BREACHER` (markerade block); `false` = fienden går som en vanlig jagare |
+| `ambientLift()`, `lightMul()` | ljuskartan (lyfter mörkret, skalar ljusradien) |
+| `hasFinds()` | fynd och försäljare (alla Ashfall-banor) |
+
+`FlatsRules` har askstormen (12:00 och 22:00) flyttad oförändrad från Sim (`Sim.stormLevel()` frågar den). `MinesRules` är tom: tentaklerna styrs av banans data och ångstrålarna av layouten. Slumptal i regler tas ur egen `Random(seed ^ salt)`, aldrig `Sim.rng`. Ritningen hör till `render/stagefx/StageFx` (`drawGround`, `drawOver`, `minimap`), så `game/` förblir fri från android; `FlatsFx` ritar askan. Bossmönster 11 (Rootmind), 12 (Ironheart) och 13 (Pillar) skickas från `BossAi` till tomma `game/boss/*Ai`.
+
+**Layouter.** `WorldGen.layout` (`L_FLATS`, `L_MINES`, `L_DOMES`, `L_STREETS`, `L_DEBRIS`) ersätter `mines` (finns kvar som härledd flagga åt `Pois`). `WorldGen.of(key)` är en tabell. `surface(tx, ty)` (bitar `SURF_*`), `pad(cellX, cellY, out)` och `well(cellX, cellY, out)` är rena funktioner som än så länge returnerar "inget". DOMES, STREETS och DEBRIS (`game/layout/`) sprider ett enkelt fält med banans dekaler och rekvisita och håller startpunkten ren.
+
+**Data.** `StageDef` har `rules` (talparametrar), `unlock` (bana, sekunder), `difficulty` (1-5) och `blurb`, alla från `ashfall_data.json`, som byggs av `tools/build_ashfall_stages.py` (avsnittet "v1.4 stage registry"). Upplåsning: Mines 10:00 på Flats, Hydro 15:00 på Mines, Refinery 20:00 på Hydro, Wreck 25:00 på Refinery. `MetaProgress.unlocked(key)` räknas ur `bestTimeOf` eller flaggan `cleared_<KEY>` (en vunnen runda), så ingen ny sparnyckel behövs utom den flaggan. `unlockAll` (fält och pref med samma namn) öppnar allt för test och felsökning.
+
+**Banval i menyn.** Kortet har regionsmålningen (`ui/region_*.webp`; Wreck har ingen egen och använder raffinaderiet avmättat och blåtonat tills en bild finns, se `tools/build_ui_assets.py`), namn, rad, rekord med stjärna för klarad bana, modifierarbrickor (HP, GULD, XP), svårighet som fem dödskallar och en remsa med alla fem banor under. Vänster/höger flyttar valet utan att hoppa över något, även till låsta banor (gråa, 40 % ljusstyrka, hänglås och en uppläst rad som "Reach 15:00 on Deep Mines (best 11:20)", byggd en gång per rekordändring). A eller Start på en låst bana avvisas: kortet skakar kort, ramen blinkar rött, en toast visar raden och `UI_BACK` spelas. Musik: Hydro delar Mines spår, Refinery och Wreck Flats spår.
+
+**Tester.** `StageFrameworkTest`: alla fem banor laddas med rätt regler, layout och kortdata; Flats och Mines kör bit för bit samma sak som före ramverket (tillståndshash för en seedad femminuters körning, plus ett fönster över askstormen); upplåsningskedjan; navigering över alla fem och avvisad start; en seedad femminuters körning per ny bana utan NaN eller overflow. `StageSelectShotsTest` ritar kortet öppet och låst till `app/build/screenshots/stageselect_*.png`; `PanelCostTest` kräver 0 allokering även för låst kort med skakning.
+
 ## ASHFALL-skalet (design fas 11)
 
 Alla skärmar på nedre panelen (`ui/PanelRenderer`, 1240 x 1080, samma kod i enkelskärmsläget) och titeln på övre skärmen (`ui/TopOverlay`) har fått utseendet från design avsnitt 11: mörk stålplåt (#15110f) med borstad textur, nitar, varnings-randade avdelare, orange accenter (#ff8a2a), lumengrönt för XP (#39ff88) och rött för HP.
@@ -295,7 +323,7 @@ Kräver Android SDK (plattform 35, build-tools 35.0.0). Skapa `local.properties`
 ./gradlew assembleDebug testDebugUnitTest
 ```
 
-Det finns 483 JVM-enhetstester (inklusive Robolectric-skärmdumpar till `app/build/screenshots/`, eller `$SHOT_DIR`): statistikberäkning, level-up-erbjudanden, evolutioner, vågor, butik, headless-simuleringar, ljudhändelser (gräns, ringbuffert, manifest), att Ashfall-manifestet och modellramarna är giltiga, namnöverlägget, banans layout, ljuskartan (kontrast, allokering) och dödsanimationen, statusformlerna, fiendearketyperna, banorna, tunnkedjorna och en 30 minuters soak per bana (`SOAK=1` kör hela soaken, `Phase7ShotsTest` ritar rusningslinjer, skott, moln, statusar, askstorm och tunnkedja; `EliteTest`, `EquipmentTest`, `BossTest` och `NewBossTest` (de fem tidsstyrda bossarna) är de snabba tester för fas 9, 10 och v1.3, `Phase9ShotsTest` ritar elitfiender, utrustning, valskärmen, varje bossmönster och The First i tre faser till `$SHOT_DIR` och `LateFightShotsTest` sena strider före och efter rörighetsfixen; `Phase11ShotsTest` ritar varje skärm i ASHFALL-skalet, `PanelCostTest` mäter panelens ritkostnad och att den inte allokerar, `UiAssetsTest` kollar UI-filerna; `StageSoakTest` kör 30 minuter per bana med immortal- och mid-bot och mäter bossarnas tid till död). Vyn visar 560 världsenheter på höjden (`Sim.VIEW_H`).
+Det finns 491 JVM-enhetstester (inklusive Robolectric-skärmdumpar till `app/build/screenshots/`, eller `$SHOT_DIR`): statistikberäkning, level-up-erbjudanden, evolutioner, vågor, butik, headless-simuleringar, ljudhändelser (gräns, ringbuffert, manifest), att Ashfall-manifestet och modellramarna är giltiga, namnöverlägget, banans layout, ljuskartan (kontrast, allokering) och dödsanimationen, statusformlerna, fiendearketyperna, banorna, tunnkedjorna och en 30 minuters soak per bana (`SOAK=1` kör hela soaken, `Phase7ShotsTest` ritar rusningslinjer, skott, moln, statusar, askstorm och tunnkedja; `EliteTest`, `EquipmentTest`, `BossTest` och `NewBossTest` (de fem tidsstyrda bossarna) är de snabba tester för fas 9, 10 och v1.3, `Phase9ShotsTest` ritar elitfiender, utrustning, valskärmen, varje bossmönster och The First i tre faser till `$SHOT_DIR` och `LateFightShotsTest` sena strider före och efter rörighetsfixen; `Phase11ShotsTest` ritar varje skärm i ASHFALL-skalet, `PanelCostTest` mäter panelens ritkostnad och att den inte allokerar, `UiAssetsTest` kollar UI-filerna; `StageSoakTest` kör 30 minuter per bana med immortal- och mid-bot och mäter bossarnas tid till död). Vyn visar 560 världsenheter på höjden (`Sim.VIEW_H`).
 
 Kopiera sedan `app/build/outputs/apk/debug/app-debug.apk` till `dist/`.
 

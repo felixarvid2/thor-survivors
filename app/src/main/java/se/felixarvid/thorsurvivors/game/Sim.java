@@ -11,6 +11,8 @@ import se.felixarvid.thorsurvivors.data.WaveRow;
 import se.felixarvid.thorsurvivors.data.WaveSelector;
 import se.felixarvid.thorsurvivors.data.WeaponDef;
 import se.felixarvid.thorsurvivors.game.Entities.*;
+import se.felixarvid.thorsurvivors.game.stage.FlatsRules;
+import se.felixarvid.thorsurvivors.game.stage.StageRules;
 
 import java.util.HashMap;
 import java.util.List;
@@ -207,6 +209,12 @@ public final class Sim {
     private int placeKind;
     /** The stage layout (also what the renderer draws); destructibles keep off its trees, shelves and tables. */
     public final WorldGen map;
+    /** The stage's own rules (v1.4 framework, see {@link StageRules}): hooks the Sim calls instead of testing the stage key. */
+    public final StageRules rules;
+    /** The seed of this run (0 when the run was not seeded); the places, events and stage rules derive their own generators from it. */
+    public final long runSeed;
+    /** Scratch for {@link StageRules#push}. */
+    private final float[] pushV = new float[2];
 
     // ------------------------------------------------------------------ finds (Weapon Caches and Gear Lockers on the map)
 
@@ -331,6 +339,9 @@ public final class Sim {
         MainWeaponDef mwd = hero == null ? null : data.mainWeapons.get(hero.main);
         this.main = mwd == null ? null : new MainWeapon(this, hero, mwd);
         this.map = WorldGen.of(stage.key);
+        this.runSeed = seed == null ? 0L : seed;
+        this.rules = StageRules.forKey(stage.key);
+        this.rules.init(this);
         java.util.Arrays.fill(gridHead, -1); // an empty grid until the first buildGrid (tests query before they update)
         for (int i = 0; i < MAX_ENEMIES; i++) enemies[i] = new Enemy();
         for (int i = 0; i < MAX_PROJ; i++) projs[i] = new Projectile();
@@ -358,7 +369,7 @@ public final class Sim {
 
     /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
     private boolean hasFinds() {
-        return stage.key.equals("FLATS") || stage.key.equals("MINES");
+        return rules.hasFinds();
     }
 
     /**
@@ -591,6 +602,7 @@ public final class Sim {
         movePlayer(dt);
         refreshDestructibles();
         events.update(dt);
+        rules.update(dt);
         updateWaves(dt);
         statusAcc += dt;
         if (statusAcc >= Status.PASS) { // one pass at 10 Hz: Burn, Frost, Electrify, Decay and the hero's statuses
@@ -691,8 +703,14 @@ public final class Sim {
         float len = (float) Math.sqrt(mx * mx + my * my);
         float sp = PLAYER_SPEED_K * (float) stage.playerSpeed * (float) stats.moveSpeedMul;
         if (heroSlowT > 0) sp *= 1f - Status.HERO_SLOW;
+        sp *= rules.heroSpeedMul();
         px += mx * sp * dt;
         py += my * sp * dt;
+        if (rules.push(px, py, pushV)) { // a stage with moving ground (belts, wind) carries the hero along
+            float pw = rules.pushWeight(StageRules.PUSH_HERO, null) * sp * dt;
+            px += pushV[0] * pw;
+            py += pushV[1] * pw;
+        }
         if (stats.ashTrail && len > 0.05f) { // Ashwalker Treads: a patch of ash every 40 units, enemies in it move at 80%
             ashDist += len * sp * dt;
             if (ashDist >= ASH_EVERY) {
@@ -1054,29 +1072,16 @@ public final class Sim {
         return e;
     }
 
-    /** Ash storms on Cinder Flats at 12:00 and 22:00 (design 9.1): 20 s long; light radius -40%, spawns +20%. */
-    public static final float STORM_LEN = 20f, STORM_FADE = 1.5f, STORM_LIGHT = 0.4f, STORM_SPAWNS = 0.2f;
-    static final float[] STORM_AT = {720f, 1320f};
+    // The Cinder Flats ash storms (12:00 and 22:00) live in game/stage/FlatsRules; these keep the old Sim API for the renderer and tests.
 
-    /** 0..1: how strongly the ash storm blows now (ramps in and out over {@link #STORM_FADE}); 0 outside the storms and on Deep Mines. */
+    /** 0..1: how strongly the ash storm blows now (ramps in and out over {@link FlatsRules#STORM_FADE}); 0 outside the storms and on every other stage. */
     public float stormLevel() {
-        if (!stage.key.equals("FLATS")) return 0f;
-        for (float at : STORM_AT) {
-            float t = (float) time - at;
-            if (t < 0f || t > STORM_LEN) continue;
-            return Math.min(1f, Math.min(t, STORM_LEN - t) / STORM_FADE);
-        }
-        return 0f;
+        return rules instanceof FlatsRules ? ((FlatsRules) rules).stormLevel(time) : 0f;
     }
 
     /** Seconds since the current ash storm began, or -1 outside the storms (the banner shows for the first seconds). */
     public float stormElapsed() {
-        if (!stage.key.equals("FLATS")) return -1f;
-        for (float at : STORM_AT) {
-            float t = (float) time - at;
-            if (t >= 0f && t <= STORM_LEN) return t;
-        }
-        return -1f;
+        return rules instanceof FlatsRules ? ((FlatsRules) rules).stormElapsed(time) : -1f;
     }
 
     /** True while a storm blows (any strength). */
@@ -1084,9 +1089,9 @@ public final class Sim {
         return stormLevel() > 0f;
     }
 
-    /** Multiplier on the light radius: 1, or 0.6 at the height of an ash storm. */
+    /** Multiplier on the light radius: the stage's ({@link StageRules#lightMul}, 0.6 at the height of an ash storm) times the events'. */
     public float lightRadiusMul() {
-        return (1f - STORM_LIGHT * stormLevel()) * events.lightMul();
+        return rules.lightMul() * events.lightMul();
     }
 
     private void updateWaves(float dt) {
@@ -1116,7 +1121,7 @@ public final class Sim {
             minimum = Math.max(minimum, (int) stage.hordes[horde][2]);
             freq = Math.min(freq, (float) stage.hordes[horde][3]);
         }
-        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f) * events.spawnMul() * pois.spawnMul;
+        spawnTimer += dt * 1000f * rules.spawnMul() * events.spawnMul() * pois.spawnMul;
         if (spawnTimer >= freq) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
@@ -1398,6 +1403,11 @@ public final class Sim {
                 ai.update(e, dt, moving, dx, dy, d2);
             }
             if (e.elite && !frozen && !stunned) elites.update(e, dt, (float) Math.sqrt(d2));
+            if (rules.push(e.x, e.y, pushV)) { // moving ground carries enemies too, a share of their own speed
+                float pw = rules.pushWeight(StageRules.PUSH_ENEMY, e) * ai.speedOf(e) * dt;
+                e.x += pushV[0] * pw;
+                e.y += pushV[1] * pw;
+            }
             e.x += e.kvx * dt;
             e.y += e.kvy * dt;
             e.kvx *= decay;
@@ -1488,6 +1498,9 @@ public final class Sim {
     /** Status damage: no flash and no hit sound; the number is coloured and merged per enemy. Kills when it empties the enemy. */
     void statusDamage(Enemy e, float amount, int color, boolean show) {
         if (e.dead || amount <= 0f) return;
+        amount = rules.damageIn(e, amount, color == Status.C_BURN ? StageRules.CAT_BURN : color == Status.C_ELEC ? StageRules.CAT_ELECTRIFY
+                : color == Status.C_FROST ? StageRules.CAT_FROST : StageRules.CAT_DECAY); // stage hook (v1.4)
+        if (amount <= 0f) return;
         e.hp -= amount;
         e.dotAcc += amount;
         if (e.dotAcc >= 1f && show && statusTexts < MAX_STATUS_TEXTS) {
@@ -1777,6 +1790,7 @@ public final class Sim {
         lastCrit = crit;
         if (crit) dmg *= critMul;
         if (e.armor > 0f) dmg = Math.max(dmg * 0.4f, dmg - e.armor); // the Armored elite: 3 off every hit
+        dmg = rules.damageIn(e, dmg, StageRules.CAT_HIT); // stage hook (v1.4): e.g. Ironclad takes less from hits
         e.hp -= dmg;
         if (stats.statusChance[Entities.ST_BURN] > 0f || stats.statusChance[Entities.ST_FROST] > 0f
                 || stats.statusChance[Entities.ST_ELECTRIFY] > 0f) { // rings: a chance per hit to add a stack
@@ -1819,6 +1833,7 @@ public final class Sim {
                 continue;
             }
             kills++;
+            rules.onEnemyDeath(e);
             sound.emit(SoundEvents.ENEMY_DEATH);
             if (e.type.arch == EnemyDef.ARCH_EXPLODER) ai.carrierBurst(e); // a spore carrier bursts when it dies
             else if (e.type.arch == EnemyDef.ARCH_TENTACLE && e.type.def.param("blast", 0f) > 0f) boss.decoyBlast(e); // a Kade decoy explodes
@@ -2051,6 +2066,11 @@ public final class Sim {
         for (int i = pickN - 1; i >= 0; i--) {
             Pickup p = picks[i];
             p.bob += dt * 4f;
+            if (rules.push(p.x, p.y, pushV)) { // moving ground carries gems and coins
+                float pw = rules.pushWeight(StageRules.PUSH_PICKUP, null) * StageRules.PICKUP_SPEED * dt;
+                p.x += pushV[0] * pw;
+                p.y += pushV[1] * pw;
+            }
             float dx = px - p.x, dy = py - p.y;
             float d2 = dx * dx + dy * dy;
             boolean magnetic = p.kind <= Entities.K_COINBAG;

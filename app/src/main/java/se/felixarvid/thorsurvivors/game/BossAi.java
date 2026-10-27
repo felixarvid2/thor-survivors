@@ -88,6 +88,11 @@ public final class BossAi {
                 e.mt0 = d.param("blinkEvery", 7f) * rnd(0.3f, 0.6f);
                 e.mt1 = d.param("decreeEvery", 10f) * rnd(0.5f, 0.8f);
                 break;
+            // ---- v1.4 stage finales (chunks B-D): one line each, the pattern lives in game/boss
+            case 11: se.felixarvid.thorsurvivors.game.boss.RootmindAi.init(s, e); break;
+            case 12: se.felixarvid.thorsurvivors.game.boss.IronheartAi.init(s, e); break;
+            case 13: se.felixarvid.thorsurvivors.game.boss.PillarAi.init(s, e); break;
+            // ---- end v1.4 stage finales
             default:
         }
     }
@@ -104,6 +109,11 @@ public final class BossAi {
             case 8: hale(e, dt, moving, dx, dy, d); break;
             case 9: overseer(e, dt, moving, dx, dy, d); break;
             case 10: kade(e, dt, moving, dx, dy, d); break;
+            // ---- v1.4 stage finales (chunks B-D): one line each, the pattern lives in game/boss
+            case 11: se.felixarvid.thorsurvivors.game.boss.RootmindAi.update(s, e, dt, moving, dx, dy, d); break;
+            case 12: se.felixarvid.thorsurvivors.game.boss.IronheartAi.update(s, e, dt, moving, dx, dy, d); break;
+            case 13: se.felixarvid.thorsurvivors.game.boss.PillarAi.update(s, e, dt, moving, dx, dy, d); break;
+            // ---- end v1.4 stage finales
             default: ai.walkTo(e, dt, dx, dy, d, 1f);
         }
     }

@@ -145,6 +145,7 @@ public final class Engine {
         int[] c;
         while ((c = input.poll()) != null) handle(c);
         if (toastTimer > 0) toastTimer -= dt;
+        if (lockShake > 0) lockShake -= dt;
         menuTime += dt;
         if (phase != PH_PLAYING) sound.advance(dt); // while playing, Sim.update advances the clock
         if (phase == PH_PLAYING) {
@@ -211,6 +212,23 @@ public final class Engine {
         else resume();
     }
 
+    /** Seconds the stage card still shakes after a refused start (a locked stage); read by the panel. */
+    public volatile float lockShake;
+
+    /** A locked stage cannot be started: false, with a short shake and a toast saying how to open it. */
+    private boolean tryStartRun() {
+        String key = stage().key;
+        if (!meta.unlocked(key)) {
+            lockShake = LOCK_SHAKE;
+            toast("Locked: " + meta.unlockLine(key));
+            return false;
+        }
+        startRun();
+        return true;
+    }
+
+    public static final float LOCK_SHAKE = 0.45f;
+
     private void startRun() {
         long seed = nextRunSeed != null ? nextRunSeed : System.nanoTime(); // a new run every time unless a test fixed it
         sim = new Sim(data, stage(), starters.get(weaponIdx), meta.bonuses(), meta.heroKey(), seed);
@@ -233,6 +251,7 @@ public final class Engine {
         resultNewBest = resultTime > meta.bestTimeSec;
         meta.addGold(resultGold);
         meta.recordRun(resultTime, s.kills, s.stage.key);
+        if (win) meta.markCleared(s.stage.key);
         phase = PH_RESULT;
         focus = 0;
         sound.emit(win ? SoundEvents.VICTORY : SoundEvents.GAME_OVER);
@@ -418,7 +437,7 @@ public final class Engine {
         boolean ok = true;
         switch (phase) {
             case PH_MENU:
-                if (f == MENU_START) startRun();
+                if (f == MENU_START) ok = tryStartRun();
                 else if (isCycleRow(f)) {
                     cycle(f, sub == 0 ? 1 : sub);
                 }
@@ -530,7 +549,9 @@ public final class Engine {
         switch (phase) {
             case PH_PLAYING: phase = PH_PAUSED; focus = 0; break;
             case PH_PAUSED: resume(); break;
-            case PH_MENU: startRun(); break;
+            case PH_MENU:
+                if (!tryStartRun()) sound.emit(SoundEvents.UI_BACK); // the refusal buzz (the same sound as a refused purchase)
+                break;
             default:
         }
     }

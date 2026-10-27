@@ -378,6 +378,47 @@ def treasure_rows(vs_stage, mapping):
     return {m: by_min[src]["treasure"] for m, src in mapping.items()}
 
 
+# ---------------------------------------------------------------------------------------------------------------------------
+# v1.4 stage registry (stage framework, chunk A). One entry per menu stage: the card text, the difficulty pips, what opens it
+# (stage key, best time in seconds), the stage-rules parameters (StageDef.rules, read by game/stage/*Rules) and, for the stages
+# added in v1.4, the name, the mods relative to Cinder Flats and the darkness. The new stages start as a copy of Cinder Flats (rows,
+# timed bosses, events, curves, hordes) and are tuned by their own chunks; the relative mods are the first guesses of the spec.
+# ---------------------------------------------------------------------------------------------------------------------------
+STAGE_REGISTRY = {
+    "FLATS": dict(difficulty=1, blurb="Open ash plains. Storms, vents, convoys.", unlock=None, rules={}),
+    "MINES": dict(difficulty=2, blurb="Dark shafts and carts. Mind the firedamp.", unlock=("FLATS", 600), rules={}),
+    "HYDRO": dict(name="Hydroponic Vaults", difficulty=3, blurb="Overgrown domes. Burn the hearts or drown.",
+                  unlock=("MINES", 900), rules={}, copy_of="FLATS", lighting=dict(ambient=0.71, radius=240),
+                  mods=dict(EnemyHealthMultiplier=1.3, EnemySpeed=1.0, GoldMultiplier=1.2, XPBonus=1.1)),
+    "REFINERY": dict(name="Refinery District", difficulty=4, blurb="Belts, furnaces, heat. Never stand still.",
+                     unlock=("HYDRO", 1200), rules={}, copy_of="FLATS", lighting=dict(ambient=0.74, radius=240),
+                     mods=dict(EnemyHealthMultiplier=1.4, EnemySpeed=1.05, GoldMultiplier=1.35, XPBonus=1.1)),
+    "WRECK": dict(name="Meridian Wreck", difficulty=5, blurb="A falling ship. Wells, pads, no air.",
+                  unlock=("REFINERY", 1500), rules={}, copy_of="FLATS", lighting=dict(ambient=0.77, radius=230),
+                  mods=dict(EnemyHealthMultiplier=1.5, EnemySpeed=1.05, GoldMultiplier=1.5, XPBonus=1.15)),
+}
+
+
+def add_v14_stages(data):
+    """Adds the registry's stages to data['stages'] / data['lighting'] and the card fields to every menu stage."""
+    import copy
+    stages, lighting = data["stages"], data.setdefault("lighting", {})
+    for key, reg in STAGE_REGISTRY.items():
+        if "copy_of" in reg:
+            st = copy.deepcopy(stages[reg["copy_of"]])
+            st["name"] = reg["name"]
+            for mod, mul in reg["mods"].items():
+                st["mods"][mod] = round(st["mods"][mod] * mul, 4)
+            stages[key] = st
+            lighting[key] = reg["lighting"]
+        st = stages[key]
+        st["difficulty"] = reg["difficulty"]
+        st["blurb"] = reg["blurb"]
+        if reg["unlock"]:
+            st["unlock"] = dict(key=reg["unlock"][0], seconds=reg["unlock"][1])
+        st["rules"] = reg["rules"]
+
+
 def main():
     base = json.load(open(os.path.join(ASSETS, "game_data.json")))
     path = os.path.join(ASSETS, "ashfall_data.json")
@@ -437,6 +478,7 @@ def main():
         stages[key]["timedBosses"] = [dict(t=t, boss=b) for t, b in lst]
     for key, lst in EVENTS.items():
         stages[key]["events"] = [dict(id=i, at=t) for i, t in lst]
+    add_v14_stages(data)   # v1.4: the three new stages (copies of Flats until their chunks tune them) and the card fields
     data["elites"] = ELITES
     eq = {}
     for key, (slot, name, icon, values) in EQUIPMENT.items():

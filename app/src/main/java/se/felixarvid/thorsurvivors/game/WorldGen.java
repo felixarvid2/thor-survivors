@@ -1,5 +1,10 @@
 package se.felixarvid.thorsurvivors.game;
 
+import se.felixarvid.thorsurvivors.game.layout.DebrisLayout;
+import se.felixarvid.thorsurvivors.game.layout.DomesLayout;
+import se.felixarvid.thorsurvivors.game.layout.Layout;
+import se.felixarvid.thorsurvivors.game.layout.StreetsLayout;
+
 /**
  * Deterministic, infinite stage layout: a pure function of the tile coordinates, so any chunk can be generated on
  * its own and two chunks agree on what lies across their shared border. No android imports, no allocation (callers
@@ -15,7 +20,8 @@ package se.felixarvid.thorsurvivors.game;
  * Stage FLATS (legacy key FOREST) is the ash plain (Cinder Flats): junk yards of crates and rock, glowing lumen growths in
  * clusters, light posts and the odd crashed ship. Stage MINES (legacy key LIBRARY) is the deep mine: long rows of wall pieces above and below a free
  * central lane with breaks, clutter between the rows and emergency lights along the lane. The spawn point (0, 0) is
- * kept clear in both.
+ * kept clear in both. The v1.4 stages have a layout of their own each (DOMES, STREETS, DEBRIS: {@code game/layout}); until their
+ * chunks fill them in they scatter a plain field of their stage's props and decals.
  */
 public final class WorldGen {
     /** World units per tile at 1080p (80 px at 1.9286 px per unit). */
@@ -55,22 +61,63 @@ public final class WorldGen {
 
     private static final int LIB_BAND = 6, LIB_PERIOD = 7, WALL_SLOT = 3;
 
+    /** Layouts: the open ash plain, the lane mine and the v1.4 domes, streets and debris field. */
+    public static final int L_FLATS = 0, L_MINES = 1, L_DOMES = 2, L_STREETS = 3, L_DEBRIS = 4;
+    /** Surface bits of {@link #surface}: what the ground at a tile does (none = plain floor). Chunks B-D define the layouts that set them. */
+    public static final int SURF_NONE = 0, SURF_WATER = 1, SURF_BELT_E = 2, SURF_BELT_W = 4, SURF_BELT_N = 8, SURF_BELT_S = 16,
+            SURF_MOLTEN = 32, SURF_FURNACE_GATE = 64, SURF_VOID = 128;
+
+    public final int layout;
+    /** The lane mine (kept for Pois, which places steam jets instead of vents there and whose lane ends at the walls). */
     public final boolean mines;
-    private static final WorldGen FLATS = new WorldGen(false), MINES = new WorldGen(true);
+    private static final WorldGen[] LAYOUTS = {new WorldGen(L_FLATS), new WorldGen(L_MINES), new WorldGen(L_DOMES),
+            new WorldGen(L_STREETS), new WorldGen(L_DEBRIS)};
+    /** The generator of a v1.4 layout (null on the Flats and Mines, whose code is in this class). */
+    private final Layout plain;
     private final float[] sx = new float[64], sy = new float[64];
     private final int[] sk = new int[64];
 
-    private WorldGen(boolean mines) {
-        this.mines = mines;
+    private WorldGen(int layout) {
+        this.layout = layout;
+        this.mines = layout == L_MINES;
+        this.plain = layout == L_DOMES ? new DomesLayout() : layout == L_STREETS ? new StreetsLayout()
+                : layout == L_DEBRIS ? new DebrisLayout() : null;
     }
 
+    /** Layout of a stage key: the table of the stages (anything unknown, FOREST included, is the Flats). */
     public static WorldGen of(String stageKey) {
-        return "MINES".equals(stageKey) || "LIBRARY".equals(stageKey) ? MINES : FLATS;
+        if (stageKey == null) return LAYOUTS[L_FLATS];
+        switch (stageKey) {
+            case "MINES":
+            case "LIBRARY": return LAYOUTS[L_MINES];
+            case "HYDRO": return LAYOUTS[L_DOMES];
+            case "REFINERY": return LAYOUTS[L_STREETS];
+            case "WRECK": return LAYOUTS[L_DEBRIS];
+            default: return LAYOUTS[L_FLATS];
+        }
+    }
+
+    /** What the ground does at tile (tx, ty): {@code SURF_*} bits, {@link #SURF_NONE} on plain floor. Pure function of the tile. */
+    public int surface(int tx, int ty) {
+        return plain == null ? SURF_NONE : plain.surface(tx, ty);
+    }
+
+    /**
+     * A teleporter pad pair seeded in the 1,800 u cell (cellX, cellY): writes {ax, ay, bx, by} in world units into {@code out} and
+     * returns true, or returns false when the cell has none. Pure function of the cell; none on every layout so far (Wreck, chunk D).
+     */
+    public boolean pad(int cellX, int cellY, float[] out) {
+        return plain != null && plain.pad(cellX, cellY, out);
+    }
+
+    /** A gravity well seeded in the 1,400 u cell (cellX, cellY): writes {x, y, radius} in world units and returns true, or false for none. */
+    public boolean well(int cellX, int cellY, float[] out) {
+        return plain != null && plain.well(cellX, cellY, out);
     }
 
     // ------------------------------------------------------------------ noise
 
-    static int hash(int x, int y, int salt) {
+    public static int hash(int x, int y, int salt) {
         int h = x * 374761393 + y * 668265263 + salt * 0x3C6EF372;
         h = (h ^ (h >>> 13)) * 1274126177;
         h ^= h >>> 16;
@@ -79,16 +126,16 @@ public final class WorldGen {
     }
 
     /** Uniform [0, 1) from a hash. */
-    static float unit(int h) {
+    public static float unit(int h) {
         return (h >>> 8) / 16777216f;
     }
 
-    static float rnd(int x, int y, int salt) {
+    public static float rnd(int x, int y, int salt) {
         return unit(hash(x, y, salt));
     }
 
     /** Smooth value noise in [0, 1) on a unit lattice. */
-    static float noise(int salt, float x, float y) {
+    public static float noise(int salt, float x, float y) {
         int x0 = (int) Math.floor(x), y0 = (int) Math.floor(y);
         float fx = x - x0, fy = y - y0;
         float u = fx * fx * (3f - 2f * fx), v = fy * fy * (3f - 2f * fy);
@@ -96,7 +143,7 @@ public final class WorldGen {
         return (a + (b - a) * u) + ((c + (d - c) * u) - (a + (b - a) * u)) * v;
     }
 
-    private static boolean nearSpawn(float x, float y, float r) {
+    public static boolean nearSpawn(float x, float y, float r) {
         return x * x + y * y < r * r;
     }
 
@@ -110,7 +157,7 @@ public final class WorldGen {
     }
 
     /** Pick by cumulative weights (sum need not be 1): r in [0, 1) scaled to the total. */
-    private static int pick(float r, float[] w) {
+    public static int pick(float r, float[] w) {
         float tot = 0;
         for (float v : w) tot += v;
         r *= tot;
@@ -124,7 +171,7 @@ public final class WorldGen {
     // ------------------------------------------------------------------ decals
 
     /** Noise field where lumen (flats) or crystal (mines) clusters grow. */
-    float lumenField(float tx, float ty) {
+    public float lumenField(float tx, float ty) {
         return noise(202, tx / 7f, ty / 7f);
     }
 
@@ -154,6 +201,7 @@ public final class WorldGen {
         float r = rnd(bx, by, 74);
         if (r >= 0.30f) return -1;
         if (!mines && nearSpawn(x, y, 1.5f)) return -1; // keep the very start tidy
+        if (plain != null) return plain.decalKind(this, bx, by, x, y);
         float pick = rnd(bx, by, 75);
         float lum = lumenField(x, y);
         if (mines) {
@@ -190,6 +238,7 @@ public final class WorldGen {
      * kind. Returns the count (at most the array length). Order is arbitrary; the renderer sorts by y.
      */
     public int props(int tx0, int ty0, int tx1, int ty1, float[] xs, float[] ys, int[] kinds) {
+        if (plain != null) return plain.props(this, tx0, ty0, tx1, ty1, xs, ys, kinds);
         int n = 0;
         n = mines ? minesProps(tx0, ty0, tx1, ty1, xs, ys, kinds, n) : flatsProps(tx0, ty0, tx1, ty1, xs, ys, kinds, n);
         // light posts and far landmarks per 14-tile region
@@ -202,7 +251,7 @@ public final class WorldGen {
         return n;
     }
 
-    private static int emit(float x, float y, int kind, int tx0, int ty0, int tx1, int ty1, float[] xs, float[] ys,
+    public static int emit(float x, float y, int kind, int tx0, int ty0, int tx1, int ty1, float[] xs, float[] ys,
                             int[] kinds, int n) {
         if (n >= xs.length || x < tx0 || x >= tx1 + 1 || y < ty0 || y >= ty1 + 1) return n;
         xs[n] = x;
