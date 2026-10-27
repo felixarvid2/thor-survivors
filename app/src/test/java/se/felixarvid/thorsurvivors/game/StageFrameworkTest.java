@@ -133,7 +133,7 @@ public class StageFrameworkTest {
             assertEquals(KEYS[i] + " difficulty rises along the order", i + 1, def.difficulty);
             assertTrue(KEYS[i] + " blurb fits the card: " + def.blurb, def.blurb.length() > 10 && def.blurb.length() <= 48);
             assertEquals(5, def.timedAt.length);
-            assertEquals(5, def.eventAt.length);
+            assertEquals(KEYS[i].equals("WRECK") ? 4 : 5, def.eventAt.length); // Wreck: the gate and the finale replace the Tide
             assertNotNull(def.rules);
             if (i == 0) assertEquals(null, def.unlockKey);
             else assertEquals("each stage opens on the one before it", prev, def.unlockKey);
@@ -205,13 +205,14 @@ public class StageFrameworkTest {
                     for (int i = 0; i < n; i++) {
                         assertEquals(xs[i], xs2[i], 0f);
                         assertEquals(ks[i], ks2[i]);
-                        assertTrue(key + " kind", ks[i] >= 0 && ks[i] < WorldGen.PROP.length);
+                        assertTrue(key + " kind", ks[i] >= 0 && (ks[i] < WorldGen.PROP.length || key.equals("WRECK") && WorldGen.propName(ks[i]) != null));
                         assertTrue(key + " keeps the start clear", Math.hypot(xs[i], ys[i]) >= WorldGen.CLEAR);
                     }
                     props += n;
                     int dn = g.decals(cx * 8, cy * 8, cx * 8 + 7, cy * 8 + 7, xs, ys, ks);
                     for (int i = 0; i < dn; i++) assertTrue((ks[i] & 255) < WorldGen.DECAL.length);
                     decals += dn;
+                    if (key.equals("WRECK")) continue; // Wreck has a hull and void surface, pads and wells (WreckTest)
                     assertEquals(WorldGen.SURF_NONE, g.surface(cx, cy));
                     assertFalse(g.pad(cx, cy, pad));
                     assertFalse(g.well(cx, cy, pad));

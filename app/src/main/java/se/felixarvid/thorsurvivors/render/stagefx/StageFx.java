@@ -29,9 +29,11 @@ public interface StageFx {
     StageFx NONE = new StageFx() {
     };
     StageFx FLATS = new FlatsFx();
+    StageFx WRECK = new WreckFx(); // v1.4 chunk D (Meridian Wreck)
 
     /** The drawing hooks of a stage key; {@link #NONE} for a stage without any. */
     static StageFx forKey(String key) {
+        if ("WRECK".equals(key)) return WRECK; // v1.4 chunk D
         return "FLATS".equals(key) ? FLATS : NONE;
     }
 }

@@ -308,6 +308,7 @@ final class GroundCache {
             tile(c, b, flip, tex, wx, wy, pw, ph, 211, 137, 105); // breaks the 512 px repeat
             b.paint.setColorFilter(null);
         }
+        if (gen.layout == WorldGen.L_DEBRIS) se.felixarvid.thorsurvivors.render.stagefx.WreckFx.paintHull(c, gen, x0, y0, w, h, T); // v1.4 chunk D: hull plates and the void between the islands
         int n = gen.decals(x0 - 2, y0 - 2, x0 + w + 1, y0 + h + 1, b.dx, b.dy, b.dk);
         b.decalPaint.setColorFilter(DECAL_TONE);
         for (int i = 0; i < n; i++) {

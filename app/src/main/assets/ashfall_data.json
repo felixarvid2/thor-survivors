@@ -2674,63 +2674,63 @@
    "rows": [
     {
      "minute": 0,
-     "minimum": 10,
+     "minimum": 11,
      "frequency": 1400,
      "enemies": [
+      "SECURITY_DRONE",
       "COLONIST"
      ],
      "bosses": []
     },
     {
      "minute": 1,
-     "minimum": 14,
+     "minimum": 15,
      "frequency": 1200,
      "enemies": [
-      "COLONIST",
-      "SPORE_HOUND"
+      "SECURITY_DRONE",
+      "COLONIST"
      ],
      "bosses": []
     },
     {
      "minute": 2,
-     "minimum": 18,
+     "minimum": 20,
      "frequency": 1100,
      "enemies": [
-      "COLONIST",
-      "SPORE_HOUND"
+      "SECURITY_DRONE",
+      "COLONIST"
      ],
      "bosses": []
     },
     {
      "minute": 3,
-     "minimum": 22,
+     "minimum": 24,
      "frequency": 1000,
      "enemies": [
-      "COLONIST",
-      "SPORE_HOUND",
-      "SERGEANT"
+      "SECURITY_DRONE",
+      "COLONIST"
      ],
      "bosses": []
     },
     {
      "minute": 4,
-     "minimum": 26,
+     "minimum": 29,
      "frequency": 900,
      "enemies": [
+      "SECURITY_DRONE",
       "COLONIST",
-      "SPORE_HOUND",
-      "SERGEANT"
+      "RIFT_HOUND"
      ],
      "bosses": []
     },
     {
      "minute": 5,
-     "minimum": 40,
+     "minimum": 44,
      "frequency": 1100,
      "enemies": [
-      "SPORE_HOUND",
-      "SERGEANT",
-      "SPORE_CARRIER"
+      "SECURITY_DRONE",
+      "COLONIST",
+      "RIFT_HOUND"
      ],
      "bosses": [
       "CARGO_LOADER"
@@ -2754,57 +2754,63 @@
     },
     {
      "minute": 6,
-     "minimum": 40,
+     "minimum": 44,
      "frequency": 1000,
      "enemies": [
-      "COLONIST",
       "SERGEANT",
-      "SPORE_CARRIER"
+      "SECURITY_DRONE",
+      "COLONIST",
+      "RIFT_HOUND"
      ],
      "bosses": []
     },
     {
      "minute": 7,
-     "minimum": 40,
+     "minimum": 44,
      "frequency": 900,
      "enemies": [
+      "SERGEANT",
+      "SECURITY_DRONE",
       "COLONIST",
-      "SPORE_HOUND",
-      "SECURITY_DRONE"
+      "RIFT_HOUND"
      ],
      "bosses": []
     },
     {
      "minute": 8,
-     "minimum": 40,
+     "minimum": 44,
      "frequency": 850,
      "enemies": [
-      "SPORE_HOUND",
       "SERGEANT",
       "SECURITY_DRONE",
-      "SPORE_CARRIER"
+      "RIFT_HOUND",
+      "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 9,
-     "minimum": 40,
+     "minimum": 44,
      "frequency": 800,
      "enemies": [
-      "COLONIST",
-      "WELDER",
-      "SECURITY_DRONE"
+      "SERGEANT",
+      "SECURITY_DRONE",
+      "RIFT_HOUND",
+      "VIRE",
+      "BREACHER"
      ],
      "bosses": []
     },
     {
      "minute": 10,
-     "minimum": 42,
+     "minimum": 46,
      "frequency": 800,
      "enemies": [
-      "SPORE_HOUND",
-      "WELDER",
-      "SPORE_CARRIER"
+      "SERGEANT",
+      "SECURITY_DRONE",
+      "RIFT_HOUND",
+      "VIRE",
+      "BREACHER"
      ],
      "bosses": [
       "SMELTER_FOREMAN"
@@ -2828,58 +2834,68 @@
     },
     {
      "minute": 11,
-     "minimum": 54,
+     "minimum": 59,
      "frequency": 750,
      "enemies": [
-      "COLONIST",
       "SERGEANT",
+      "SECURITY_DRONE",
+      "RIFT_HOUND",
+      "BREACHER",
       "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 12,
-     "minimum": 58,
+     "minimum": 64,
      "frequency": 750,
      "enemies": [
-      "SPORE_HOUND",
+      "SERGEANT",
       "SECURITY_DRONE",
-      "SPORE_CARRIER",
+      "RIFT_HOUND",
+      "BREACHER",
       "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 13,
-     "minimum": 61,
+     "minimum": 67,
      "frequency": 700,
      "enemies": [
-      "COLONIST",
       "SERGEANT",
-      "SECURITY_DRONE"
+      "SECURITY_DRONE",
+      "RIFT_HOUND",
+      "BREACHER",
+      "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 14,
-     "minimum": 65,
+     "minimum": 72,
      "frequency": 700,
      "enemies": [
-      "SPORE_HOUND",
-      "WELDER",
-      "SMELTER"
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 15,
-     "minimum": 68,
+     "minimum": 75,
      "frequency": 650,
      "enemies": [
       "COLONIST",
       "SERGEANT",
-      "SMELTER",
-      "SPORE_CARRIER"
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "WELDER"
      ],
      "bosses": [
       "SLAGBORN"
@@ -2903,58 +2919,71 @@
     },
     {
      "minute": 16,
-     "minimum": 95,
+     "minimum": 105,
      "frequency": 600,
-     "enemies": [
-      "SPORE_HOUND",
-      "SECURITY_DRONE",
-      "WELDER"
-     ],
-     "bosses": []
-    },
-    {
-     "minute": 17,
-     "minimum": 110,
-     "frequency": 570,
      "enemies": [
       "COLONIST",
       "SERGEANT",
-      "SMELTER"
-     ],
-     "bosses": []
-    },
-    {
-     "minute": 18,
-     "minimum": 137,
-     "frequency": 540,
-     "enemies": [
-      "SPORE_HOUND",
+      "RIFT_HOUND",
+      "BREACHER",
       "SPORE_CARRIER",
-      "WELDER",
-      "SECURITY_DRONE"
-     ],
-     "bosses": []
-    },
-    {
-     "minute": 19,
-     "minimum": 163,
-     "frequency": 510,
-     "enemies": [
-      "COLONIST",
-      "SMELTER",
       "VIRE"
      ],
      "bosses": []
     },
     {
+     "minute": 17,
+     "minimum": 121,
+     "frequency": 570,
+     "enemies": [
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "WELDER"
+     ],
+     "bosses": []
+    },
+    {
+     "minute": 18,
+     "minimum": 151,
+     "frequency": 540,
+     "enemies": [
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "VIRE"
+     ],
+     "bosses": []
+    },
+    {
+     "minute": 19,
+     "minimum": 179,
+     "frequency": 510,
+     "enemies": [
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "WELDER"
+     ],
+     "bosses": []
+    },
+    {
      "minute": 20,
-     "minimum": 162,
+     "minimum": 178,
      "frequency": 480,
      "enemies": [
-      "SPORE_HOUND",
+      "COLONIST",
       "SERGEANT",
-      "VIRE",
-      "WELDER"
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "VIRE"
      ],
      "bosses": [
       "VIRE_AWAKENED"
@@ -2978,58 +3007,71 @@
     },
     {
      "minute": 21,
-     "minimum": 206,
+     "minimum": 227,
      "frequency": 460,
      "enemies": [
       "COLONIST",
-      "SECURITY_DRONE",
-      "SMELTER"
-     ],
-     "bosses": []
-    },
-    {
-     "minute": 22,
-     "minimum": 222,
-     "frequency": 440,
-     "enemies": [
-      "SPORE_HOUND",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
       "SPORE_CARRIER",
       "WELDER"
      ],
      "bosses": []
     },
     {
+     "minute": 22,
+     "minimum": 244,
+     "frequency": 440,
+     "enemies": [
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "VIRE"
+     ],
+     "bosses": []
+    },
+    {
      "minute": 23,
-     "minimum": 238,
+     "minimum": 262,
      "frequency": 420,
      "enemies": [
       "COLONIST",
       "SERGEANT",
-      "SMELTER",
-      "VIRE"
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 24,
-     "minimum": 254,
+     "minimum": 279,
      "frequency": 400,
      "enemies": [
-      "SPORE_HOUND",
-      "SECURITY_DRONE",
-      "WELDER",
-      "SPORE_CARRIER"
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 25,
-     "minimum": 230,
+     "minimum": 253,
      "frequency": 380,
      "enemies": [
       "COLONIST",
-      "SMELTER",
-      "VIRE"
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "WELDER"
      ],
      "bosses": [
       "CARGO_LOADER",
@@ -3054,58 +3096,59 @@
     },
     {
      "minute": 26,
-     "minimum": 278,
+     "minimum": 300,
      "frequency": 360,
      "enemies": [
-      "SPORE_HOUND",
+      "COLONIST",
       "SERGEANT",
-      "SECURITY_DRONE",
-      "WELDER"
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 27,
-     "minimum": 285,
+     "minimum": 300,
      "frequency": 340,
      "enemies": [
       "COLONIST",
-      "SMELTER",
-      "VIRE",
-      "SPORE_CARRIER"
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
+      "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 28,
-     "minimum": 292,
+     "minimum": 300,
      "frequency": 320,
      "enemies": [
-      "SPORE_HOUND",
-      "WELDER",
-      "SMELTER",
+      "COLONIST",
+      "SERGEANT",
+      "RIFT_HOUND",
+      "BREACHER",
+      "SPORE_CARRIER",
       "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 29,
-     "minimum": 255,
+     "minimum": 280,
      "frequency": 300,
      "enemies": [
       "COLONIST",
-      "SPORE_HOUND",
       "SERGEANT",
-      "SECURITY_DRONE",
-      "WELDER",
+      "RIFT_HOUND",
+      "BREACHER",
       "SPORE_CARRIER",
-      "SMELTER",
-      "VIRE"
+      "WELDER"
      ],
-     "bosses": [
-      "SLAGBORN",
-      "SMELTER_FOREMAN"
-     ],
+     "bosses": [],
      "treasure": {
       "chances": [
        3,
@@ -3194,7 +3237,7 @@
       "frequency": 250
      },
      {
-      "at": 825,
+      "at": 875,
       "length": 16,
       "minimum": 95,
       "frequency": 250
@@ -3206,7 +3249,7 @@
       "frequency": 250
      },
      {
-      "at": 1125,
+      "at": 1170,
       "length": 16,
       "minimum": 180,
       "frequency": 250
@@ -3234,11 +3277,11 @@
    "timedBosses": [
     {
      "t": 450,
-     "boss": "BROOD_MOTHER"
+     "boss": "HULL_BREACHER_ALPHA"
     },
     {
      "t": 750,
-     "boss": "FROZEN_WELDER"
+     "boss": "SALVAGE_WARDEN"
     },
     {
      "t": 1050,
@@ -3249,8 +3292,8 @@
      "boss": "OVERSEER_UNIT_7"
     },
     {
-     "t": 1650,
-     "boss": "GOVERNOR_KADE"
+     "t": 1680,
+     "boss": "THE_PILLAR"
     }
    ],
    "events": [
@@ -3259,25 +3302,48 @@
      "at": 1260
     },
     {
-     "id": "SLAG_RAIN",
+     "id": "COLLAPSE",
      "at": 1380
     },
     {
      "id": "LUMEN_SURGE",
-     "at": 1440
+     "at": 1480
     },
     {
      "id": "BEACON",
      "at": 1560
-    },
-    {
-     "id": "TIDE",
-     "at": 1680
     }
    ],
    "difficulty": 5,
    "blurb": "A falling ship. Wells, pads, no air.",
-   "rules": {},
+   "rules": {
+    "padR": 70,
+    "padChannel": 0.5,
+    "padCooldown": 12,
+    "padShockR": 140,
+    "padShockDmg": 30,
+    "wellR": 220,
+    "wellOn": 10,
+    "wellOff": 6,
+    "wellFlicker": 1,
+    "wellPullHero": 40,
+    "wellPullEnemy": 70,
+    "wellPullPickup": 120,
+    "coreR": 24,
+    "coreEnemyDps": 40,
+    "coreEliteDps": 15,
+    "coreHeroDps": 15,
+    "breachLen": 25,
+    "breachTele": 2,
+    "breachR0": 260,
+    "breachR1": 140,
+    "breachDrift": 40,
+    "breachHeroDps": 4,
+    "breachRamp": 0.5,
+    "breachEnemyPct": 0.03,
+    "gateAt": 1650,
+    "gateUntil": 1770
+   },
    "unlock": {
     "key": "REFINERY",
     "seconds": 1500
@@ -3310,7 +3376,7 @@
    "radius": 240
   },
   "WRECK": {
-   "ambient": 0.77,
+   "ambient": 0.62,
    "radius": 230
   }
  },
@@ -4393,6 +4459,176 @@
     "up": 1.2,
     "hitR": 34
    }
+  },
+  "RIFT_HOUND": {
+   "name": "Rift Hound",
+   "archetype": "RIFT",
+   "maxHp": 0.5,
+   "speed": 165,
+   "power": 7,
+   "xp": 1,
+   "sprite": "spore_hound",
+   "params": {
+    "radius": 9,
+    "drawScale": 1.05,
+    "tintRGB": 9067775,
+    "group": 4,
+    "weave": 0.8,
+    "blinkEvery": 6,
+    "tele": 0.3,
+    "blinkMin": 150,
+    "blinkMax": 250
+   }
+  },
+  "BREACHER": {
+   "name": "Breacher",
+   "archetype": "BREACHER",
+   "maxHp": 0.4,
+   "speed": 150,
+   "power": 3,
+   "xp": 2,
+   "sprite": "security_drone",
+   "params": {
+    "radius": 8,
+    "drawScale": 0.85,
+    "tintRGB": 15254074,
+    "warn": 1.0,
+    "diveSpeed": 380,
+    "diveLen": 340,
+    "lineW": 14,
+    "burstR": 60,
+    "burstDmg": 20,
+    "cap": 8,
+    "range": 300,
+    "gapMin": 2.5,
+    "gapMax": 5.5
+   }
+  },
+  "HULL_BREACHER_ALPHA": {
+   "name": "Hull Breacher Alpha",
+   "archetype": "BOSS",
+   "boss": true,
+   "maxHp": 300,
+   "speed": 70,
+   "power": 24,
+   "xp": 100,
+   "sprite": "cargo_loader",
+   "scale": 1.8,
+   "description": "Stomps the deck; every stomp tears open a short-lived gravity well on you.",
+   "params": {
+    "pattern": 13,
+    "mode": 1,
+    "hpRamp": 20,
+    "radius": 20,
+    "tintRGB": 10123806,
+    "gearSlot": 3,
+    "xpPileLevels": 1.5,
+    "stompEvery": 4.2,
+    "stompR": 130,
+    "stompWarn": 0.9,
+    "stompDmg": 22,
+    "wellR": 160,
+    "wellT": 6,
+    "crates": 3,
+    "crateR": 44,
+    "crateWarn": 1.0,
+    "crateDmg": 16,
+    "stopDist": 60
+   }
+  },
+  "SALVAGE_WARDEN": {
+   "name": "Salvage Warden",
+   "archetype": "BOSS",
+   "boss": true,
+   "maxHp": 280,
+   "speed": 80,
+   "power": 22,
+   "xp": 100,
+   "sprite": "security_drone",
+   "scale": 3.0,
+   "description": "Hovers and fires drone barrages; blinks away and leaves decoys that burst.",
+   "params": {
+    "pattern": 13,
+    "mode": 2,
+    "hpRamp": 20,
+    "radius": 9,
+    "tintRGB": 10133674,
+    "gearSlot": 4,
+    "xpPileLevels": 1.5,
+    "hover": 230,
+    "barrageEvery": 3.2,
+    "fan": 7,
+    "fanSpread": 0.55,
+    "boltSpeed": 210,
+    "boltDmg": 9,
+    "blinkEvery": 9,
+    "blinkTele": 0.6,
+    "blinkMin": 200,
+    "blinkMax": 300,
+    "decoys": 2
+   }
+  },
+  "WARDEN_DECOY": {
+   "name": "Warden's Decoy",
+   "archetype": "TENTACLE",
+   "maxHp": 0.1,
+   "speed": 0,
+   "power": 0,
+   "xp": 1,
+   "knockback": 0,
+   "sprite": "security_drone",
+   "params": {
+    "radius": 10,
+    "warn": 0.9,
+    "up": 8.0,
+    "hitR": 60,
+    "ring": 1,
+    "blast": 12,
+    "drawScale": 3.0,
+    "tintRGB": 10133674
+   }
+  },
+  "THE_PILLAR": {
+   "name": "The Pillar",
+   "archetype": "BOSS",
+   "boss": true,
+   "maxHp": 1800,
+   "speed": 0,
+   "power": 30,
+   "xp": 250,
+   "knockback": 0,
+   "sprite": "the_first",
+   "alpha": 0.02,
+   "description": "A dead ship's spine still pulling the wreck down: beams, orbiting wells, a failing bubble.",
+   "params": {
+    "pattern": 13,
+    "mode": 0,
+    "hpRamp": 28,
+    "radius": 34,
+    "gearSlot": 5,
+    "xpPileLevels": 2.0,
+    "phase1Hp": 0.66,
+    "phase2Hp": 0.33,
+    "beams": 4,
+    "beamLen": 520,
+    "beamW": 46,
+    "beamDps": 22,
+    "beamWarn": 1.0,
+    "beamLife": 5.0,
+    "beamSpin": 0.85,
+    "beamEvery": 8,
+    "orbitDist": 260,
+    "orbitSpeed": 0.6,
+    "echoEvery": 8,
+    "echoN": 16,
+    "echoSpeed": 190,
+    "echoDmg": 14,
+    "bubbleR": 170,
+    "bubbleDist": 140,
+    "pulseEvery": 6,
+    "pulseWarn": 1.5,
+    "pulseDmg": 28
+   }
   }
  },
  "elites": {
@@ -4623,6 +4859,17 @@
    },
    "unique": true,
    "source": "LUMEN_TENTACLE"
+  },
+  "ECHO_OF_THE_PILLAR": {
+   "name": "Echo of the Pillar",
+   "slot": "NECK",
+   "icon": "unique_heart_of_lumen",
+   "values": {
+    "padRecharge": 6,
+    "padShock": 0.5
+   },
+   "unique": true,
+   "source": "THE_PILLAR"
   }
  },
  "equipmentRules": {

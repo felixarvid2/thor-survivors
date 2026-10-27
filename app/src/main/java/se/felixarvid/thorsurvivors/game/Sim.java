@@ -187,6 +187,8 @@ public final class Sim {
     static final float DEST_CELL = 500f, DEST_R = 16f, DEST_CLEAR = 300f, PYLON_CELL = 2000f;
     /** Destructible kinds: the old brazier / candelabra (drops only), explosive barrel, supply chest, stim pylon. */
     public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3, DK_NEST = 4;
+    /** v1.4 stage destructibles: kinds from here on are the stage's own ({@link StageRules#addDests} lists them, {@link StageRules#onDestBroken} handles them; Wreck uses +8 and +9). */
+    public static final int DK_STAGE_BASE = 16;
     /** Barrel blast (design 9.1): radius 80, 5P (50) to every enemy and to the hero if within range; the hero takes 15 (an approximation: 5P on the hero would be half its health). */
     public static final float BARREL_R = 80f, BARREL_DMG = 50f, BARREL_HERO_DMG = 10f;
     /** A stim pylon heals 30% of max HP when destroyed; it works again 60 s after its last use. */
@@ -783,6 +785,11 @@ public final class Sim {
         return false;
     }
 
+    /** A destructible of a stage's own kind ({@link #DK_STAGE_BASE} and up), once per {@code key} until it is broken. Called from {@link StageRules#addDests}. */
+    public void addStageDest(float x, float y, int kind, long key) {
+        addDest(x, y, kind, key);
+    }
+
     void addDest(float x, float y, int kind, long key) {
         if (destN >= MAX_DEST || isBroken(key)) return;
         destHp[destN] = Pois.NEST_HP;
@@ -818,6 +825,7 @@ public final class Sim {
             }
         }
         pois.addDests(cx, cy);
+        rules.addDests(cx, cy); // v1.4: the stage's own destructibles (Wreck: cargo crates and generators)
         if (!stage.destructible.equals("MIXED_MINES")) return;
         // stim pylons: rare, one per ~2000 x 2000 u
         int p0x = (int) Math.floor((cx - 2) * DEST_CELL / PYLON_CELL), p1x = (int) Math.floor((cx + 3) * DEST_CELL / PYLON_CELL);
@@ -886,6 +894,10 @@ public final class Sim {
         destHp[i] = destHp[destN];
         destT[i] = destT[destN];
         destsBroken++;
+        if (kind >= DK_STAGE_BASE) { // v1.4: a destructible of the stage's rules
+            rules.onDestBroken(kind, x, y);
+            return;
+        }
         switch (kind) {
             case DK_BARREL:
                 explodeBarrel(x, y);

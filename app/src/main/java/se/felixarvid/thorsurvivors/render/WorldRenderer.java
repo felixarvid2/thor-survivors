@@ -77,7 +77,7 @@ public final class WorldRenderer {
     /** Multiply tints of the rock texture per stage: Cinder Flats ash grey, Deep Mines darker and colder. */
     private static final int TINT_FLATS = 0xFF8C8680, TINT_MINES = 0xFF6F7480;
     /** Multiply tint of the ground rock per {@code WorldGen} layout: flats, mines, domes (green), streets (rust), debris (cold blue). */
-    private static final int[] TINT = {TINT_FLATS, TINT_MINES, 0xFF789080, 0xFF8A7466, 0xFF5E6A82};
+    private static final int[] TINT = {TINT_FLATS, TINT_MINES, 0xFF789080, 0xFF8A7466, 0xFF48525F};
 
     private final SpriteAtlas atlas = SpriteAtlas.get();
     private final Paint bmp = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -209,6 +209,25 @@ public final class WorldRenderer {
             demo[i].boss = i == 5;
         }
     }
+
+    // ---- v1.4 stage fx access: the current frame's world-to-screen mapping for the stages' own drawing (render/stagefx)
+    public float fxX(float wx) {
+        return sx(wx);
+    }
+
+    public float fxY(float wy) {
+        return sy(wy);
+    }
+
+    /** Pixels per world unit this frame (the ground scale) and the UI scale {@code ks} (line widths, text). */
+    public float fxScale() {
+        return sc;
+    }
+
+    public float fxUi() {
+        return ks;
+    }
+    // ---- end v1.4 stage fx access
 
     private int sx(float wx) {
         return Math.round(wx * sc) + ox;
@@ -486,13 +505,16 @@ public final class WorldRenderer {
     private final float[] lstX = new float[WorldGen.MAX_LIST], lstY = new float[WorldGen.MAX_LIST];
     private final int[] lstK = new int[WorldGen.MAX_LIST];
     private WorldGen gen;
-    private final Img[] propImg = new Img[WorldGen.PROP.length];
+    private final Img[] propImg = new Img[WorldGen.P_EXT_MAX]; // the kinds of WorldGen.PROP, then the layout kinds from P_EXT_BASE
     private boolean propsResolved;
 
     /** Lists the props around the view into the prop arrays (unsorted). */
     private void listProps() {
         if (!propsResolved) {
-            for (int i = 0; i < propImg.length; i++) propImg[i] = atlas.img("prop." + WorldGen.PROP[i]);
+            for (int i = 0; i < propImg.length; i++) {
+                String pn = WorldGen.propName(i);
+                propImg[i] = pn == null ? null : atlas.img("prop." + pn);
+            }
             propsResolved = true;
         }
         propN = 0;
@@ -517,7 +539,8 @@ public final class WorldRenderer {
         prA[n] = a;
         prSx[n] = px;
         prSy[n] = py;
-        prKey[n] = (bias(py) << 32) | n;
+        // a flat floor prop (the Wreck's teleporter) sorts by its far edge, so creatures standing on it are drawn over it
+        prKey[n] = (bias(kind == se.felixarvid.thorsurvivors.game.layout.DebrisLayout.K_TELEPORTER ? py - Math.round(150f * ks) : py) << 32) | n;
         prIdx[n] = n;
     }
 
@@ -1013,6 +1036,8 @@ public final class WorldRenderer {
             case Sim.DK_CHEST: return "prop.supply_chest";
             case Sim.DK_PYLON: return "prop.stim_pylon";
             case Sim.DK_NEST: return "prop.spore_nest";
+            case Sim.DK_STAGE_BASE + 8: return "prop.generator"; // v1.4 Wreck: a generator (disables a gravity well when broken)
+            case Sim.DK_STAGE_BASE + 9: return "prop.cargo_crate"; // v1.4 Wreck: a cargo crate (30% gold)
             default: return "CANDELABRA".equals(type) ? "prop.supply_chest" : "prop.explosive_barrel";
         }
     }

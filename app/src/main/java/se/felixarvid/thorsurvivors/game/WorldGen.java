@@ -384,8 +384,19 @@ public final class WorldGen {
 
     /** Footprint radius (world units) of a prop kind. */
     public static float propRadius(int kind) {
-        return PROP_R[kind];
+        return kind >= P_EXT_BASE ? DebrisLayout.extRadius(kind - P_EXT_BASE) : PROP_R[kind];
     }
+
+    // ---- v1.4 chunk D (Meridian Wreck): prop kinds from P_EXT_BASE on belong to a layout (DebrisLayout.PROP_NAMES), so they never collide with the kinds the other stages add to PROP
+    public static final int P_EXT_BASE = 64, P_EXT_MAX = 72;
+
+    /** Atlas name ("prop.NAME") of a prop kind of either range, or null for an unused kind. */
+    public static String propName(int kind) {
+        if (kind < PROP.length) return PROP[kind];
+        int e = kind - P_EXT_BASE;
+        return e >= 0 && e < DebrisLayout.PROP_NAMES.length ? DebrisLayout.PROP_NAMES[e] : null;
+    }
+    // ---- end v1.4 chunk D
 
     /** True where something big stands (a prop or wall): destructibles are never placed there. Sim thread only. */
     public boolean blocked(float wx, float wy) {
@@ -393,7 +404,7 @@ public final class WorldGen {
         int x0 = floorI(tx) - 3, x1 = floorI(tx) + 3, y0 = floorI(ty) - 3, y1 = floorI(ty) + 3;
         int n = props(x0, y0, x1, y1, sx, sy, sk);
         for (int i = 0; i < n; i++) {
-            float dx = (sx[i] - tx) * TILE, dy = (sy[i] - ty) * TILE, r = PROP_R[sk[i]] + 14f;
+            float dx = (sx[i] - tx) * TILE, dy = (sy[i] - ty) * TILE, r = propRadius(sk[i]) + 14f;
             // walls are wide: test against the box they cover instead of a circle
             if (sk[i] == P_WALL || sk[i] == P_SEGMENT || sk[i] == P_CATWALK) {
                 if (Math.abs(dx) < 80f + 14f && dy > -22f - 14f && dy < 90f + 14f) return true;

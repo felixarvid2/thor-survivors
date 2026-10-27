@@ -419,6 +419,101 @@ def add_v14_stages(data):
         st["rules"] = reg["rules"]
 
 
+# ---------------------------------------------------------------------------------------------------------------------------
+# Meridian Wreck (v1.4 chunk D): roster additions, rows, timed bosses, events, hordes and the Echo of the Pillar. Applied by add_wreck()
+# after the registry copied Cinder Flats into WRECK; nothing here touches another stage.
+# ---------------------------------------------------------------------------------------------------------------------------
+WRECK_ENEMIES = {
+    # spore_hound in violet: blinks to a flank every 6 s (game/stage/WreckRules.updateArch), packs of 4 (WreckRules.initArch)
+    "RIFT_HOUND": dict(name="Rift Hound", archetype="RIFT", maxHp=0.5, speed=165, power=7, xp=1, sprite="spore_hound",
+                       params=dict(radius=9, drawScale=1.05, tintRGB=0x8A5CFF, group=4, weave=0.8, blinkEvery=6, tele=0.3,
+                                   blinkMin=150, blinkMax=250)),
+    # security_drone in hazard yellow: a thin warning line for 1.0 s, then a dive that bursts (r 60, 20 damage); at most 8 alive
+    "BREACHER": dict(name="Breacher", archetype="BREACHER", maxHp=0.4, speed=150, power=3, xp=2, sprite="security_drone",
+                     params=dict(radius=8, drawScale=0.85, tintRGB=0xE8C23A, warn=1.0, diveSpeed=380, diveLen=340, lineW=14,
+                                 burstR=60, burstDmg=20, cap=8, range=300, gapMin=2.5, gapMax=5.5)),
+    # remixes of the timed bosses (BossAi pattern 13 is the Wreck family: mode 1 Alpha, 2 Warden, 0 The Pillar; game/boss/PillarAi)
+    "HULL_BREACHER_ALPHA": dict(name="Hull Breacher Alpha", archetype="BOSS", boss=True, maxHp=300, speed=70, power=24, xp=100,
+                                sprite="cargo_loader", scale=1.8,
+                                description="Stomps the deck; every stomp tears open a short-lived gravity well on you.",
+                                params=dict(pattern=13, mode=1, hpRamp=20, radius=20, tintRGB=0x9A7A1E, gearSlot=3, xpPileLevels=1.5,
+                                            stompEvery=4.2, stompR=130, stompWarn=0.9, stompDmg=22, wellR=160, wellT=6,
+                                            crates=3, crateR=44, crateWarn=1.0, crateDmg=16, stopDist=60)),
+    "SALVAGE_WARDEN": dict(name="Salvage Warden", archetype="BOSS", boss=True, maxHp=280, speed=80, power=22, xp=100,
+                           sprite="security_drone", scale=3.0,
+                           description="Hovers and fires drone barrages; blinks away and leaves decoys that burst.",
+                           params=dict(pattern=13, mode=2, hpRamp=20, radius=9, tintRGB=0x9AA0AA, gearSlot=4, xpPileLevels=1.5,
+                                       hover=230, barrageEvery=3.2, fan=7, fanSpread=0.55, boltSpeed=210, boltDmg=9,
+                                       blinkEvery=9, blinkTele=0.6, blinkMin=200, blinkMax=300, decoys=2)),
+    "WARDEN_DECOY": dict(name="Warden's Decoy", archetype="TENTACLE", maxHp=0.1, speed=0, power=0, xp=1, knockback=0,
+                         sprite="security_drone",
+                         params=dict(radius=10, warn=0.9, up=8.0, hitR=60, ring=1, blast=12, drawScale=3.0, tintRGB=0x9AA0AA)),
+    # the finale: a stationary prop-sized boss (its picture is prop.the_pillar drawn by WreckFx, the model is nearly invisible)
+    "THE_PILLAR": dict(name="The Pillar", archetype="BOSS", boss=True, maxHp=1800, speed=0, power=30, xp=250, knockback=0,
+                       sprite="the_first", alpha=0.02,
+                       description="A dead ship's spine still pulling the wreck down: beams, orbiting wells, a failing bubble.",
+                       params=dict(pattern=13, mode=0, hpRamp=28, radius=34, gearSlot=5, xpPileLevels=2.0, phase1Hp=0.66,
+                                   phase2Hp=0.33, beams=4, beamLen=520, beamW=46, beamDps=22, beamWarn=1.0, beamLife=5.0,
+                                   beamSpin=0.85, beamEvery=8, orbitDist=260, orbitSpeed=0.6, echoEvery=8, echoN=16, echoSpeed=190,
+                                   echoDmg=14, bubbleR=170, bubbleDist=140, pulseEvery=6, pulseWarn=1.5, pulseDmg=28)),
+}
+WRECK_PORTRAITS_NOTE = "boss portraits are mapped in tools/build_ashfall_assets.py PORTRAITS"
+
+# minute -> enemy keys (the spec's pacing: drones and colonists 0-4, Rift Hounds from 4, Sergeants from 6, Vire from 8, Breachers from 9, Carriers from 14)
+def wreck_enemies(m):
+    if m < 4:
+        return ["SECURITY_DRONE", "COLONIST"]
+    if m < 6:
+        return ["SECURITY_DRONE", "COLONIST", "RIFT_HOUND"]
+    if m < 8:
+        return ["SERGEANT", "SECURITY_DRONE", "COLONIST", "RIFT_HOUND"]
+    if m < 9:
+        return ["SERGEANT", "SECURITY_DRONE", "RIFT_HOUND", "VIRE"]
+    if m < 11:
+        return ["SERGEANT", "SECURITY_DRONE", "RIFT_HOUND", "VIRE", "BREACHER"]
+    if m < 14:
+        return ["SERGEANT", "SECURITY_DRONE", "RIFT_HOUND", "BREACHER", "WELDER"]
+    return ["COLONIST", "SERGEANT", "RIFT_HOUND", "BREACHER", "SPORE_CARRIER", "VIRE" if m % 2 == 0 else "WELDER"]
+
+
+WRECK_BOSS_ROWS = {5: ["CARGO_LOADER"], 10: ["SMELTER_FOREMAN"], 15: ["SLAGBORN"], 20: ["VIRE_AWAKENED"], 25: ["CARGO_LOADER", "CARGO_LOADER"]}
+# 27:30 Kade is dropped for the Pillar Gate (WreckRules); The Pillar itself is the fifth timed boss at 28:00 (its AI moves it to its spire)
+WRECK_TIMED = [(450, "HULL_BREACHER_ALPHA"), (750, "SALVAGE_WARDEN"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"), (1680, "THE_PILLAR")]
+# Distress Beacon (the Signal Tower), Collapse, Power Surge (the Lumen Surge, 24:40) and the Beacon; the Tide is replaced by the gate and the finale.
+# The Vacuum Breaches (4:00, 9:00, 14:00, 19:00, 24:00, 25 s each) are WreckRules; nothing here overlaps them.
+WRECK_EVENTS = [("SIGNAL_TOWER", 1260), ("COLLAPSE", 1380), ("LUMEN_SURGE", 1480), ("BEACON", 1560)]
+# the Flats bursts, moved off the breaches (14:00-14:25 and 19:00-19:25 each with their 2 s warning)
+WRECK_HORDES = [[675, 75], [875, 95], [975, 130], [1170, 180], [1245, 240], [1420, 290], [1545, 290]]
+WRECK_DENSITY = 1.10     # "the highest density of the five stages": +10% over Flats at equal minutes (the wave cap of 300 still holds)
+# stage rules parameters (StageDef.rules, read by WreckRules with defaults of the same value)
+WRECK_RULES = dict(padR=70, padChannel=0.5, padCooldown=12, padShockR=140, padShockDmg=30, wellR=220, wellOn=10, wellOff=6,
+                   wellFlicker=1, wellPullHero=40, wellPullEnemy=70, wellPullPickup=120, coreR=24, coreEnemyDps=40,
+                   coreEliteDps=15, coreHeroDps=15, breachLen=25, breachTele=2, breachR0=260, breachR1=140, breachDrift=40,
+                   breachHeroDps=4, breachRamp=0.5, breachEnemyPct=0.03, gateAt=1650, gateUntil=1770)
+ECHO_OF_THE_PILLAR = dict(name="Echo of the Pillar", slot="NECK", icon="unique_heart_of_lumen",
+                          values={"padRecharge": 6, "padShock": 0.5}, unique=True, source="THE_PILLAR")
+
+
+def add_wreck(data):
+    """Meridian Wreck on top of the Flats copy: roster, rows, timed bosses, events, hordes, rules, lighting, the Echo."""
+    for key, e in WRECK_ENEMIES.items():
+        data["enemies"][key] = dict(e)
+    st = data["stages"]["WRECK"]
+    for r in st["rows"]:
+        m = r["minute"]
+        r["enemies"] = wreck_enemies(m)
+        r["bosses"] = list(WRECK_BOSS_ROWS.get(m, []))
+        r["minimum"] = min(300, int(round(r["minimum"] * WRECK_DENSITY)))
+    st["timedBosses"] = [dict(t=t, boss=b) for t, b in WRECK_TIMED]
+    st["events"] = [dict(id=i, at=t) for i, t in WRECK_EVENTS]
+    bursts = st["hordes"]["bursts"]
+    for b, (at, mn) in zip(bursts, WRECK_HORDES):
+        b["at"], b["minimum"] = at, mn
+    st["rules"] = dict(WRECK_RULES)
+    data["lighting"]["WRECK"] = dict(ambient=0.62, radius=230)
+    data["equipment"]["ECHO_OF_THE_PILLAR"] = dict(ECHO_OF_THE_PILLAR)
+
+
 def main():
     base = json.load(open(os.path.join(ASSETS, "game_data.json")))
     path = os.path.join(ASSETS, "ashfall_data.json")
@@ -487,6 +582,7 @@ def main():
         eq[key] = dict(name=name, slot=slot, icon=icon, values=values, unique=True, source=source)
     data["equipment"] = eq
     data["equipmentRules"] = EQUIPMENT_RULES
+    add_wreck(data)   # v1.4 chunk D: Meridian Wreck roster, rows, timed bosses, events, rules, the Echo of the Pillar
     data["fusions"] = {k: dict(name=FUSIONS[k]["name"], description=FUSIONS[k]["description"],
                                parents=FUSIONS[k]["parents"], rarity=1, rows=fusion_rows(FUSIONS[k])) for k in FUSION_KEYS}
     for table, root in ((HERO_TUNE, data["heroes"]), (MAIN_TUNE, data["mainWeapons"])):

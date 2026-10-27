@@ -57,17 +57,17 @@ public class EquipmentTest {
     public void eighteenBaseItemsThreePerSlotAndSixUniques() throws Exception {
         GameData d = d();
         assertEquals(18, d.baseItems.size());
-        assertEquals(24, d.equipList.size());
+        assertEquals(25, d.equipList.size()); // 18 base items, 6 uniques and the Echo of the Pillar
         int[] perSlot = new int[EquipDef.SLOTS];
         for (EquipDef e : d.baseItems) perSlot[e.slot]++;
         for (int n : perSlot) assertEquals(3, n);
-        assertEquals(6, d.uniqueBySource.size());
+        assertEquals(7, d.uniqueBySource.size()); // six from the first bosses and the Echo of the Pillar (Meridian Wreck)
         int[] uniqueSlot = new int[EquipDef.SLOTS];
         for (EquipDef e : d.uniqueBySource.values()) {
             assertTrue(e.unique);
             uniqueSlot[e.slot]++;
         }
-        for (int n : uniqueSlot) assertEquals("one unique per slot", 1, n);
+        for (int i = 0; i < uniqueSlot.length; i++) assertEquals("one unique per slot (two for the Neck: Heart of Lumen and the Echo of the Pillar)", i == EquipDef.NECK ? 2 : 1, uniqueSlot[i]);
         assertEquals(1.0, d.equipMult[0], 0);
         assertEquals(1.6, d.equipMult[1], 0);
         assertEquals(2.4, d.equipMult[2], 0);

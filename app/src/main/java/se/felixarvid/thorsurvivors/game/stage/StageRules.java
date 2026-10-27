@@ -101,6 +101,17 @@ public abstract class StageRules {
         return false;
     }
 
+    /**
+     * The stage's own destructibles of the 5 x 5 cells of 500 u around (cx, cy) (called when the hero enters a new cell): add them
+     * with {@code Sim.addStageDest(x, y, kind >= Sim.DK_STAGE_BASE, key)}; a pure function of the cell, the key is unique per object.
+     */
+    public void addDests(int cx, int cy) {
+    }
+
+    /** A destructible of a stage kind ({@code >= Sim.DK_STAGE_BASE}) was broken at (x, y). */
+    public void onDestBroken(int kind, float x, float y) {
+    }
+
     /** 0..1 taken off the ambient darkness (a lit stage), added to the Surge lift. */
     public float ambientLift() {
         return 0f;

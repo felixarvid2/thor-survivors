@@ -63,6 +63,8 @@ PROPS = [
     ("environment", "pipe_cluster"), ("environment", "smokestack"), ("environment", "debris_rock"),
     ("environment", "slag_rock"), ("environment", "catwalk"), ("environment", "industrial_wall"),
     ("environment", "wall_segment"), ("environment", "furnace_block"),
+    # v1.4 chunk D (Meridian Wreck): teleporter pad, the Pillar, the freighter landmark, elevator foundation (game/layout/DebrisLayout)
+    ("props", "teleporter"), ("props", "the_pillar"), ("props", "meridian_freighter"), ("props", "elevator_foundation"),
 ]
 
 # decal -> longest side in px at 1080p (trimmed to its content first)
@@ -150,7 +152,9 @@ PORTRAITS = {"boss_CARGO_LOADER": "drowned_engine", "boss_SLAGBORN": "pyre_warde
              # v1.3 timed bosses (the Overseer wears the red visor of Security Chief Holm)
              "boss_BROOD_MOTHER": "brood_mother", "boss_FROZEN_WELDER": "frozen_welder",
              "boss_COMMANDANT_HALE": "commandant_hale", "boss_OVERSEER_UNIT_7": "security_chief_holm",
-             "boss_GOVERNOR_KADE": "governor_kade"}
+             "boss_GOVERNOR_KADE": "governor_kade",
+             # v1.4 chunk D (Meridian Wreck): existing paintings stand in until the artist chunk makes their own
+             "boss_HULL_BREACHER_ALPHA": "drowned_engine", "boss_SALVAGE_WARDEN": "warden", "boss_THE_PILLAR": "the_prism"}
 # gem crystals (transparent icons, trimmed): key -> (source, px)
 GEMS = {"crystal_lumen": 64, "crystal_void": 64, "crystal_ember": 64}
 
