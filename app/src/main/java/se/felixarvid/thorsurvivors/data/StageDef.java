@@ -42,6 +42,15 @@ public final class StageDef {
     /** Same shape: multiplier on the contact damage and the bolt / ring damage of wave enemies and elites (not bosses). */
     public double[][] dmgCurve = new double[0][];
     /**
+     * v1.4: multiplier on the walking speed of wave enemies and elites spawned at a run time (not bosses, not tentacles), same shape as
+     * {@link #hpCurve}. Empty = 1. Per stage, so a new stage can be as quick as it likes.
+     */
+    public double[][] speedCurve = new double[0][];
+    /** v1.4: per-stage overrides of the global elite numbers (ashfall_data.json {@code elites}); a key missing here falls back to the global one. */
+    public java.util.Map<String, Double> eliteOv = new java.util.HashMap<>();
+    /** v1.4: ranged enemies alive at once (Sim.RANGED_CAP when 0). */
+    public int rangedCap;
+    /**
      * Horde bursts (phase 13): {start s, length s, minimum alive, frequency ms}; while one runs the wave minimum is raised to
      * {@code minimum}, the spawn tick shortened to {@code frequency} and the top-up picks from {@link #hordeTypes}.
      */
@@ -83,6 +92,9 @@ public final class StageDef {
         d.xpFadeEnd = xpFadeEnd;
         d.hpCurve = hpCurve;
         d.dmgCurve = dmgCurve;
+        d.speedCurve = speedCurve;
+        d.eliteOv = eliteOv;
+        d.rangedCap = rangedCap;
         d.hordes = hordes;
         d.hordeTypes = hordeTypes;
         return d;
@@ -103,6 +115,11 @@ public final class StageDef {
     /** Multiplier on the damage a wave enemy spawned at run time {@code seconds} deals ({@link #dmgCurve}). */
     public double dmgMul(double seconds) {
         return curve(dmgCurve, seconds);
+    }
+
+    /** Multiplier on the walking speed of a wave enemy spawned at run time {@code seconds} ({@link #speedCurve}). */
+    public double speedMul(double seconds) {
+        return curve(speedCurve, seconds);
     }
 
     static double curve(double[][] c, double seconds) {

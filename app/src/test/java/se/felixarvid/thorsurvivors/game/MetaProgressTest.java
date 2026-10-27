@@ -29,16 +29,19 @@ public class MetaProgressTest {
     public void buyingScalesPriceAndPersists() throws Exception {
         MemStore st = new MemStore();
         MetaProgress mp = new MetaProgress(TestData.load(), st);
-        mp.addGold(1000);
-        assertTrue(mp.buy("POWER")); // 200
-        assertEquals(800, mp.gold);
-        assertTrue(mp.buy("POWER")); // 400
-        assertEquals(400, mp.gold);
-        assertEquals(600, mp.nextPrice("POWER"));
-        assertFalse(mp.buy("POWER")); // cannot afford 600
+        int p1 = mp.nextPrice("POWER");
+        int p2 = TestData.load().powerUps.get("POWER").priceForNext(1);
+        int p3 = TestData.load().powerUps.get("POWER").priceForNext(2);
+        assertTrue("v1.4: every rank costs more than the one before", p2 > p1 && p3 > p2);
+        mp.addGold(p1 + p2 + p3 - 1);
+        assertTrue(mp.buy("POWER"));
+        assertTrue(mp.buy("POWER"));
+        assertEquals(p3 - 1, mp.gold);
+        assertEquals(p3, mp.nextPrice("POWER"));
+        assertFalse(mp.buy("POWER")); // one gold short of the third rank
         assertEquals(0.10, mp.bonuses().get("power"), 1e-9);
         MetaProgress again = new MetaProgress(TestData.load(), st);
-        assertEquals(400, again.gold);
+        assertEquals(p3 - 1, again.gold);
         assertEquals(2, again.rank("POWER"));
     }
 

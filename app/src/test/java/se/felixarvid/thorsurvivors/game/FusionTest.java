@@ -549,21 +549,24 @@ public class FusionTest {
         assertTrue(s.merchant.kit);
         assertEquals(4, s.merchant.cards());
         assertEquals(Merchant.priceOf(Merchant.SLOT_FUSE, 0), s.merchant.price[Merchant.SLOT_FUSE]);
-        assertEquals("250 gold on the first visit", 250, s.merchant.price[Merchant.SLOT_FUSE]);
+        assertEquals("350 gold on the first visit (v1.4)", 350, s.merchant.price[Merchant.SLOT_FUSE]);
         s.gold = 100;
         assertEquals(Merchant.BUY_POOR, s.merchant.buy(Merchant.SLOT_FUSE));
         s.gold = 1000;
         assertEquals(Merchant.BUY_OK, s.merchant.buy(Merchant.SLOT_FUSE));
-        assertEquals(750, s.gold);
+        assertEquals(650, s.gold);
         assertEquals(1, s.inv.weaponCount);
         assertTrue(s.inv.weapons[0].def.fusion);
     }
 
     @Test
-    public void theFuseKitPriceRisesAQuarterPerVisit() {
-        assertEquals(250, Merchant.priceOf(Merchant.SLOT_FUSE, 0));
-        assertEquals(315, Merchant.priceOf(Merchant.SLOT_FUSE, 1));
-        assertEquals(375, Merchant.priceOf(Merchant.SLOT_FUSE, 2));
+    public void theFuseKitPriceRisesWithEveryVisit() {
+        assertEquals(350, Merchant.priceOf(Merchant.SLOT_FUSE, 0));
+        for (int v = 1; v < 5; v++) {
+            // v1.4: 1 + 0.5 v + 0.45 v^2 of the base, rounded to 5
+            assertEquals(Math.round(350 * (1f + 0.5f * v + 0.45f * v * v) / 5f) * 5, Merchant.priceOf(Merchant.SLOT_FUSE, v));
+            assertTrue(Merchant.priceOf(Merchant.SLOT_FUSE, v) > Merchant.priceOf(Merchant.SLOT_FUSE, v - 1) * 1.4);
+        }
     }
 
     // ------------------------------------------------------------------ allocation

@@ -342,7 +342,7 @@ public final class Sim {
         for (int i = 0; i < MAX_EPROJ; i++) eprojs[i] = new EProj();
         for (int i = 0; i < MAX_HAZ; i++) hazards[i] = new Hazard();
         for (int i = 0; i < weapons.length; i++) weapons[i] = new WeaponState();
-        nextEliteAt = (float) data.elite("first", 180);
+        nextEliteAt = (float) elite("first", 180);
         if (starterKey != null) inv.add(data.weapons.get(starterKey));
         recomputeAll();
         hp = maxHp;
@@ -1200,7 +1200,7 @@ public final class Sim {
     void spawnAtRing(EnemyType t, boolean boss, float dist) {
         if (t == null || enemyN >= MAX_ENEMIES) return;
         if (!boss && enemyN >= WaveDirector.ENEMY_CAP) return;
-        if (!boss && t.ranged && rangedAlive() >= RANGED_CAP) {
+        if (!boss && t.ranged && rangedAlive() >= (stage.rangedCap > 0 ? stage.rangedCap : RANGED_CAP)) {
             EnemyType c = type("COLONIST");
             if (c != null) t = c;
         }
@@ -1262,15 +1262,15 @@ public final class Sim {
         if (elite) {
             e.elite = true;
             e.mods = mods;
-            float dmgMul = (float) data.elite("damageMul", 1.5);
-            e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
+            float dmgMul = (float) elite("damageMul", 1.5);
+            e.hp = e.maxHp = e.maxHp * (float) elite("hpMul", 6);
             e.power *= dmgMul;
             e.shotMul *= dmgMul;
-            e.radius *= (float) data.elite("scale", 1.4);
-            e.speed *= (float) data.elite("speedMul", 0.9);
-            e.xp *= (float) data.elite("xpMul", 8);
+            e.radius *= (float) elite("scale", 1.4);
+            e.speed *= (float) elite("speedMul", 0.9);
+            e.xp *= (float) elite("xpMul", 8);
             if ((mods & Elites.M_ARMORED) != 0) {
-                e.armor = (float) data.elite("armor", Elites.FLAT_ARMOR);
+                e.armor = (float) elite("armor", Elites.FLAT_ARMOR);
                 e.kbMul = 0f;
             }
             e.mt0 = 1.5f;
@@ -1343,6 +1343,7 @@ public final class Sim {
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
         if (t.arch != EnemyDef.ARCH_CHASER) ai.init(e);
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) e.speed *= (float) stage.speedMul(time); // v1.4: wave enemies get quicker with the run time
         if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) { // phase 13: contact and bolt damage grow with the run time too
             float dm = (float) stage.dmgMul(time);
             e.power *= dm;
@@ -2206,8 +2207,8 @@ public final class Sim {
         if (!data.baseItems.isEmpty()) {
             dropEquipment(e.x, e.y, data.baseItems.get(rng.nextInt(data.baseItems.size())), rollRarity());
         }
-        int gems = Math.max(1, (int) data.elite("xpPileGems", 5));
-        float each = (float) (xpNeed * data.elite("xpPileLevels", 2.0) / gems);
+        int gems = Math.max(1, (int) elite("xpPileGems", 5));
+        float each = (float) (xpNeed * elite("xpPileLevels", 2.0) / gems);
         for (int k = 0; k < gems; k++) {
             float a = k * 6.2831855f / gems;
             addPickup(Entities.K_GEM, e.x + (float) Math.cos(a) * 22f, e.y + (float) Math.sin(a) * 16f, each);
@@ -2369,27 +2370,27 @@ public final class Sim {
     Enemy spawnElite(EnemyType t, int mods) {
         if (t == null || enemyN >= MAX_ENEMIES - 8) return null;
         Enemy e = enemies[enemyN++];
-        float a = rng.nextFloat() * 6.2831853f, dist = (float) data.elite("dist", 400);
+        float a = rng.nextFloat() * 6.2831853f, dist = (float) elite("dist", 400);
         e.x = px + (float) Math.cos(a) * dist;
         e.y = py + (float) Math.sin(a) * dist;
         initEnemy(e, t, false);
         e.elite = true;
         e.mods = mods;
-        float dmgMul = (float) data.elite("damageMul", 1.5);
-        e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
+        float dmgMul = (float) elite("damageMul", 1.5);
+        e.hp = e.maxHp = e.maxHp * (float) elite("hpMul", 6);
         e.power *= dmgMul;
         e.shotMul *= dmgMul;
-        e.radius *= (float) data.elite("scale", 1.4);
-        e.speed *= (float) data.elite("speedMul", 0.9);
-        e.xp *= (float) data.elite("xpMul", 8);
+        e.radius *= (float) elite("scale", 1.4);
+        e.speed *= (float) elite("speedMul", 0.9);
+        e.xp *= (float) elite("xpMul", 8);
         if ((mods & Elites.M_ARMORED) != 0) {
-            e.armor = (float) data.elite("armor", Elites.FLAT_ARMOR);
+            e.armor = (float) elite("armor", Elites.FLAT_ARMOR);
             e.kbMul = 0f; // cannot be knocked back
         }
         e.mt0 = 1.5f;
         e.mt1 = 2.5f;
         e.mt2 = Elites.RAISE_EVERY * 0.5f;
-        int adds = (int) data.elite("adds", 6);
+        int adds = (int) elite("adds", 6);
         float a0 = rng.nextFloat() * 6.2831853f;
         for (int k = 0; k < adds; k++) {
             float b = a0 + k * 6.2831853f / adds;
@@ -2407,13 +2408,19 @@ public final class Sim {
     }
 
     /** The scheduler: the first elite at 3:00, then one every 150 s less 1% per minute (floor 100 s), one alive at a time. */
+    /** An elite number: the stage's own override (stages.KEY.elites) else the global one. */
+    double elite(String k, double d) {
+        Double v = stage.eliteOv.get(k);
+        return v != null ? v : data.elite(k, d);
+    }
+
     private void updateElites() {
         if (time < nextEliteAt || eliteAlive()) return;
         WaveRow row = stage.rows.get(WaveSelector.indexAt(stage.rows, time));
         if (row.enemies.length == 0) return;
         EnemyType t = type(row.enemies[rng.nextInt(row.enemies.length)]);
-        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, time)));
-        if (e != null) nextEliteAt = (float) time + Elites.interval(data, time);
+        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, stage, time)));
+        if (e != null) nextEliteAt = (float) time + Elites.interval(data, stage, time);
     }
 
     /** The Deep Mines hazard: bursts of tentacles at the stage's minutes, a wave of three every few seconds for a while. */

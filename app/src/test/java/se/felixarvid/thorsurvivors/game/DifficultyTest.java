@@ -30,19 +30,22 @@ public class DifficultyTest {
         for (String k : new String[]{"FLATS", "MINES"}) {
             StageDef st = d.stages.get(k);
             assertEquals(1.0, st.hpMul(0), 1e-9);
-            assertEquals(1.0, st.hpMul(15 * 60), 1e-9);
-            assertEquals(1.6, st.hpMul(20 * 60), 1e-9);
-            assertEquals(2.3, st.hpMul(22.5 * 60), 1e-9);
-            assertEquals(5.0, st.hpMul(30 * 60), 1e-9);
-            assertEquals("held after the last point", 5.0, st.hpMul(99 * 60), 1e-9);
-            assertEquals("minutes 1-4 are softer (v1.3.1)", 0.8, st.dmgMul(0), 1e-9);
-            assertEquals(0.85, st.dmgMul(4 * 60), 1e-9);
-            assertEquals(1.0, st.dmgMul(7 * 60), 1e-9);
-            assertEquals(1.0, st.dmgMul(16 * 60), 1e-9);
-            assertEquals(2.0, st.dmgMul(18 * 60), 1e-9);
-            assertEquals(8.5, st.dmgMul(24 * 60), 1e-9);
-            assertEquals(18.0, st.dmgMul(30 * 60), 1e-9);
+            assertEquals(1.2, st.hpMul(10 * 60), 1e-9);
+            assertEquals(1.6, st.hpMul(15 * 60), 1e-9);
+            assertEquals(2.4, st.hpMul(20 * 60), 1e-9);
+            assertEquals(3.7, st.hpMul(22.5 * 60), 1e-9);
+            assertEquals(9.0, st.hpMul(30 * 60), 1e-9);
+            assertEquals("held after the last point", 9.0, st.hpMul(99 * 60), 1e-9);
+            assertEquals("v1.4: damage ends at 7.5, not 18", 7.5, st.dmgMul(30 * 60), 1e-9);
+            assertEquals(5.0, st.dmgMul(24 * 60), 1e-9);
+            assertEquals(3.5, st.dmgMul(20 * 60), 1e-9);
+            assertEquals("speed: 1 at the start", 1.0, st.speedMul(0), 1e-9);
+            assertEquals(1.1, st.speedMul(5 * 60), 1e-9);
+            assertEquals(1.65, st.speedMul(20 * 60), 1e-9);
+            assertEquals(2.25, st.speedMul(30 * 60), 1e-9);
+            assertEquals("Mines start harder (stage knob)", k.equals("FLATS") ? 1.35 : 1.4, st.dmgMul(0), 1e-9);
         }
+        assertEquals("the old stages have no speed curve", 1.0, d.stages.get("FOREST").speedMul(25 * 60), 1e-9);
         assertEquals("the old stages have no curve", 1.0, d.stages.get("FOREST").hpMul(25 * 60), 1e-9);
     }
 
@@ -52,8 +55,9 @@ public class DifficultyTest {
         Enemy early = s.addEnemy("COLONIST", 0, 0, false);
         s.time = 30 * 60;
         Enemy late = s.addEnemy("COLONIST", 0, 0, false);
-        assertEquals(early.maxHp * 5.0f, late.maxHp, 0.01f);
-        assertEquals("0.8 at the start, 18 at 30:00", early.power * 18.0f / 0.8f, late.power, 0.01f);
+        assertEquals(early.maxHp * 9.0f, late.maxHp, 0.01f);
+        assertEquals("1.35 at the start, 7.5 at 30:00", early.power * 7.5f / 1.35f, late.power, 0.01f);
+        assertEquals("speed x2.25 at 30:00", early.speed * 2.25f, late.speed, 0.01f);
         s.time = 0;
         Enemy bossEarly = s.addEnemy("SLAGBORN", 0, 0, true);
         s.time = 20 * 60;

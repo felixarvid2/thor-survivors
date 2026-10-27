@@ -23,9 +23,13 @@ public final class Merchant {
     public static final int SLOTS = 3, STOCK = 4, SLOT_OFFER = 0, SLOT_GEAR = 1, SLOT_SUPPLY = 2, SLOT_FUSE = 3;
     public static final int SUP_MEDKIT = 0, SUP_VACUUM = 1, SUP_OROLOGION = 2;
     public static final int BUY_OK = 0, BUY_SOLD = 1, BUY_POOR = 2;
-    /** Base prices in run gold of the three slots on the first visit; each later visit costs 25 % of the base more (see {@link #priceOf}). */
-    static final int[] BASE_PRICE = {70, 100, 40, 250};
-    static final float PRICE_STEP = 0.25f;
+    /**
+     * Base prices in run gold of the slots on the first visit (card, gear, supply, Fuse Kit); each later visit costs more: the factor is
+     * 1 + PRICE_STEP x visit + PRICE_STEP2 x visit^2 (see {@link #priceOf}). v1.4: dearer and steeper, because the gold in the pocket grows faster
+     * than linearly over the run (a strong build kills more and more) - the prices follow it so that one item per visit is typical.
+     */
+    static final int[] BASE_PRICE = {100, 140, 55, 350};
+    static final float PRICE_STEP = 0.5f, PRICE_STEP2 = 0.45f;
     private static final long SALT = 0x5A17A6E5C0DEL;
     private static final int AMBER = 0xFFFFB347, GOOD = 0xFF5CF08E;
 
@@ -177,9 +181,9 @@ public final class Merchant {
 
     // ------------------------------------------------------------------ stock
 
-    /** Price of a slot on a visit: base x (1 + 0.25 x visit index), rounded to 5. */
+    /** Price of a slot on a visit: base x (1 + 0.5 x visit + 0.45 x visit^2), rounded to 5. */
     public static int priceOf(int slot, int visit) {
-        return Math.round(BASE_PRICE[slot] * (1f + PRICE_STEP * visit) / 5f) * 5;
+        return Math.round(BASE_PRICE[slot] * (1f + PRICE_STEP * visit + PRICE_STEP2 * visit * visit) / 5f) * 5;
     }
 
     /** The Fuse Kit appears only while a pair is ready (checked when the shop opens); once bought it stays on the counter as SOLD. */
