@@ -40,6 +40,7 @@ import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.WorldGen;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Clip;
+import se.felixarvid.thorsurvivors.game.stage.RefineryRules;
 import se.felixarvid.thorsurvivors.render.stagefx.StageFx;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Img;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Model;
@@ -77,7 +78,7 @@ public final class WorldRenderer {
     /** Multiply tints of the rock texture per stage: Cinder Flats ash grey, Deep Mines darker and colder. */
     private static final int TINT_FLATS = 0xFF8C8680, TINT_MINES = 0xFF6F7480;
     /** Multiply tint of the ground rock per {@code WorldGen} layout: flats, mines, domes (green), streets (rust), debris (cold blue). */
-    private static final int[] TINT = {TINT_FLATS, TINT_MINES, 0xFF789080, 0xFF8A7466, 0xFF5E6A82};
+    private static final int[] TINT = {TINT_FLATS, TINT_MINES, 0xFF789080, 0xFF6E5C50, 0xFF5E6A82};
 
     private final SpriteAtlas atlas = SpriteAtlas.get();
     private final Paint bmp = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -218,6 +219,24 @@ public final class WorldRenderer {
         return Math.round(wy * sc) + oy;
     }
 
+    // ---- v1.4 stage fx accessors (chunk C): what render/stagefx needs of the camera and the lights
+    public int fxX(float wx) { return sx(wx); }
+    public int fxY(float wy) { return sy(wy); }
+    public float fxWx(float px) { return (px - ox) / sc; }
+    public float fxWy(float py) { return (py - oy) / sc; }
+    /** Pixels per world unit, and the 1080p scale of fixed-size things. */
+    public float fxScale() { return sc; }
+    public float fxK() { return ks; }
+    public float fxNow() { return (float) now; }
+    /** A warm light at a world position (radius in world units); ignored when the lightmap is full or off. */
+    public void fxLight(float wx, float wy, float worldRadius, float strength) {
+        if (lightMode != MetaProgress.LIGHT_FULL || light.n >= Lighting.MAX - 1) return;
+        int px = sx(wx), py = sy(wy);
+        if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) return;
+        light.add(px, py, worldRadius * sc, strength, Lighting.WARM);
+    }
+    // ---- end stage fx accessors
+
     public void draw(Canvas c, int w, int h, Engine e, boolean dualScreen) {
         c.drawColor(0xFF000000);
         orderN = 0;
@@ -264,6 +283,7 @@ public final class WorldRenderer {
         bmp.setColorFilter(null);
         bmp.setAlpha(255);
         ground.draw(c, bmp, ox, oy, camPx, camPy, w, h);
+        if (!menu) StageFx.forKey(s.stage.key).drawFloor(this, c, s, w, h); // v1.4: belts, molten metal, gates
         listProps();
         float[] lp = e.data.lightingOf(stage);
         setupLights(c, w, h, e, s, menu, lp);
@@ -299,6 +319,7 @@ public final class WorldRenderer {
                 gatherFindLights(s);
                 gatherMerchantLight(s);
                 gatherPoiLights(s);
+                StageFx.forKey(s.stage.key).lights(this, s); // v1.4: furnaces, gates, molten metal
             }
             gatherPropLights(c, menu);
             if (!DBG_NO_MASK) light.drawFull(c, w, h);
@@ -404,8 +425,8 @@ public final class WorldRenderer {
     }
 
     // v1.3 boss recolours: a luminance x tint colour matrix per brightness step for every enemy type with a tintRGB (made once)
-    private final int[] tintRgb = new int[12];
-    private final ColorFilter[][] tintSet = new ColorFilter[12][];
+    private final int[] tintRgb = new int[24];
+    private final ColorFilter[][] tintSet = new ColorFilter[24][];
     private int tintN;
     private GameData tintFor;
 
@@ -1013,6 +1034,8 @@ public final class WorldRenderer {
             case Sim.DK_CHEST: return "prop.supply_chest";
             case Sim.DK_PYLON: return "prop.stim_pylon";
             case Sim.DK_NEST: return "prop.spore_nest";
+            case RefineryRules.DK_COOLANT: case RefineryRules.DK_VALVE_HEAVY: return "prop.coolant_valve"; // v1.4 chunk C
+            case RefineryRules.DK_FUEL: return "prop.fuel_tank";
             default: return "CANDELABRA".equals(type) ? "prop.supply_chest" : "prop.explosive_barrel";
         }
     }

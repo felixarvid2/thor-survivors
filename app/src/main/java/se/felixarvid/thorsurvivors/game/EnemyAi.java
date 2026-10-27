@@ -184,7 +184,7 @@ final class EnemyAi {
         }
     }
 
-    private void charger(Enemy e, float dt, boolean moving, float dx, float dy, float d) {
+    void charger(Enemy e, float dt, boolean moving, float dx, float dy, float d) {
         EnemyDef def = e.type.def;
         switch (e.ai) {
             case A_TELE:

@@ -111,6 +111,25 @@ public abstract class StageRules {
         return 1f;
     }
 
+    /** A refresh of the destructibles around cell (cx, cy) (500 u cells): add the stage's own ones ({@code Sim.DK_STAGE} and up). */
+    public void addDests(int cx, int cy) {
+    }
+
+    /** A hit reached a destructible of a stage kind (>= {@code Sim.DK_STAGE}): false = it shrugs the hit off and stays. */
+    public boolean destHit(int kind) {
+        return true;
+    }
+
+    /** A destructible of a stage kind (>= {@code Sim.DK_STAGE}) was broken at (x, y); true = handled, nothing else happens. */
+    public boolean destBroken(int kind, float x, float y) {
+        return false;
+    }
+
+    /** A wave enemy of type {@code t} is about to spawn: the key of another type to send instead (a cap), or null. */
+    public String spawnSwap(se.felixarvid.thorsurvivors.game.EnemyType t) {
+        return null;
+    }
+
     /** True when the run places Weapon Caches, Gear Lockers and the Salvager (the Ashfall stages; not the legacy FOREST / LIBRARY). */
     public boolean hasFinds() {
         return true;

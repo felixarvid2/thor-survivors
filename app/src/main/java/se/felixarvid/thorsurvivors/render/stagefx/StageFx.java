@@ -26,12 +26,33 @@ public interface StageFx {
     default void minimap(Canvas c, Sim s, float cx, float cy, float kk, float side, float u) {
     }
 
+    /**
+     * Right after the ground texture, before props, creatures and the lightmap: things painted on the floor itself (belts, molten
+     * metal, gates), so the darkness and every sprite lie over them.
+     */
+    default void drawFloor(WorldRenderer r, Canvas c, Sim s, int w, int h) {
+    }
+
+    /** While the lightmap is gathered: stage lights ({@code r.fxLight}), after the dynamic ones. */
+    default void lights(WorldRenderer r, Sim s) {
+    }
+
+    /**
+     * A stage line of the bottom screen HUD in the box (x0, y0)-(x1, y1) under the HP bar (the heat bar of the Refinery); true when
+     * something was drawn.
+     */
+    default boolean hud(Canvas c, Sim s, float x0, float y0, float x1, float y1, float u) {
+        return false;
+    }
+
     StageFx NONE = new StageFx() {
     };
     StageFx FLATS = new FlatsFx();
+    StageFx REFINERY = new RefineryFx(); // v1.4 chunk C
 
     /** The drawing hooks of a stage key; {@link #NONE} for a stage without any. */
     static StageFx forKey(String key) {
+        if ("REFINERY".equals(key)) return REFINERY; // v1.4 chunk C
         return "FLATS".equals(key) ? FLATS : NONE;
     }
 }
