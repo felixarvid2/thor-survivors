@@ -642,7 +642,7 @@ public final class Sim {
         if (bannerT > 0) bannerT -= dt;
         for (int i = 0; i < MAX_TOASTS; i++) if (toastT[i] > 0f) toastT[i] -= dt;
         if (winDelay > 0f && (winDelay -= dt) <= 0f && ended == 0) ended = 2; // The First is dead: the run is won
-        if (stats.regen > 0 && hp < maxHp) hp = Math.min(maxHp, hp + (float) stats.regen * dt);
+        if (stats.regen > 0 && hp < maxHp) hp = Math.min(maxHp, hp + (float) stats.regen * dt * rules.regenMul() * (float) stats.healMul);
         if (time >= stage.timeLimit) ended = 2;
     }
 
@@ -759,6 +759,7 @@ public final class Sim {
             placeX = x;
             placeY = y;
             placeKind = !mixedDest() ? DK_LEGACY : WorldGen.unit(WorldGen.hash(cx, cy, 698)) < 0.58f ? DK_BARREL : DK_CHEST;
+            placeKind = rules.destKindAt(cx, cy, placeKind); // v1.4: a stage may swap the kind (Hydro: tankers and feeders)
             return true;
         }
         return false;
@@ -854,7 +855,15 @@ public final class Sim {
 
     /** A hit on destructible i: a nest loses hit points first, everything else breaks. */
     private void strikeDest(int i) {
-        if (destKind[i] >= DK_STAGE && !rules.destHit(destKind[i])) return; // v1.4: an armoured stage destructible shrugs it off
+        if (destKind[i] >= DK_STAGE) { // v1.4: a stage's own destructible: the rules keep its health (a blast does 80) or let it break
+            if (rules.destHit(destKind[i], destKey[i], hitDestDmg >= BARREL_DMG ? 80f : hitDestDmg)) {
+                addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 60f, 0f, 0.12f, 0, false);
+                spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
+                return;
+            }
+            breakDest(i);
+            return;
+        }
         if (destKind[i] == DK_NEST && (destHp[i] -= hitDestDmg) > 0f) {
             addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 50f, 0f, 0.12f, 0, false);
             spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
@@ -895,7 +904,7 @@ public final class Sim {
         destHp[i] = destHp[destN];
         destT[i] = destT[destN];
         destsBroken++;
-        if (kind >= DK_STAGE && rules.destBroken(kind, x, y)) return; // v1.4: the stage's own kinds
+        if (kind >= DK_STAGE && rules.destBroken(kind, x, y, key)) return; // v1.4: the stage's own kinds
         switch (kind) {
             case DK_BARREL:
                 explodeBarrel(x, y);
@@ -1065,6 +1074,30 @@ public final class Sim {
     }
 
     /** Tests and screenshot tools: breaks the destructibles touching a circle, as a weapon hit does. */
+    // ---- v1.4 stage destructibles (chunk B, Hydroponic Vaults): the rules add and break their own entries through these
+    /** Adds a stage destructible (Bloom Heart) to the standing list with a display health; ignored when the list is full or the key was broken. */
+    public void addStageDest(float x, float y, int kind, long key, float hp) {
+        int before = destN;
+        addDest(x, y, kind, key);
+        if (destN > before) destHp[before] = hp;
+    }
+
+    /** Breaks the standing destructible with this key (no-op when it is not in the list). */
+    public void breakDestByKey(long key) {
+        for (int i = 0; i < destN; i++) {
+            if (destKey[i] == key) {
+                breakDest(i);
+                return;
+            }
+        }
+    }
+
+    /** Re-lists the standing destructibles on the next step (a stage added one outside the cell grid). */
+    public void invalidateDests() {
+        destCx = destCy = Integer.MIN_VALUE;
+    }
+    // ---- end v1.4 stage destructibles
+
     public void hitDestForTest(float x, float y, float r) {
         hitDest(x, y, r);
     }
@@ -1838,11 +1871,6 @@ public final class Sim {
         e.hp = 0;
     }
 
-    /** The finale ending (RefineryOps.winRun): the run is won 2.2 s from now. */
-    void winDelayStart() {
-        winDelay = 2.2f;
-    }
-
     private void reap() {
         for (int i = enemyN - 1; i >= 0; i--) {
             Enemy e = enemies[i];
@@ -2187,6 +2215,7 @@ public final class Sim {
     }
 
     public void heal(float amount) {
+        amount *= (float) stats.healMul; // Rootmind's Heartwood: +25% healing from every source (1 without it)
         float before = hp;
         hp = Math.min(maxHp, hp + amount);
         if (hp - before >= 1f) addText(px, py - 20f, Math.round(hp - before), false, true);
@@ -2261,12 +2290,31 @@ public final class Sim {
         EquipDef u = e.type.def.ashfallBoss ? data.uniqueBySource.get(e.type.def.key) : null;
         if (u != null && equip.def[u.slot] != u) dropEquipment(e.x + 34f, e.y + 6f, u, Equipment.UNIQUE);
         if (e.type.def.ashfallBoss && e.type.pattern >= 6) timedBossRewards(e);
-        if (e.type.pattern == 5 && !firstKilled) {
+        if (isFinale(e.type) && !firstKilled) { // the one place a finale ends the run in victory (stage rules never set firstKilled themselves)
             firstKilled = true;
             winDelay = 2.2f;
             invuln = Math.max(invuln, 3f);
             screenFlash = Math.max(screenFlash, 0.5f);
-            toast("THE FIRST IS DEAD  -  GOLD x2", 0xFF39FF88);
+            toast(e.type.pattern == 5 ? "THE FIRST IS DEAD  -  GOLD x2" : e.type.nameUpper + " IS DEAD  -  GOLD x2", 0xFF39FF88);
+        }
+    }
+
+    /**
+     * True for a boss that ends the run when it dies: The First (pattern 5) and the v1.4 stage finales: the Rootmind (11), the
+     * Ironheart (12, variant 0) and the Pillar (13, mode 0). Foreman Brass, the Stoker Captain, the Hull Breacher and the Salvage
+     * Warden share patterns 12 / 13 with another variant or mode and are ordinary timed bosses.
+     */
+    public static boolean isFinale(EnemyType t) {
+        switch (t.pattern) {
+            case 5:
+            case 11:
+                return true;
+            case 12:
+                return Math.round(t.def.param("variant", 0f)) == 0;
+            case 13:
+                return Math.round(t.def.param("mode", 0f)) == 0;
+            default:
+                return false;
         }
     }
 

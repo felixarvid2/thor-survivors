@@ -110,14 +110,4 @@ public final class RefineryOps {
     public static void addPickup(Sim s, int kind, float x, float y, float value) {
         s.addPickup(kind, x, y, value);
     }
-
-    /** The finale is dead: the run is won with double gold (the same ending as The First). */
-    public static void winRun(Sim s, String toast) {
-        if (s.firstKilled) return;
-        s.firstKilled = true;
-        s.winDelayStart();
-        s.invuln = Math.max(s.invuln, 3f);
-        s.screenFlash = Math.max(s.screenFlash, 0.5f);
-        s.toast(toast, 0xFFFFB347);
-    }
 }

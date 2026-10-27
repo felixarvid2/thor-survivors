@@ -343,6 +343,11 @@ TUNE_DEFAULT = dict(
     boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
 )
 STAGE_TUNE = {
+    # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
+    "HYDRO": dict(extra_types=[], horde_types=["COLONIST", "SPORE_HOUND", "MYCELID"],   # the 975 s horde moves to 990: the 16:00 Sporefall runs 960-980
+                  hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [990, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),
+    "REFINERY": dict(extra_types=[]),
+    "WRECK": dict(extra_types=[]),
     "FLATS": dict(extra_types=[]),   # v1.4: the Flats rows already carry Sergeants; extra ones made 5-10 min lethal (14 of 32 Xenomants died there)
     "MINES": dict(hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1430, 290], [1600, 290]], extra_types=[[1, "SGT"], [3, "DRN"]],
                   dmg_curve=[[0, 1.4], [3, 1.45], [6, 1.45], [10, 1.72], [13, 2.0], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]]),
@@ -434,7 +439,7 @@ STAGE_REGISTRY = {
                   rules=dict(convoyAt0=495, convoyAt1=990, convoyAt2=1485)),
     "MINES": dict(difficulty=2, blurb="Dark shafts and carts. Mind the firedamp.", unlock=("FLATS", 600), rules={}),
     "HYDRO": dict(name="Hydroponic Vaults", difficulty=3, blurb="Overgrown domes. Burn the hearts or drown.",
-                  unlock=("MINES", 900), rules={}, copy_of="FLATS", lighting=dict(ambient=0.71, radius=240),
+                  unlock=("MINES", 900), rules=dict(firstHeart=120, purgeAt=1260, bloomAt=1440), copy_of="FLATS", lighting=dict(ambient=0.71, radius=240),
                   mods=dict(EnemyHealthMultiplier=1.3, EnemySpeed=1.0, GoldMultiplier=1.2, XPBonus=1.1)),
     "REFINERY": dict(name="Refinery District", difficulty=4, blurb="Belts, furnaces, heat. Never stand still.",
                      unlock=("HYDRO", 1200), rules={}, copy_of="FLATS", lighting=dict(ambient=0.55, radius=240),
@@ -527,6 +532,95 @@ def refinery_tune(st, data):
     st["events"] = [dict(id=i, at=t) for i, t in REFINERY_EVENTS]
 
 
+# ---------------------------------------------------------------------------------------------------------------------------
+# v1.4 chunk B: Hydroponic Vaults (game/stage/HydroRules, game/layout/DomesLayout, game/boss/RootmindAi). Enemies, the stage's rows,
+# timed bosses, events, hordes and the finale's unique. Applied by add_v14_stages through hydro_stage().
+# ---------------------------------------------------------------------------------------------------------------------------
+HYDRO_ENEMIES = {
+    # ARCH_HEALER: heals every enemy within 110 u by 6% every 2 s (HydroRules.updateArch), at most 6 alive
+    "GARDENER": dict(name="Gardener", archetype="HEALER", maxHp=3.0, speed=100, power=12, xp=3, sprite="infected_colonist",
+                     description="Pulses a heal over every enemy near it. Kill it first.",
+                     params=dict(radius=12, tintRGB=0x6FD36F, drawScale=1.1)),
+    # a third of a hound's health; comes in swarms of 8 from the edge of a growth patch
+    "MYCELID": dict(name="Mycelid", archetype="FAST_PACK", maxHp=round(0.5 / 3, 4), speed=160, power=7, xp=1, sprite="spore_hound",
+                    params=dict(radius=7, group=8, weave=0.8, phase=1.0, tintRGB=0xBFE8C8, drawScale=0.7)),
+    # Frozen Welder (pattern 7) without frost: its dashes leave sprouts instead (HydroRules.sprouts)
+    "VERDANT_WELDER": dict(name="Verdant Welder", archetype="BOSS", boss=True, maxHp=420, speed=70, power=24, xp=100,
+                           sprite="welder", scale=2.0,
+                           description="Three chained dashes; every dash sows growth patches.",
+                           params=dict(pattern=7, hpRamp=20, radius=12, tintRGB=0x6FD060, gearSlot=4, xpPileLevels=1.5,
+                                       pre=0.9, dashLen=190, dash=0.45, gap=0.25, lineW=46, dashDmg=16, recover=2.0,
+                                       gapMin=2.0, gapMax=3.5, range=380, patchEvery=1000000, patchR=38, patchT=0.02,
+                                       ringR=140, ringExtra=0.3, ringDmg=14, ringStun=0.4)),
+    # the finale (BossAi pattern 11 -> game/boss/RootmindAi): stationary, shielded by three hearts
+    "ROOTMIND": dict(name="The Rootmind", archetype="BOSS", boss=True, maxHp=1800, speed=0, power=30, xp=250,
+                     sprite="spore_carrier", scale=3.5,
+                     description="Stands in a dome behind three shield hearts. Burn the hearts, then hit it.",
+                     params=dict(pattern=11, hpRamp=28, radius=20, tintRGB=0xC8E070, xpPileLevels=1.5, phase1Hp=0.66,
+                                 phase2Hp=0.33, ring=12, ringSpeed=200, ringDmg=12, ringEvery=3.5, ringEvery3=5,
+                                 lanes=2, laneLen=560, laneW=46, laneDps=22, laneWarn=1.0, laneLife=3.2, laneSpin=0.85,
+                                 laneGap=2.0, hounds=6, houndEvery=9, sporeEvery=10)),
+    # a shield heart of the Rootmind: pinned like a tentacle, stays (the Rootmind sets its health to 120)
+    "ROOT_HEART": dict(name="Root Heart", archetype="TENTACLE", maxHp=9.2, speed=0, power=0, xp=2, knockback=0,
+                       sprite="lumen_tentacle",
+                       params=dict(radius=18, warn=1.0, up=99999, hitR=34, drawScale=1.4, tintRGB=0xC8E070)),
+}
+ENEMIES.update(HYDRO_ENEMIES)
+HYDRO_UNIQUES = {
+    "ROOTMINDS_HEARTWOOD": ("NECK", "Rootmind's Heartwood", "unique_ashen_heartwood",
+                            {"healMul": 0.25, "heartVacuum": 0.25}, "ROOTMIND"),
+}
+UNIQUES.update(HYDRO_UNIQUES)
+
+KH = dict(K, GDN="GARDENER")
+
+
+def hrow(minute, minimum, freq, enemies, bosses=()):
+    return dict(minute=minute, minimum=minimum, frequency=freq, enemies=[KH[e] for e in enemies.split()], bosses=list(bosses))
+
+
+# Minutes 0-5 colonists and hounds, carriers every minute from 6, Gardeners from 8, Vire from 15; the density is ~10% under Flats
+# (minutes 0-4 by hand, from minute 5 apply_difficulty x 0.9). The 29:00 bosses are gone: the finale is the closing fight.
+HYDRO_ROWS = [
+    hrow(0, 9, 1400, "COL"), hrow(1, 13, 1200, "COL HND"), hrow(2, 16, 1100, "COL HND"), hrow(3, 20, 1000, "COL HND"),
+    hrow(4, 23, 900, "COL HND"), hrow(5, 20, 1100, "COL HND", ["CARGO_LOADER"]), hrow(6, 24, 1000, "COL HND SPC"),
+    hrow(7, 30, 900, "COL HND SPC SGT"), hrow(8, 32, 850, "HND SPC SGT GDN"), hrow(9, 36, 800, "COL SPC GDN WLD"),
+    hrow(10, 40, 800, "HND SPC GDN WLD", ["SMELTER_FOREMAN"]), hrow(11, 44, 750, "COL SPC GDN SGT"),
+    hrow(12, 48, 750, "HND SPC GDN WLD"), hrow(13, 52, 700, "COL HND SPC GDN SGT"), hrow(14, 56, 700, "HND SPC GDN SML"),
+    hrow(15, 60, 650, "COL SPC GDN VIR", ["SLAGBORN"]), hrow(16, 64, 650, "HND SPC GDN WLD"),
+    hrow(17, 68, 600, "COL SPC GDN SML"), hrow(18, 72, 600, "HND SPC GDN VIR"), hrow(19, 76, 600, "COL SPC GDN SML VIR"),
+    hrow(20, 80, 550, "HND SPC GDN SGT VIR", ["VIRE_AWAKENED"]), hrow(21, 84, 550, "COL SPC GDN SML"),
+    hrow(22, 88, 500, "HND SPC GDN WLD"), hrow(23, 92, 500, "COL SPC GDN SML VIR"), hrow(24, 96, 500, "HND SPC GDN WLD"),
+    hrow(25, 100, 450, "COL SPC GDN SML VIR", ["CARGO_LOADER", "CARGO_LOADER"]), hrow(26, 110, 450, "HND SPC GDN SGT WLD"),
+    hrow(27, 120, 400, "COL SPC GDN SML VIR"), hrow(28, 130, 400, "HND SPC GDN WLD VIR"),
+    hrow(29, 140, 350, "COL HND SPC GDN SML VIR"),
+]
+HYDRO_DENSITY = 0.9
+HYDRO_TIMED = [(450, "BROOD_MOTHER"), (750, "VERDANT_WELDER"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
+               (1680, "ROOTMIND")]
+# Purge Terminal / Sporefall / Bloom run from HydroRules (rules purgeAt, bloomAt; Sporefall 4:00 every 4 min and 23:00); the data
+# keeps the Beacon (26:00). The Tide is replaced by the finale at 28:00.
+HYDRO_EVENTS = [("BEACON", 1560)]
+
+
+def hydro_stage(st):
+    """Replaces the Flats copy by the Hydroponic Vaults' rows, timed bosses, events and hordes."""
+    old = {r["minute"]: r for r in st["rows"]}
+    rows = []
+    tn = tune_of("HYDRO")
+    for r in apply_difficulty(HYDRO_ROWS, tn):
+        r = dict(r)
+        r["minimum"] = int(round(r["minimum"] * HYDRO_DENSITY))
+        if "treasure" in old.get(r["minute"], {}):
+            r["treasure"] = old[r["minute"]]["treasure"]
+        rows.append(r)
+    st["rows"] = rows
+    st["timedBosses"] = [dict(t=t, boss=b) for t, b in HYDRO_TIMED]
+    st["events"] = [dict(id=i, at=t) for i, t in HYDRO_EVENTS]
+    st["hordes"] = dict(types=tn["horde_types"], bursts=[dict(at=a, length=tn["horde_len"], minimum=mn, frequency=tn["horde_freq"]) for a, mn in tn["hordes"]])
+    st["destructibleType"] = "MIXED_FLATS"
+
+
 def add_v14_stages(data):
     """Adds the registry's stages to data['stages'] / data['lighting'] and the card fields to every menu stage."""
     import copy
@@ -547,6 +641,8 @@ def add_v14_stages(data):
         st["rules"] = reg["rules"]
         if reg.get("tune"):   # a stage's own rows, bosses and events (the section of its chunk below)
             globals()[reg["tune"]](st, data)
+        if key == "HYDRO":
+            hydro_stage(st)
 
 
 # ---------------------------------------------------------------------------------------------------------------------------

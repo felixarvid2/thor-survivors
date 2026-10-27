@@ -49,11 +49,13 @@ public interface StageFx {
     };
     StageFx FLATS = new FlatsFx();
     StageFx MINES = new MinesFx();
+    StageFx HYDRO = new HydroFx(); // v1.4 chunk B
     StageFx REFINERY = new RefineryFx(); // v1.4 chunk C
     StageFx WRECK = new WreckFx(); // v1.4 chunk D (Meridian Wreck)
 
     /** The drawing hooks of a stage key; {@link #NONE} for a stage without any. */
     static StageFx forKey(String key) {
+        if ("HYDRO".equals(key)) return HYDRO; // v1.4 chunk B
         if ("REFINERY".equals(key)) return REFINERY; // v1.4 chunk C
         if ("WRECK".equals(key)) return WRECK; // v1.4 chunk D
         return "FLATS".equals(key) ? FLATS : "MINES".equals(key) ? MINES : NONE;

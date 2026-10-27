@@ -105,7 +105,6 @@ public final class WreckRules extends StageRules {
     private boolean gateWasOn, gateLock;
     public float gateBannerT;
     public int pillarId;
-    private double pillarDeadAt = -1;
     public boolean pillarDead;
     /** Where the gate sends the hero (the arena's start-side edge) and where the exit pad sends him (far off, start side). */
     public float arenaX, arenaY, exitX, exitY, exitDestX, exitDestY;
@@ -259,7 +258,6 @@ public final class WreckRules extends StageRules {
         if (wellsOn) stepWells(dt);
         stepBubble(dt);
         if (gateBannerT > 0f) gateBannerT -= dt;
-        if (pillarDeadAt >= 0 && s.time - pillarDeadAt >= 2.2 && s.ended == 0) s.ended = 2; // The Pillar fell: the run is won (gold x2)
     }
 
     // ------------------------------------------------------------------ pads
@@ -680,11 +678,6 @@ public final class WreckRules extends StageRules {
     public void onEnemyDeath(Enemy e) {
         if (e.type.def.key.equals(PILLAR_KEY)) { // the finale: the run is won in a moment, gold counts twice
             pillarDead = true;
-            pillarDeadAt = s.time;
-            s.firstKilled = true;
-            s.invuln = Math.max(s.invuln, 3f);
-            s.screenFlash = Math.max(s.screenFlash, 0.5f);
-            s.toast("THE PILLAR FALLS  -  GOLD x2", 0xFF39FF88);
             bubbleByBoss = false;
             setArenaBubble(false, 0f, 0f, 0f);
             setOrbit(false, 0f, 0f, 0f, 0f, 0f);
@@ -740,7 +733,7 @@ public final class WreckRules extends StageRules {
     }
 
     @Override
-    public boolean destBroken(int kind, float x, float y) {
+    public boolean destBroken(int kind, float x, float y, long key) {
         if (kind == DK_CRATE) {
             WreckOps.spark(s, x, y - 8f, 0xFFB08850, 8);
             WreckOps.fx(s, Entities.FX_FLASH, x, y - 6f, 70f, 0f, 0.2f);

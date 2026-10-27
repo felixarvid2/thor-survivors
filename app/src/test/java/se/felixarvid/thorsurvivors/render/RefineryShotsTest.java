@@ -207,7 +207,7 @@ public class RefineryShotsTest {
         frames(h, 30);
         s.px = s.events.tx - 90f;
         s.py = s.events.ty + 40f;
-        r.destBroken(RefineryRules.DK_COOLANT, s.px + 60f, s.py - 30f);
+        r.destBroken(RefineryRules.DK_COOLANT, s.px + 60f, s.py - 30f, 0L);
         crowd(s, s.px + 60f, s.py - 30f, 12);
         frames(h, 40);
         Shots.save(h.renderTop(), "refinery_tower_fog.png");

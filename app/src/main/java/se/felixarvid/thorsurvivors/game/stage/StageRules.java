@@ -111,17 +111,24 @@ public abstract class StageRules {
         return 1f;
     }
 
+    // ---- v1.4 stage destructibles (kinds from Sim.DK_STAGE up; each stage's kinds are constants in its own rules class)
+
+    /** The kind of the destructible that cell (cx, cy) of 500 u gets, given the kind the Sim picked (a stage may swap it, Hydro: tankers and feeders). */
+    public int destKindAt(int cx, int cy, int kind) {
+        return kind;
+    }
+
     /** The stage's own destructibles of the 5 x 5 cells of 500 u around (cx, cy) (called when the hero enters a new cell): add them with {@code Sim.addStageDest(x, y, kind >= Sim.DK_STAGE, key)}; a pure function of the cell, the key is unique per object. */
     public void addDests(int cx, int cy) {
     }
 
-    /** A hit reached a destructible of a stage kind (>= {@code Sim.DK_STAGE}): false = it shrugs the hit off and stays. */
-    public boolean destHit(int kind) {
-        return true;
+    /** A hit of {@code dmg} on a destructible of a stage kind: true = it absorbs the hit and stays (armoured, or health kept by the rules), false = it breaks. */
+    public boolean destHit(int kind, long key, float dmg) {
+        return false;
     }
 
-    /** A destructible of a stage kind (>= {@code Sim.DK_STAGE}) was broken at (x, y); true = handled, nothing else happens. */
-    public boolean destBroken(int kind, float x, float y) {
+    /** A destructible of a stage kind was broken at (x, y): true = handled, nothing else happens. */
+    public boolean destBroken(int kind, float x, float y, long key) {
         return false;
     }
 
@@ -129,6 +136,12 @@ public abstract class StageRules {
     public String spawnSwap(se.felixarvid.thorsurvivors.game.EnemyType t) {
         return null;
     }
+
+    /** Multiplier on the hero's passive regeneration (Hydro: 0 inside a growth patch). */
+    public float regenMul() {
+        return 1f;
+    }
+    // ---- end v1.4 stage destructibles
 
     /** True when the run places Weapon Caches, Gear Lockers and the Salvager (the Ashfall stages; not the legacy FOREST / LIBRARY). */
     public boolean hasFinds() {

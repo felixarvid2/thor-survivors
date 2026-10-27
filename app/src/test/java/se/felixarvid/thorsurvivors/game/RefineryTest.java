@@ -435,8 +435,8 @@ public class RefineryTest {
         Enemy e = s.spawnAt("COLONIST", 2810f, 2000f, false); // far from the hero's weapon
         e.speed = 0f;
         r.heat = 80f;
-        assertTrue(r.destBroken(RefineryRules.DK_COOLANT, 2000f, 2000f));
-        assertTrue(r.destBroken(RefineryRules.DK_COOLANT, 2800f, 2000f));
+        assertTrue(r.destBroken(RefineryRules.DK_COOLANT, 2000f, 2000f, 0L));
+        assertTrue(r.destBroken(RefineryRules.DK_COOLANT, 2800f, 2000f, 0L));
         steps(s, new Input(), 1.2);
         assertEquals(0f, r.heat, 0f);
         assertTrue("fog is up", r.inFog);
@@ -633,7 +633,7 @@ public class RefineryTest {
         t.rebuildGridForTest();
         float hp0 = t.hp;
         int haz0 = t.hazN;
-        assertTrue(t.rules.destBroken(RefineryRules.DK_FUEL, 5000f, 5000f));
+        assertTrue(t.rules.destBroken(RefineryRules.DK_FUEL, 5000f, 5000f, 0L));
         assertEquals(90f, 500f - e.hp, 0.5f);
         assertEquals(500f, far.hp, 0f);
         assertEquals(14f, hp0 - t.hp, 0.01f);

@@ -343,7 +343,7 @@ public class WreckTest {
         WreckRules wr = WreckRules.of(s);
         int w = runningWell(s, wr);
         s.time = 100;
-        wr.onDestBroken(WreckRules.DK_GENERATOR, wr.wellX[w] + 260f, wr.wellY[w]);
+        wr.destBroken(WreckRules.DK_GENERATOR, wr.wellX[w] + 260f, wr.wellY[w], 0L);
         for (double t = 100; t < 159; t += 0.5) {
             s.time = t;
             assertFalse("held off at " + t, wr.wellOn(w));
@@ -375,7 +375,7 @@ public class WreckTest {
         WreckRules wr = WreckRules.of(s);
         int before = s.pickN;
         for (int i = 0; i < 400; i++) {
-            wr.onDestBroken(WreckRules.DK_CRATE, 0f, 0f);
+            wr.destBroken(WreckRules.DK_CRATE, 0f, 0f, 0L);
             s.pickN = Math.min(s.pickN, 900); // keep the pool from filling up
         }
         int gold = 0;

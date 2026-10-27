@@ -520,8 +520,7 @@ public final class RefineryRules extends StageRules {
         if (e == finale) {
             finale = null;
             beltMode = BELTS_NORMAL;
-            vgN = 0;
-            RefineryOps.winRun(s, "THE IRONHEART IS SHATTERED  -  GOLD x2");
+            vgN = 0; // the win itself is Sim.bossRewards (Sim.isFinale)
         }
     }
 
@@ -612,12 +611,12 @@ public final class RefineryRules extends StageRules {
     public boolean slamBreaks;
 
     @Override
-    public boolean destHit(int kind) {
-        return kind != DK_VALVE_HEAVY || slamBreaks;
+    public boolean destHit(int kind, long key, float dmg) {
+        return kind == DK_VALVE_HEAVY && !slamBreaks;
     }
 
     @Override
-    public boolean destBroken(int kind, float x, float y) {
+    public boolean destBroken(int kind, float x, float y, long key) {
         if (kind == DK_COOLANT || kind == DK_VALVE_HEAVY) { // vents a fog: heat to 0 inside, Frost on the enemies
             int slot = 0;
             for (int i = 0; i < MAXF; i++) {

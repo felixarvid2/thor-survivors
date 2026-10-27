@@ -96,6 +96,8 @@ public final class Equipment {
             case "burnImmune": return "Immune to Burn";
             case "ashTrail": return "Leaves an ash trail that slows enemies 20%";
             case "cloudHeal": return "Spore Carrier clouds heal you";
+            case "healMul": return pct("Healing from all sources", sign, a);
+            case "heartVacuum": return String.format(Locale.ROOT, "Bloom Hearts drop a Vacuum %.0f%% of the time", a * 100);
             default: return key + " " + sign + a;
         }
     }

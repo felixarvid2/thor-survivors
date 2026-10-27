@@ -41,6 +41,7 @@ import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.WorldGen;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Clip;
 import se.felixarvid.thorsurvivors.game.stage.RefineryRules;
+import se.felixarvid.thorsurvivors.game.stage.HydroRules;
 import se.felixarvid.thorsurvivors.game.stage.WreckRules;
 import se.felixarvid.thorsurvivors.render.stagefx.StageFx;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Img;
@@ -212,25 +213,6 @@ public final class WorldRenderer {
         }
     }
 
-    // ---- v1.4 stage fx access: the current frame's world-to-screen mapping for the stages' own drawing (render/stagefx)
-    public float fxX(float wx) {
-        return sx(wx);
-    }
-
-    public float fxY(float wy) {
-        return sy(wy);
-    }
-
-    /** Pixels per world unit this frame (the ground scale) and the UI scale {@code ks} (line widths, text). */
-    public float fxScale() {
-        return sc;
-    }
-
-    public float fxUi() {
-        return ks;
-    }
-    // ---- end v1.4 stage fx access
-
     private int sx(float wx) {
         return Math.round(wx * sc) + ox;
     }
@@ -247,6 +229,7 @@ public final class WorldRenderer {
     /** Pixels per world unit, and the 1080p scale of fixed-size things. */
     public float fxScale() { return sc; }
     public float fxK() { return ks; }
+    public float fxUi() { return ks; }
     public float fxNow() { return (float) now; }
     /** A warm light at a world position (radius in world units); ignored when the lightmap is full or off. */
     public void fxLight(float wx, float wy, float worldRadius, float strength) {
@@ -589,6 +572,8 @@ public final class WorldRenderer {
         }
         if (im == null) return;
         float sc2 = ks;
+        if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == HydroRules.DK_HEART) sc2 *= 1.6f * (1f + 0.06f * (float) Math.sin(now * 3.0 + prA[i])); // Bloom Heart: big and pulsing
+        else if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == HydroRules.DK_FEEDER) sc2 *= 0.75f;
         drawShadow(c, px, py - 2, Math.max(10, Math.round(im.w() * sc2 * 0.36f)));
         bmp.setColorFilter(shadeAt(px, py - im.ay * ks * 0.3f, prKind[i] == DEST_PROP ? 0.45f : FLOOR_PROP));
         bmp.setAlpha(255);
@@ -811,10 +796,10 @@ public final class WorldRenderer {
             if (px >= -300 && px <= scrW + 300 && py >= -300 && py <= scrH + 300) light.add(px, py - 30f * ks, 160f * sc * pu, 0.9f, Lighting.WARM);
         }
         for (int i = 0; i < s.destN && light.n < Lighting.MAX - 3; i++) {
-            if (s.destKind[i] != Sim.DK_NEST) continue;
+            if (s.destKind[i] != Sim.DK_NEST && s.destKind[i] != HydroRules.DK_HEART) continue;
             int px = sx(s.destX[i]), py = sy(s.destY[i]);
             if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
-            light.add(px, py - 20f * ks, 130f * sc * pu, 0.9f, Lighting.GREEN);
+            light.add(px, py - 20f * ks, (s.destKind[i] == HydroRules.DK_HEART ? 190f : 130f) * sc * pu, 0.9f, Lighting.GREEN);
         }
         for (int i = 0; i < p.ventN && light.n < Lighting.MAX - 3; i++) {
             if (p.ventBurst[i] <= 0f) continue;
@@ -1062,6 +1047,9 @@ public final class WorldRenderer {
             case RefineryRules.DK_FUEL: return "prop.fuel_tank";
             case WreckRules.DK_GENERATOR: return "prop.generator"; // v1.4 Wreck: a generator (disables a gravity well when broken)
             case WreckRules.DK_CRATE: return "prop.cargo_crate"; // v1.4 Wreck: a cargo crate (30% gold)
+            case HydroRules.DK_HEART: return "prop.lumen_growth"; // v1.4 Hydroponic Vaults
+            case HydroRules.DK_TANKER: return "prop.water_tanker";
+            case HydroRules.DK_FEEDER: return "prop.spore_nest";
             default: return "CANDELABRA".equals(type) ? "prop.supply_chest" : "prop.explosive_barrel";
         }
     }
