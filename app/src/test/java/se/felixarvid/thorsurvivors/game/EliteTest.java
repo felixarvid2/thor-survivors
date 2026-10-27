@@ -175,6 +175,7 @@ public class EliteTest {
         // and the scheduler uses it
         for (int[] c : new int[][]{{200, 1}, {800, 2}, {1500, 3}}) {
             Sim s = sim("FLATS", c[0]);
+            s.rules.addonsEnabled = false; // chunk E: the 24:45 convoy brings an elite escort of its own; this test is the elite schedule
             s.noSpawns = false;
             s.time = c[0];
             s.nextEliteAt = c[0];

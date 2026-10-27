@@ -29,9 +29,10 @@ public interface StageFx {
     StageFx NONE = new StageFx() {
     };
     StageFx FLATS = new FlatsFx();
+    StageFx MINES = new MinesFx();
 
     /** The drawing hooks of a stage key; {@link #NONE} for a stage without any. */
     static StageFx forKey(String key) {
-        return "FLATS".equals(key) ? FLATS : NONE;
+        return "FLATS".equals(key) ? FLATS : "MINES".equals(key) ? MINES : NONE;
     }
 }

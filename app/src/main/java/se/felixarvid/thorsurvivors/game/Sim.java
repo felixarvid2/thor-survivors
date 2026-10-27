@@ -459,7 +459,7 @@ public final class Sim {
         collectFind(kind);
     }
 
-    private void collectFind(int kind) {
+    void collectFind(int kind) { // package-private for AddonOps (chunk E): the convoy's Arms Crate
         sound.emit(SoundEvents.CHEST_OPEN);
         if (kind == FIND_GEAR) {
             toast("GEAR LOCKER", 0xFF4FA8FF);
@@ -871,7 +871,7 @@ public final class Sim {
         return false;
     }
 
-    private void breakDest(int i) {
+    void breakDest(int i) { // package-private for AddonOps (chunk E): lightning breaks only the barrels
         broken[brokenHead] = destKey[i];
         brokenHead = (brokenHead + 1) % broken.length;
         brokenN = Math.min(broken.length, brokenN + 1);
@@ -939,6 +939,7 @@ public final class Sim {
             spark(bx, by - 10f, 0xFFFFA030, 14);
             spark(bx, by, 0xFF3A3028, 8);
             screenShake(0.12f);
+            rules.onBlast(bx, by, BARREL_R); // chunk E: firedamp pockets catch
             int n = query(bx, by, BARREL_R + 40f);
             for (int k = 0; k < n; k++) {
                 Enemy e = enemies[qbuf[k]];
@@ -1373,7 +1374,7 @@ public final class Sim {
                 continue;
             }
             if (e.sleeping) continue; // an outpost guard that has not woken: stands still
-            if (d2 > RECYCLE_DIST * RECYCLE_DIST && e.type.arch != EnemyDef.ARCH_TENTACLE) { // far behind the player: recycle to the opposite edge
+            if (d2 > RECYCLE_DIST * RECYCLE_DIST && e.type.arch != EnemyDef.ARCH_TENTACLE && !rules.keepFar(e)) { // far behind the player: recycle to the opposite edge
                 recycle(e, dx, dy, (float) Math.sqrt(d2));
                 continue;
             }
