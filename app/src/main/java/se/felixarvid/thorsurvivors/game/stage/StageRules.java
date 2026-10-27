@@ -111,6 +111,32 @@ public abstract class StageRules {
         return 1f;
     }
 
+    // ---- v1.4 stage destructibles (chunk B, Hydroponic Vaults): Sim.DK_HEART / DK_TANKER / DK_FEEDER
+
+    /** The kind of the destructible that cell (cx, cy) of 500 u gets, given the kind the Sim picked (a stage may swap it). */
+    public int destKindAt(int cx, int cy, int kind) {
+        return kind;
+    }
+
+    /** Called when the Sim re-lists the standing destructibles around cell (cx, cy): add the stage's own with {@code Sim.addStageDest}. */
+    public void addDests(int cx, int cy) {
+    }
+
+    /** A hit of {@code dmg} on a stage destructible (kind {@code Sim.DK_HEART}) with this key: true while it survives, false breaks it. */
+    public boolean destHit(int kind, long key, float dmg) {
+        return false;
+    }
+
+    /** A stage destructible (DK_HEART, DK_TANKER, DK_FEEDER) was broken at (x, y). */
+    public void destBroken(int kind, float x, float y, long key) {
+    }
+
+    /** Multiplier on the hero's passive regeneration (Hydro: 0 inside a growth patch). */
+    public float regenMul() {
+        return 1f;
+    }
+    // ---- end v1.4 stage destructibles
+
     /** True when the run places Weapon Caches, Gear Lockers and the Salvager (the Ashfall stages; not the legacy FOREST / LIBRARY). */
     public boolean hasFinds() {
         return true;

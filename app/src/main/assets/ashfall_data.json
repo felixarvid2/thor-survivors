@@ -1426,7 +1426,7 @@
    "rows": [
     {
      "minute": 0,
-     "minimum": 10,
+     "minimum": 9,
      "frequency": 1400,
      "enemies": [
       "COLONIST"
@@ -1435,7 +1435,7 @@
     },
     {
      "minute": 1,
-     "minimum": 14,
+     "minimum": 13,
      "frequency": 1200,
      "enemies": [
       "COLONIST",
@@ -1445,7 +1445,7 @@
     },
     {
      "minute": 2,
-     "minimum": 18,
+     "minimum": 16,
      "frequency": 1100,
      "enemies": [
       "COLONIST",
@@ -1455,34 +1455,31 @@
     },
     {
      "minute": 3,
-     "minimum": 22,
+     "minimum": 20,
      "frequency": 1000,
      "enemies": [
       "COLONIST",
-      "SPORE_HOUND",
-      "SERGEANT"
+      "SPORE_HOUND"
      ],
      "bosses": []
     },
     {
      "minute": 4,
-     "minimum": 26,
+     "minimum": 23,
      "frequency": 900,
      "enemies": [
       "COLONIST",
-      "SPORE_HOUND",
-      "SERGEANT"
+      "SPORE_HOUND"
      ],
      "bosses": []
     },
     {
      "minute": 5,
-     "minimum": 40,
+     "minimum": 36,
      "frequency": 1100,
      "enemies": [
-      "SPORE_HOUND",
-      "SERGEANT",
-      "SPORE_CARRIER"
+      "COLONIST",
+      "SPORE_HOUND"
      ],
      "bosses": [
       "CARGO_LOADER"
@@ -1506,57 +1503,60 @@
     },
     {
      "minute": 6,
-     "minimum": 40,
+     "minimum": 36,
      "frequency": 1000,
      "enemies": [
       "COLONIST",
-      "SERGEANT",
+      "SPORE_HOUND",
       "SPORE_CARRIER"
      ],
      "bosses": []
     },
     {
      "minute": 7,
-     "minimum": 40,
+     "minimum": 36,
      "frequency": 900,
      "enemies": [
       "COLONIST",
       "SPORE_HOUND",
-      "SECURITY_DRONE"
+      "SPORE_CARRIER",
+      "SERGEANT"
      ],
      "bosses": []
     },
     {
      "minute": 8,
-     "minimum": 40,
+     "minimum": 36,
      "frequency": 850,
      "enemies": [
       "SPORE_HOUND",
+      "SPORE_CARRIER",
       "SERGEANT",
-      "SECURITY_DRONE",
-      "SPORE_CARRIER"
+      "GARDENER"
      ],
      "bosses": []
     },
     {
      "minute": 9,
-     "minimum": 40,
+     "minimum": 36,
      "frequency": 800,
      "enemies": [
       "COLONIST",
-      "WELDER",
-      "SECURITY_DRONE"
+      "SPORE_CARRIER",
+      "GARDENER",
+      "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 10,
-     "minimum": 42,
+     "minimum": 38,
      "frequency": 800,
      "enemies": [
       "SPORE_HOUND",
-      "WELDER",
-      "SPORE_CARRIER"
+      "SPORE_CARRIER",
+      "GARDENER",
+      "WELDER"
      ],
      "bosses": [
       "SMELTER_FOREMAN"
@@ -1580,58 +1580,62 @@
     },
     {
      "minute": 11,
-     "minimum": 54,
+     "minimum": 49,
      "frequency": 750,
      "enemies": [
       "COLONIST",
-      "SERGEANT",
-      "WELDER"
+      "SPORE_CARRIER",
+      "GARDENER",
+      "SERGEANT"
      ],
      "bosses": []
     },
     {
      "minute": 12,
-     "minimum": 58,
+     "minimum": 52,
      "frequency": 750,
      "enemies": [
       "SPORE_HOUND",
-      "SECURITY_DRONE",
       "SPORE_CARRIER",
+      "GARDENER",
       "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 13,
-     "minimum": 61,
+     "minimum": 55,
      "frequency": 700,
      "enemies": [
       "COLONIST",
-      "SERGEANT",
-      "SECURITY_DRONE"
+      "SPORE_HOUND",
+      "SPORE_CARRIER",
+      "GARDENER",
+      "SERGEANT"
      ],
      "bosses": []
     },
     {
      "minute": 14,
-     "minimum": 65,
+     "minimum": 58,
      "frequency": 700,
      "enemies": [
       "SPORE_HOUND",
-      "WELDER",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER"
      ],
      "bosses": []
     },
     {
      "minute": 15,
-     "minimum": 68,
+     "minimum": 61,
      "frequency": 650,
      "enemies": [
       "COLONIST",
-      "SERGEANT",
-      "SMELTER",
-      "SPORE_CARRIER"
+      "SPORE_CARRIER",
+      "GARDENER",
+      "VIRE"
      ],
      "bosses": [
       "SLAGBORN"
@@ -1655,44 +1659,48 @@
     },
     {
      "minute": 16,
-     "minimum": 95,
+     "minimum": 86,
      "frequency": 600,
      "enemies": [
       "SPORE_HOUND",
-      "SECURITY_DRONE",
+      "SPORE_CARRIER",
+      "GARDENER",
       "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 17,
-     "minimum": 110,
+     "minimum": 99,
      "frequency": 570,
      "enemies": [
       "COLONIST",
-      "SERGEANT",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER"
      ],
      "bosses": []
     },
     {
      "minute": 18,
-     "minimum": 137,
+     "minimum": 123,
      "frequency": 540,
      "enemies": [
       "SPORE_HOUND",
       "SPORE_CARRIER",
-      "WELDER",
-      "SECURITY_DRONE"
+      "GARDENER",
+      "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 19,
-     "minimum": 163,
+     "minimum": 147,
      "frequency": 510,
      "enemies": [
       "COLONIST",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER",
       "VIRE"
      ],
@@ -1700,13 +1708,14 @@
     },
     {
      "minute": 20,
-     "minimum": 162,
+     "minimum": 146,
      "frequency": 480,
      "enemies": [
       "SPORE_HOUND",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SERGEANT",
-      "VIRE",
-      "WELDER"
+      "VIRE"
      ],
      "bosses": [
       "VIRE_AWAKENED"
@@ -1730,33 +1739,36 @@
     },
     {
      "minute": 21,
-     "minimum": 206,
+     "minimum": 185,
      "frequency": 460,
      "enemies": [
       "COLONIST",
-      "SECURITY_DRONE",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER"
      ],
      "bosses": []
     },
     {
      "minute": 22,
-     "minimum": 222,
+     "minimum": 200,
      "frequency": 440,
      "enemies": [
       "SPORE_HOUND",
       "SPORE_CARRIER",
+      "GARDENER",
       "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 23,
-     "minimum": 238,
+     "minimum": 214,
      "frequency": 420,
      "enemies": [
       "COLONIST",
-      "SERGEANT",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER",
       "VIRE"
      ],
@@ -1764,22 +1776,24 @@
     },
     {
      "minute": 24,
-     "minimum": 254,
+     "minimum": 229,
      "frequency": 400,
      "enemies": [
       "SPORE_HOUND",
-      "SECURITY_DRONE",
-      "WELDER",
-      "SPORE_CARRIER"
+      "SPORE_CARRIER",
+      "GARDENER",
+      "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 25,
-     "minimum": 230,
+     "minimum": 207,
      "frequency": 380,
      "enemies": [
       "COLONIST",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER",
       "VIRE"
      ],
@@ -1806,58 +1820,56 @@
     },
     {
      "minute": 26,
-     "minimum": 278,
+     "minimum": 250,
      "frequency": 360,
      "enemies": [
       "SPORE_HOUND",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SERGEANT",
-      "SECURITY_DRONE",
       "WELDER"
      ],
      "bosses": []
     },
     {
      "minute": 27,
-     "minimum": 285,
+     "minimum": 256,
      "frequency": 340,
      "enemies": [
       "COLONIST",
+      "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER",
-      "VIRE",
-      "SPORE_CARRIER"
+      "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 28,
-     "minimum": 292,
+     "minimum": 263,
      "frequency": 320,
      "enemies": [
       "SPORE_HOUND",
+      "SPORE_CARRIER",
+      "GARDENER",
       "WELDER",
-      "SMELTER",
       "VIRE"
      ],
      "bosses": []
     },
     {
      "minute": 29,
-     "minimum": 255,
+     "minimum": 270,
      "frequency": 300,
      "enemies": [
       "COLONIST",
       "SPORE_HOUND",
-      "SERGEANT",
-      "SECURITY_DRONE",
-      "WELDER",
       "SPORE_CARRIER",
+      "GARDENER",
       "SMELTER",
       "VIRE"
      ],
-     "bosses": [
-      "SLAGBORN",
-      "SMELTER_FOREMAN"
-     ],
+     "bosses": [],
      "treasure": {
       "chances": [
        3,
@@ -1936,7 +1948,8 @@
    "hordes": {
     "types": [
      "COLONIST",
-     "SPORE_HOUND"
+     "SPORE_HOUND",
+     "MYCELID"
     ],
     "bursts": [
      {
@@ -1952,7 +1965,7 @@
       "frequency": 250
      },
      {
-      "at": 975,
+      "at": 990,
       "length": 16,
       "minimum": 130,
       "frequency": 250
@@ -1990,7 +2003,7 @@
     },
     {
      "t": 750,
-     "boss": "FROZEN_WELDER"
+     "boss": "VERDANT_WELDER"
     },
     {
      "t": 1050,
@@ -2001,35 +2014,23 @@
      "boss": "OVERSEER_UNIT_7"
     },
     {
-     "t": 1650,
-     "boss": "GOVERNOR_KADE"
+     "t": 1680,
+     "boss": "ROOTMIND"
     }
    ],
    "events": [
     {
-     "id": "SIGNAL_TOWER",
-     "at": 1260
-    },
-    {
-     "id": "SLAG_RAIN",
-     "at": 1380
-    },
-    {
-     "id": "LUMEN_SURGE",
-     "at": 1440
-    },
-    {
      "id": "BEACON",
      "at": 1560
-    },
-    {
-     "id": "TIDE",
-     "at": 1680
     }
    ],
    "difficulty": 3,
    "blurb": "Overgrown domes. Burn the hearts or drown.",
-   "rules": {},
+   "rules": {
+    "firstHeart": 120,
+    "purgeAt": 1260,
+    "bloomAt": 1440
+   },
    "unlock": {
     "key": "MINES",
     "seconds": 900
@@ -4393,6 +4394,130 @@
     "up": 1.2,
     "hitR": 34
    }
+  },
+  "GARDENER": {
+   "name": "Gardener",
+   "archetype": "HEALER",
+   "maxHp": 3.0,
+   "speed": 100,
+   "power": 12,
+   "xp": 3,
+   "sprite": "infected_colonist",
+   "description": "Pulses a heal over every enemy near it. Kill it first.",
+   "params": {
+    "radius": 12,
+    "tintRGB": 7328623,
+    "drawScale": 1.1
+   }
+  },
+  "MYCELID": {
+   "name": "Mycelid",
+   "archetype": "FAST_PACK",
+   "maxHp": 0.1667,
+   "speed": 160,
+   "power": 7,
+   "xp": 1,
+   "sprite": "spore_hound",
+   "params": {
+    "radius": 7,
+    "group": 8,
+    "weave": 0.8,
+    "phase": 1.0,
+    "tintRGB": 12576968,
+    "drawScale": 0.7
+   }
+  },
+  "VERDANT_WELDER": {
+   "name": "Verdant Welder",
+   "archetype": "BOSS",
+   "boss": true,
+   "maxHp": 420,
+   "speed": 70,
+   "power": 24,
+   "xp": 100,
+   "sprite": "welder",
+   "scale": 2.0,
+   "description": "Three chained dashes; every dash sows growth patches.",
+   "params": {
+    "pattern": 7,
+    "hpRamp": 20,
+    "radius": 12,
+    "tintRGB": 7327840,
+    "gearSlot": 4,
+    "xpPileLevels": 1.5,
+    "pre": 0.9,
+    "dashLen": 190,
+    "dash": 0.45,
+    "gap": 0.25,
+    "lineW": 46,
+    "dashDmg": 16,
+    "recover": 2.0,
+    "gapMin": 2.0,
+    "gapMax": 3.5,
+    "range": 380,
+    "patchEvery": 1000000,
+    "patchR": 38,
+    "patchT": 0.02,
+    "ringR": 140,
+    "ringExtra": 0.3,
+    "ringDmg": 14,
+    "ringStun": 0.4
+   }
+  },
+  "ROOTMIND": {
+   "name": "The Rootmind",
+   "archetype": "BOSS",
+   "boss": true,
+   "maxHp": 1800,
+   "speed": 0,
+   "power": 30,
+   "xp": 250,
+   "sprite": "spore_carrier",
+   "scale": 3.5,
+   "description": "Stands in a dome behind three shield hearts. Burn the hearts, then hit it.",
+   "params": {
+    "pattern": 11,
+    "hpRamp": 28,
+    "radius": 20,
+    "tintRGB": 13164656,
+    "xpPileLevels": 1.5,
+    "phase1Hp": 0.66,
+    "phase2Hp": 0.33,
+    "ring": 12,
+    "ringSpeed": 200,
+    "ringDmg": 12,
+    "ringEvery": 3.5,
+    "ringEvery3": 5,
+    "lanes": 2,
+    "laneLen": 560,
+    "laneW": 46,
+    "laneDps": 22,
+    "laneWarn": 1.0,
+    "laneLife": 3.2,
+    "laneSpin": 0.85,
+    "laneGap": 2.0,
+    "hounds": 6,
+    "houndEvery": 9,
+    "sporeEvery": 10
+   }
+  },
+  "ROOT_HEART": {
+   "name": "Root Heart",
+   "archetype": "TENTACLE",
+   "maxHp": 9.2,
+   "speed": 0,
+   "power": 0,
+   "xp": 2,
+   "knockback": 0,
+   "sprite": "lumen_tentacle",
+   "params": {
+    "radius": 18,
+    "warn": 1.0,
+    "up": 99999,
+    "hitR": 34,
+    "drawScale": 1.4,
+    "tintRGB": 13164656
+   }
   }
  },
  "elites": {
@@ -4623,6 +4748,17 @@
    },
    "unique": true,
    "source": "LUMEN_TENTACLE"
+  },
+  "ROOTMINDS_HEARTWOOD": {
+   "name": "Rootmind's Heartwood",
+   "slot": "NECK",
+   "icon": "unique_ashen_heartwood",
+   "values": {
+    "healMul": 0.25,
+    "heartVacuum": 0.25
+   },
+   "unique": true,
+   "source": "ROOTMIND"
   }
  },
  "equipmentRules": {

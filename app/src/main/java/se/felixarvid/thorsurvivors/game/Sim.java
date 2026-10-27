@@ -187,6 +187,8 @@ public final class Sim {
     static final float DEST_CELL = 500f, DEST_R = 16f, DEST_CLEAR = 300f, PYLON_CELL = 2000f;
     /** Destructible kinds: the old brazier / candelabra (drops only), explosive barrel, supply chest, stim pylon. */
     public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3, DK_NEST = 4;
+    /** v1.4 stage destructibles (Hydroponic Vaults, see {@code game/stage/HydroRules}): a Bloom Heart, a water tanker, a spore feeder. */
+    public static final int DK_HEART = 5, DK_TANKER = 6, DK_FEEDER = 7;
     /** Barrel blast (design 9.1): radius 80, 5P (50) to every enemy and to the hero if within range; the hero takes 15 (an approximation: 5P on the hero would be half its health). */
     public static final float BARREL_R = 80f, BARREL_DMG = 50f, BARREL_HERO_DMG = 10f;
     /** A stim pylon heals 30% of max HP when destroyed; it works again 60 s after its last use. */
@@ -640,7 +642,7 @@ public final class Sim {
         if (bannerT > 0) bannerT -= dt;
         for (int i = 0; i < MAX_TOASTS; i++) if (toastT[i] > 0f) toastT[i] -= dt;
         if (winDelay > 0f && (winDelay -= dt) <= 0f && ended == 0) ended = 2; // The First is dead: the run is won
-        if (stats.regen > 0 && hp < maxHp) hp = Math.min(maxHp, hp + (float) stats.regen * dt);
+        if (stats.regen > 0 && hp < maxHp) hp = Math.min(maxHp, hp + (float) stats.regen * dt * rules.regenMul() * (float) stats.healMul);
         if (time >= stage.timeLimit) ended = 2;
     }
 
@@ -757,6 +759,7 @@ public final class Sim {
             placeX = x;
             placeY = y;
             placeKind = !mixedDest() ? DK_LEGACY : WorldGen.unit(WorldGen.hash(cx, cy, 698)) < 0.58f ? DK_BARREL : DK_CHEST;
+            placeKind = rules.destKindAt(cx, cy, placeKind); // v1.4: a stage may swap the kind (Hydro: tankers and feeders)
             return true;
         }
         return false;
@@ -818,6 +821,7 @@ public final class Sim {
             }
         }
         pois.addDests(cx, cy);
+        rules.addDests(cx, cy); // v1.4: stage destructibles that live outside the cell grid (Bloom Hearts)
         if (!stage.destructible.equals("MIXED_MINES")) return;
         // stim pylons: rare, one per ~2000 x 2000 u
         int p0x = (int) Math.floor((cx - 2) * DEST_CELL / PYLON_CELL), p1x = (int) Math.floor((cx + 3) * DEST_CELL / PYLON_CELL);
@@ -846,6 +850,15 @@ public final class Sim {
 
     /** A hit on destructible i: a nest loses hit points first, everything else breaks. */
     private void strikeDest(int i) {
+        if (destKind[i] == DK_HEART) { // v1.4 Bloom Heart: the stage's rules keep its health (a blast does 80)
+            if (rules.destHit(destKind[i], destKey[i], hitDestDmg >= BARREL_DMG ? 80f : hitDestDmg)) {
+                addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 60f, 0f, 0.12f, 0, false);
+                spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
+                return;
+            }
+            breakDest(i);
+            return;
+        }
         if (destKind[i] == DK_NEST && (destHp[i] -= hitDestDmg) > 0f) {
             addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 50f, 0f, 0.12f, 0, false);
             spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
@@ -902,6 +915,11 @@ public final class Sim {
                 break;
             case DK_NEST:
                 pois.nestBroken(x, y, key);
+                break;
+            case DK_HEART: // v1.4 stage destructibles: the rules do the rest
+            case DK_TANKER:
+            case DK_FEEDER:
+                rules.destBroken(kind, x, y, key);
                 break;
             default: // the old brazier / candelabra
                 sound.emit(SoundEvents.BRAZIER_BREAK);
@@ -1054,6 +1072,30 @@ public final class Sim {
     }
 
     /** Tests and screenshot tools: breaks the destructibles touching a circle, as a weapon hit does. */
+    // ---- v1.4 stage destructibles (chunk B, Hydroponic Vaults): the rules add and break their own entries through these
+    /** Adds a stage destructible (Bloom Heart) to the standing list with a display health; ignored when the list is full or the key was broken. */
+    public void addStageDest(float x, float y, int kind, long key, float hp) {
+        int before = destN;
+        addDest(x, y, kind, key);
+        if (destN > before) destHp[before] = hp;
+    }
+
+    /** Breaks the standing destructible with this key (no-op when it is not in the list). */
+    public void breakDestByKey(long key) {
+        for (int i = 0; i < destN; i++) {
+            if (destKey[i] == key) {
+                breakDest(i);
+                return;
+            }
+        }
+    }
+
+    /** Re-lists the standing destructibles on the next step (a stage added one outside the cell grid). */
+    public void invalidateDests() {
+        destCx = destCy = Integer.MIN_VALUE;
+    }
+    // ---- end v1.4 stage destructibles
+
     public void hitDestForTest(float x, float y, float r) {
         hitDest(x, y, r);
     }
@@ -2165,6 +2207,7 @@ public final class Sim {
     }
 
     public void heal(float amount) {
+        amount *= (float) stats.healMul; // Rootmind's Heartwood: +25% healing from every source (1 without it)
         float before = hp;
         hp = Math.min(maxHp, hp + amount);
         if (hp - before >= 1f) addText(px, py - 20f, Math.round(hp - before), false, true);
@@ -2239,12 +2282,12 @@ public final class Sim {
         EquipDef u = e.type.def.ashfallBoss ? data.uniqueBySource.get(e.type.def.key) : null;
         if (u != null && equip.def[u.slot] != u) dropEquipment(e.x + 34f, e.y + 6f, u, Equipment.UNIQUE);
         if (e.type.def.ashfallBoss && e.type.pattern >= 6) timedBossRewards(e);
-        if (e.type.pattern == 5 && !firstKilled) {
+        if ((e.type.pattern == 5 || e.type.pattern >= 11) && !firstKilled) { // The First and the v1.4 stage finales (11 Rootmind, 12 Ironheart, 13 Pillar) end the run in victory
             firstKilled = true;
             winDelay = 2.2f;
             invuln = Math.max(invuln, 3f);
             screenFlash = Math.max(screenFlash, 0.5f);
-            toast("THE FIRST IS DEAD  -  GOLD x2", 0xFF39FF88);
+            toast(e.type.pattern == 5 ? "THE FIRST IS DEAD  -  GOLD x2" : e.type.nameUpper + " IS DEAD  -  GOLD x2", 0xFF39FF88);
         }
     }
 

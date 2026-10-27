@@ -210,6 +210,29 @@ public final class WorldRenderer {
         }
     }
 
+    // ---- v1.4 stage fx access (the stages' StageFx draw in world units through these)
+    public int screenX(float wx) {
+        return sx(wx);
+    }
+
+    public int screenY(float wy) {
+        return sy(wy);
+    }
+
+    /** Pixels per world unit and the 1080p-relative UI scale of this frame. */
+    public float unitScale() {
+        return sc;
+    }
+
+    public float uiScale() {
+        return ks;
+    }
+
+    public double clock() {
+        return now;
+    }
+    // ---- end v1.4 stage fx access
+
     private int sx(float wx) {
         return Math.round(wx * sc) + ox;
     }
@@ -404,8 +427,8 @@ public final class WorldRenderer {
     }
 
     // v1.3 boss recolours: a luminance x tint colour matrix per brightness step for every enemy type with a tintRGB (made once)
-    private final int[] tintRgb = new int[12];
-    private final ColorFilter[][] tintSet = new ColorFilter[12][];
+    private final int[] tintRgb = new int[24]; // v1.4: the new stages add tints of their own
+    private final ColorFilter[][] tintSet = new ColorFilter[24][];
     private int tintN;
     private GameData tintFor;
 
@@ -544,6 +567,8 @@ public final class WorldRenderer {
         }
         if (im == null) return;
         float sc2 = ks;
+        if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == Sim.DK_HEART) sc2 *= 1.6f * (1f + 0.06f * (float) Math.sin(now * 3.0 + prA[i])); // Bloom Heart: big and pulsing
+        else if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == Sim.DK_FEEDER) sc2 *= 0.75f;
         drawShadow(c, px, py - 2, Math.max(10, Math.round(im.w() * sc2 * 0.36f)));
         bmp.setColorFilter(shadeAt(px, py - im.ay * ks * 0.3f, prKind[i] == DEST_PROP ? 0.45f : FLOOR_PROP));
         bmp.setAlpha(255);
@@ -766,10 +791,10 @@ public final class WorldRenderer {
             if (px >= -300 && px <= scrW + 300 && py >= -300 && py <= scrH + 300) light.add(px, py - 30f * ks, 160f * sc * pu, 0.9f, Lighting.WARM);
         }
         for (int i = 0; i < s.destN && light.n < Lighting.MAX - 3; i++) {
-            if (s.destKind[i] != Sim.DK_NEST) continue;
+            if (s.destKind[i] != Sim.DK_NEST && s.destKind[i] != Sim.DK_HEART) continue;
             int px = sx(s.destX[i]), py = sy(s.destY[i]);
             if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
-            light.add(px, py - 20f * ks, 130f * sc * pu, 0.9f, Lighting.GREEN);
+            light.add(px, py - 20f * ks, (s.destKind[i] == Sim.DK_HEART ? 190f : 130f) * sc * pu, 0.9f, Lighting.GREEN);
         }
         for (int i = 0; i < p.ventN && light.n < Lighting.MAX - 3; i++) {
             if (p.ventBurst[i] <= 0f) continue;
@@ -1013,6 +1038,9 @@ public final class WorldRenderer {
             case Sim.DK_CHEST: return "prop.supply_chest";
             case Sim.DK_PYLON: return "prop.stim_pylon";
             case Sim.DK_NEST: return "prop.spore_nest";
+            case Sim.DK_HEART: return "prop.lumen_growth"; // v1.4 Hydroponic Vaults
+            case Sim.DK_TANKER: return "prop.water_tanker";
+            case Sim.DK_FEEDER: return "prop.spore_nest";
             default: return "CANDELABRA".equals(type) ? "prop.supply_chest" : "prop.explosive_barrel";
         }
     }
