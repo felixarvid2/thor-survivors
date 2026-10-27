@@ -785,6 +785,11 @@ public final class Sim {
         return false;
     }
 
+    /** A destructible of a stage's own kind ({@link #DK_STAGE} and up), once per {@code key} until it is broken. Called from {@link StageRules#addDests}. */
+    public void addStageDest(float x, float y, int kind, long key) {
+        addDest(x, y, kind, key);
+    }
+
     void addDest(float x, float y, int kind, long key) {
         if (destN >= MAX_DEST || isBroken(key)) return;
         destHp[destN] = Pois.NEST_HP;

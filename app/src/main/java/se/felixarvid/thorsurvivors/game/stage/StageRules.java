@@ -111,7 +111,7 @@ public abstract class StageRules {
         return 1f;
     }
 
-    /** A refresh of the destructibles around cell (cx, cy) (500 u cells): add the stage's own ones ({@code Sim.DK_STAGE} and up). */
+    /** The stage's own destructibles of the 5 x 5 cells of 500 u around (cx, cy) (called when the hero enters a new cell): add them with {@code Sim.addStageDest(x, y, kind >= Sim.DK_STAGE, key)}; a pure function of the cell, the key is unique per object. */
     public void addDests(int cx, int cy) {
     }
 

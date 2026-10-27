@@ -57,7 +57,7 @@ public class EquipmentTest {
     public void eighteenBaseItemsThreePerSlotAndSixUniques() throws Exception {
         GameData d = d();
         assertEquals(18, d.baseItems.size());
-        assertTrue("18 base items and at least the six uniques of v1.3 (the v1.4 stages add more)", d.equipList.size() >= 24);
+        assertTrue("18 base items and at least the six uniques of v1.3 and the Echo of the Pillar (the v1.4 stages add more)", d.equipList.size() >= 25);
         int[] perSlot = new int[EquipDef.SLOTS];
         for (EquipDef e : d.baseItems) perSlot[e.slot]++;
         for (int n : perSlot) assertEquals(3, n);
