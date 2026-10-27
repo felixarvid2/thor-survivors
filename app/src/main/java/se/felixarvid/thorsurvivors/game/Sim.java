@@ -186,6 +186,8 @@ public final class Sim {
             Entities.K_OROLOGION, Entities.K_ROSARY, Entities.K_CLOVER};
     static final float DEST_CELL = 500f, DEST_R = 16f, DEST_CLEAR = 300f, PYLON_CELL = 2000f;
     /** Destructible kinds: the old brazier / candelabra (drops only), explosive barrel, supply chest, stim pylon. */
+    /** Destructible kinds from here up belong to the stage's rules (StageRules.addDests / destBroken). */
+    public static final int DK_STAGE = 32;
     public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3, DK_NEST = 4;
     /** Barrel blast (design 9.1): radius 80, 5P (50) to every enemy and to the hero if within range; the hero takes 15 (an approximation: 5P on the hero would be half its health). */
     public static final float BARREL_R = 80f, BARREL_DMG = 50f, BARREL_HERO_DMG = 10f;
@@ -818,6 +820,7 @@ public final class Sim {
             }
         }
         pois.addDests(cx, cy);
+        rules.addDests(cx, cy); // v1.4: a stage's own destructibles (kinds from DK_STAGE up)
         if (!stage.destructible.equals("MIXED_MINES")) return;
         // stim pylons: rare, one per ~2000 x 2000 u
         int p0x = (int) Math.floor((cx - 2) * DEST_CELL / PYLON_CELL), p1x = (int) Math.floor((cx + 3) * DEST_CELL / PYLON_CELL);
@@ -846,6 +849,7 @@ public final class Sim {
 
     /** A hit on destructible i: a nest loses hit points first, everything else breaks. */
     private void strikeDest(int i) {
+        if (destKind[i] >= DK_STAGE && !rules.destHit(destKind[i])) return; // v1.4: an armoured stage destructible shrugs it off
         if (destKind[i] == DK_NEST && (destHp[i] -= hitDestDmg) > 0f) {
             addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 50f, 0f, 0.12f, 0, false);
             spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
@@ -886,6 +890,7 @@ public final class Sim {
         destHp[i] = destHp[destN];
         destT[i] = destT[destN];
         destsBroken++;
+        if (kind >= DK_STAGE && rules.destBroken(kind, x, y)) return; // v1.4: the stage's own kinds
         switch (kind) {
             case DK_BARREL:
                 explodeBarrel(x, y);
@@ -1207,6 +1212,11 @@ public final class Sim {
         if (!boss && enemyN >= WaveDirector.ENEMY_CAP) return;
         if (!boss && t.ranged && rangedAlive() >= RANGED_CAP) {
             EnemyType c = type("COLONIST");
+            if (c != null) t = c;
+        }
+        if (!boss) { // v1.4: a stage may cap a type (Refinery: Ironclads) by sending another one
+            String swap = rules.spawnSwap(t);
+            EnemyType c = swap == null ? null : type(swap);
             if (c != null) t = c;
         }
         Enemy e = enemies[enemyN++];
@@ -1819,6 +1829,11 @@ public final class Sim {
         if (e.dead) return;
         e.dead = true;
         e.hp = 0;
+    }
+
+    /** The finale ending (RefineryOps.winRun): the run is won 2.2 s from now. */
+    void winDelayStart() {
+        winDelay = 2.2f;
     }
 
     private void reap() {

@@ -473,6 +473,7 @@ public final class PanelRenderer {
         k.text(c, "XP", m, 198f * u, 30f * u, Skin.LUMEN, Paint.Align.LEFT);
         k.bar(c, bl, 174f * u, w - m, 206f * u, s.xp / s.xpNeed, 0xFF7CFFB4, 0xFF1FB85E, 0);
         k.shadowed(c, cs(5, "", (int) s.xp, " / ", s.xpNeed, ""), (bl + w - m) / 2f, 199f * u, 22f * u, 0xFFEFFFF6, Paint.Align.CENTER);
+        StageFx.forKey(s.stage.key).hud(c, s, m + 250f * u, 214f * u, w - m - 290f * u, 240f * u, u); // v1.4: a stage's own meter in the hero row (Refinery heat)
         // status line: the hero, and what is burning, slowing or rotting it
         statusLine(c, s, m, 212f * u, w - m, u);
         // main weapon row: the hero's weapon and its four branches (3 pips each)

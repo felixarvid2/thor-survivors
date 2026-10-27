@@ -391,12 +391,94 @@ STAGE_REGISTRY = {
                   unlock=("MINES", 900), rules={}, copy_of="FLATS", lighting=dict(ambient=0.71, radius=240),
                   mods=dict(EnemyHealthMultiplier=1.3, EnemySpeed=1.0, GoldMultiplier=1.2, XPBonus=1.1)),
     "REFINERY": dict(name="Refinery District", difficulty=4, blurb="Belts, furnaces, heat. Never stand still.",
-                     unlock=("HYDRO", 1200), rules={}, copy_of="FLATS", lighting=dict(ambient=0.74, radius=240),
-                     mods=dict(EnemyHealthMultiplier=1.4, EnemySpeed=1.05, GoldMultiplier=1.35, XPBonus=1.1)),
+                     unlock=("HYDRO", 1200), rules={}, copy_of="FLATS", lighting=dict(ambient=0.55, radius=240),
+                     tune="refinery_tune",   # HP and speed relative to Flats x1.0 for now (spec: x1.4 / x1.05): with those the mid bot dies at 4.5 min on average, 0 of 12 pass 8 min
+                     mods=dict(EnemyHealthMultiplier=1.0, EnemySpeed=1.0, GoldMultiplier=1.35, XPBonus=1.1)),
     "WRECK": dict(name="Meridian Wreck", difficulty=5, blurb="A falling ship. Wells, pads, no air.",
                   unlock=("REFINERY", 1500), rules={}, copy_of="FLATS", lighting=dict(ambient=0.77, radius=230),
                   mods=dict(EnemyHealthMultiplier=1.5, EnemySpeed=1.05, GoldMultiplier=1.5, XPBonus=1.15)),
 }
+
+
+# ---------------------------------------------------------------------------------------------------------------------------
+# v1.4 chunk C: REFINERY DISTRICT ("Stay moving", spec 1.2). The roster additions, the rows, the bosses, the events and the
+# unique of the finale; the mechanics live in game/stage/RefineryRules and game/boss/IronheartAi.
+# ---------------------------------------------------------------------------------------------------------------------------
+REFINERY_ENEMIES = {
+    # welder variant: after every dash a fire patch (fireR/fireT/fireDps), immune to Burn (RefineryRules)
+    "STOKER": dict(name="Stoker", archetype="STOKER", maxHp=3.5, speed=110, power=20, xp=5, sprite="welder",
+                   params=dict(radius=16, runSpeed=300, minDist=80, maxDist=160, gapMin=2, gapMax=6, windup=0.6, dash=0.6,
+                               recover=1.0, fireR=40, fireT=3, fireDps=6, tintRGB=0xFF5A1F, drawScale=1.15)),
+    # cargo loader variant: -50% from hits, +50% from Burn / Electrify / Decay, no knockback, at most 8 alive
+    "IRONCLAD": dict(name="Ironclad", archetype="IRONCLAD", maxHp=5.0, speed=75, power=24, xp=9, knockback=0, sprite="cargo_loader",
+                     params=dict(radius=14, tintRGB=0x8A97A6, drawScale=0.8)),
+    # timed bosses (BossAi pattern 12, game/boss/IronheartAi; `variant` picks the pattern)
+    "FOREMAN_BRASS": dict(name="Foreman Brass", archetype="BOSS", boss=True, maxHp=300, speed=65, power=30, xp=100,
+                          sprite="smelter", scale=2.4,
+                          description="Carpets the floor with slag and stomps: every stomp turns all the belts around.",
+                          params=dict(pattern=12, variant=1, hpRamp=20, radius=10, tintRGB=0xFFC080, gearSlot=3, xpPileLevels=1.5,
+                                      castEvery=6, castTime=0.9, pools=5, poolR=60, poolT=3, poolDps=7, stompR=110, stompDmg=20)),
+    "STOKER_CAPTAIN": dict(name="Stoker Captain", archetype="BOSS", boss=True, maxHp=420, speed=70, power=24, xp=100,
+                           sprite="welder", scale=2.2,
+                           description="Three chained dashes, each ending in a ring of fire and a burning pool.",
+                           params=dict(pattern=12, variant=2, hpRamp=20, radius=10, tintRGB=0xFF5A1F, gearSlot=1, xpPileLevels=1.5,
+                                       pre=0.9, dashLen=200, dash=0.45, gap=0.25, lineW=46, dashDmg=16, recover=2.0, gapMin=2.0,
+                                       gapMax=3.5, range=380, dashes=3, ringR=120, ringWarn=0.55, ringDmg=14, poolR=44, poolT=3,
+                                       poolDps=7)),
+    # the finale at 28:00: Slagborn x3.2, white-hot
+    "IRONHEART": dict(name="The Ironheart", archetype="BOSS", boss=True, maxHp=1800, speed=60, power=40, xp=250,
+                      sprite="slagborn", scale=3.2,
+                      description="Belts drag you in, heat waves cross from both sides, the gates open. Make its slam smash a coolant valve.",
+                      params=dict(pattern=12, variant=0, hpRamp=28, radius=10, tintRGB=0xFFA050, gearSlot=4, xpPileLevels=2.0,
+                                  phase1Hp=0.66, phase2Hp=0.33, slamR=150, slamWarn=1.0, slamDmg=28, slamEvery=3.5, waveEvery=12,
+                                  trail=45, trailT=4, trailDps=6, ventR=230, ventWarn=1.2, ventDmg=14, ventHeat=30)),
+}
+ENEMIES.update(REFINERY_ENEMIES)
+# the Ironheart Core: Ring, dropped by the finale. Overheat limit 100 -> 130 and +15% might while the heat is above 50 (RefineryRules);
+# the hero can run hotter and hit harder for it, but the burn from 50 heat (1.5/s) and Overheat (5/s) are still there.
+UNIQUES["IRONHEART_CORE"] = ("RING", "Ironheart Core", "unique_ironheart_core", {"heatCore": 1}, "IRONHEART")
+
+KR = dict(K, STK="STOKER", IRC="IRONCLAD")
+# composition per minute (the numbers per row come from the Flats rows): Colonists and Drones from 0, Welders from 3, Smelters from 6,
+# Stokers from 9, Ironclads from 11; about 15% fewer fodder and 15% more armour than Flats.
+REFINERY_COMP = {
+    0: "COL", 1: "COL", 2: "COL DRN", 3: "COL DRN WLD", 4: "COL DRN WLD", 5: "DRN WLD SGT", 6: "COL SML SGT", 7: "DRN WLD SML",
+    8: "COL DRN SML SGT", 9: "WLD STK DRN", 10: "SML STK COL", 11: "IRC SGT WLD", 12: "DRN STK SML IRC", 13: "COL IRC SGT",
+    14: "WLD STK SML", 15: "IRC SML SGT STK", 16: "DRN STK IRC", 17: "COL SML IRC STK", 18: "WLD DRN IRC SPC", 19: "SML IRC VIR",
+    20: "STK SGT VIR IRC", 21: "DRN SML IRC", 22: "WLD STK SPC IRC", 23: "COL SML IRC VIR", 24: "DRN STK WLD IRC",
+    25: "SML IRC VIR STK", 26: "SGT DRN WLD IRC", 27: "COL SML IRC VIR", 28: "STK WLD SML IRC", 29: "COL DRN WLD SML STK IRC VIR",
+}
+REFINERY_BOSSES = {5: ["CARGO_LOADER"], 10: ["SMELTER_FOREMAN"], 15: ["SLAGBORN"], 20: ["VIRE_AWAKENED"],
+                   25: ["CARGO_LOADER", "CARGO_LOADER"], 29: ["SMELTER_FOREMAN"]}
+# 7:30 Foreman Brass and 12:30 Stoker Captain replace the Brood Mother and the Frozen Welder; Hale, the Overseer and Kade stay;
+# the finale comes at 28:00 where the Tide would
+REFINERY_TIMED = [(450, "FOREMAN_BRASS"), (750, "STOKER_CAPTAIN"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
+                  (1650, "GOVERNOR_KADE"), (1680, "IRONHEART")]
+# 21:00 Cooling Tower (Signal Tower), 23:00 Slag Rain, 24:00 Overdrive (Lumen Surge), 26:00 Defend the Boiler (Beacon)
+REFINERY_EVENTS = [("SIGNAL_TOWER", 1260), ("SLAG_RAIN", 1380), ("LUMEN_SURGE", 1440), ("BEACON", 1560)]
+
+
+def refinery_tune(st, data):
+    """Rows (the Flats numbers, the Refinery roster), bosses and events of the stage; everything else stays the copy of Flats."""
+    flats = {r["minute"]: r for r in FLATS_ROWS}
+    rows = []
+    for m in range(30):
+        f = flats[m] if m in flats else None
+        rows.append(row(m, 0, 0, "COL", ()) if f is None else dict(f))
+    for r in rows:
+        m = r["minute"]
+        r["enemies"] = [KR[k] for k in REFINERY_COMP[m].split()]
+        r["bosses"] = list(REFINERY_BOSSES.get(m, []))
+    old = {r["minute"]: r for r in st["rows"]}
+    out = []
+    for r in apply_difficulty(rows):
+        r = dict(r)
+        if r["minute"] in old and "treasure" in old[r["minute"]]:
+            r["treasure"] = old[r["minute"]]["treasure"]
+        out.append(r)
+    st["rows"] = out
+    st["timedBosses"] = [dict(t=t, boss=b) for t, b in REFINERY_TIMED]
+    st["events"] = [dict(id=i, at=t) for i, t in REFINERY_EVENTS]
 
 
 def add_v14_stages(data):
@@ -417,6 +499,8 @@ def add_v14_stages(data):
         if reg["unlock"]:
             st["unlock"] = dict(key=reg["unlock"][0], seconds=reg["unlock"][1])
         st["rules"] = reg["rules"]
+        if reg.get("tune"):   # a stage's own rows, bosses and events (the section of its chunk below)
+            globals()[reg["tune"]](st, data)
 
 
 def main():

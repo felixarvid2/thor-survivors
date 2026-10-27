@@ -45,13 +45,21 @@ public final class WorldGen {
     public static final String[] PROP = {"cargo_crate", "barricade", "fuel_tank", "slag_rock", "debris_rock",
             "lumen_growth", "spore_nest", "crashed_lander", "escape_pod", "generator", "control_terminal",
             "coolant_valve", "vent", "pipe_cluster", "smokestack", "emergency_light", "industrial_wall",
-            "wall_segment", "catwalk", "compressor", "water_tanker"};
+            "wall_segment", "catwalk", "compressor", "water_tanker",
+            // ---- v1.4 chunk C (Refinery District) props
+            "furnace_block", "pump_house"
+            // ---- end chunk C
+    };
     public static final int P_CRATE = 0, P_BARRICADE = 1, P_FUEL_TANK = 2, P_SLAG = 3, P_DEBRIS = 4, P_LUMEN = 5,
             P_NEST = 6, P_LANDER = 7, P_POD = 8, P_GENERATOR = 9, P_TERMINAL = 10, P_VALVE = 11, P_VENT = 12,
             P_PIPES = 13, P_STACK = 14, P_LIGHT = 15, P_WALL = 16, P_SEGMENT = 17, P_CATWALK = 18, P_COMPRESSOR = 19,
-            P_TANKER = 20;
+            P_TANKER = 20,
+            // ---- v1.4 chunk C
+            P_FURNACE = 21, P_PUMP = 22;
+            // ---- end chunk C
     /** Footprint radius in world units (what a destructible keeps away from). */
-    private static final float[] PROP_R = {14, 30, 28, 28, 8, 20, 24, 70, 55, 28, 10, 10, 16, 40, 20, 6, 85, 70, 80, 40, 60};
+    private static final float[] PROP_R = {14, 30, 28, 28, 8, 20, 24, 70, 55, 28, 10, 10, 16, 40, 20, 6, 85, 70, 80, 40, 60,
+            90, 70}; // v1.4 chunk C: furnace_block, pump_house
 
     private static final float[] W1 = {14, 6, 8, 14, 18, 10, 6, 8};
     private static final float[] W2 = {18, 16, 10, 10, 8, 14, 12, 4, 4};
@@ -390,6 +398,7 @@ public final class WorldGen {
     /** True where something big stands (a prop or wall): destructibles are never placed there. Sim thread only. */
     public boolean blocked(float wx, float wy) {
         float tx = wx / TILE, ty = wy / TILE;
+        if (plain != null && (plain.surface(floorI(tx), floorI(ty)) & (SURF_MOLTEN | SURF_FURNACE_GATE)) != 0) return true; // v1.4 chunk C: molten channels and furnace gates keep places off
         int x0 = floorI(tx) - 3, x1 = floorI(tx) + 3, y0 = floorI(ty) - 3, y1 = floorI(ty) + 3;
         int n = props(x0, y0, x1, y1, sx, sy, sk);
         for (int i = 0; i < n; i++) {

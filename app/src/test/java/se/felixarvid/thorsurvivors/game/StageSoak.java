@@ -33,6 +33,8 @@ public final class StageSoak {
         public int ended, kills, level, gold, peakEnemies, peakProj, peakPick, peakEProj, peakHaz, peakRanged, bosses,
                 nan, overflow, capBreak, weapons, pickFull;
         public String firstProblem = "";
+        /** Stage specific damage notes (the Refinery sources of area damage). */
+        public String stageNote = "";
         public float[] dmg = new float[4];
         /** Elites: spawn times and kills, boss sightings (key, spawn time, seconds alive until it died, -1 = still alive at the end), equipment worn at the end. */
         public final java.util.ArrayList<Double> eliteAt = new java.util.ArrayList<>();
@@ -57,7 +59,7 @@ public final class StageSoak {
             return String.format("%-5s %-9s %-8s seed %d  end=%s t=%.0fs kills=%d lvl=%d gold=%d peakEn=%d proj=%d pick=%d(full %ds) eproj=%d haz=%d ranged=%d bosses=%d w=%d nan=%d over=%d cap=%d dmg[c/b/a/x]=%.0f/%.0f/%.0f/%.0f elites=%d/%d worn=%d %s",
                     stage, hero, policy, seed, ended == 0 ? "alive" : ended == 1 ? "DIED" : "WON", endTime, kills, level, gold,
                     peakEnemies, peakProj, peakPick, pickFull / 60, peakEProj, peakHaz, peakRanged, bosses, weapons, nan, overflow, capBreak,
-                    dmg[0], dmg[1], dmg[2], dmg[3], eliteKilled, eliteAt.size(), worn, firstProblem);
+                    dmg[0], dmg[1], dmg[2], dmg[3], eliteKilled, eliteAt.size(), worn, firstProblem + (stageNote.isEmpty() ? "" : " " + stageNote));
         }
     }
 
@@ -232,11 +234,27 @@ public final class StageSoak {
                     }
                 }
             }
+            // Refinery: a player steers clear of furnace gates and molten metal (the bot sees four tiles ahead of it)
+            float rgx = 0, rgy = 0;
+            if (s.rules instanceof se.felixarvid.thorsurvivors.game.stage.RefineryRules) {
+                int ptx = (int) Math.floor(s.px / WorldGen.TILE), pty = (int) Math.floor(s.py / WorldGen.TILE);
+                for (int j = -4; j <= 4; j++) {
+                    for (int i2 = -4; i2 <= 4; i2++) {
+                        int sf = se.felixarvid.thorsurvivors.game.layout.StreetsLayout.surfaceAt(ptx + i2, pty + j);
+                        if ((sf & (WorldGen.SURF_FURNACE_GATE | WorldGen.SURF_MOLTEN)) == 0) continue;
+                        float ddx = -(i2 + 0.5f - (s.px / WorldGen.TILE - ptx)), ddy = -(j + 0.5f - (s.py / WorldGen.TILE - pty));
+                        float dd2 = ddx * ddx + ddy * ddy + 0.3f;
+                        rgx += ddx / dd2;
+                        rgy += ddy / dd2;
+                    }
+                }
+            }
             double a = s.time * 0.5;
-            float mx = (float) Math.cos(a) * 0.3f + fx * 0.8f + cx * 0.7f + bx * 1.4f + hx2 + qx * 1.2f + tx * 0.9f;
-            float my = (float) Math.sin(a) * 0.3f + fy * 0.8f + cy * 0.7f + by * 1.4f + hy2 + qy * 1.2f + ty * 0.9f;
+            float mx = (float) Math.cos(a) * 0.3f + fx * 0.8f + cx * 0.7f + bx * 1.4f + hx2 + qx * 1.2f + tx * 0.9f + rgx * 0.9f;
+            float my = (float) Math.sin(a) * 0.3f + fy * 0.8f + cy * 0.7f + by * 1.4f + hy2 + qy * 1.2f + ty * 0.9f + rgy * 0.9f;
             float ml = (float) Math.sqrt(mx * mx + my * my);
-            if (ml > 1f) {
+            if (ml > 1f || (ml > 0.05f && s.rules instanceof se.felixarvid.thorsurvivors.game.stage.RefineryRules
+                    && ((se.felixarvid.thorsurvivors.game.stage.RefineryRules) s.rules).heat > 25f)) { // Refinery: a player runs full stick once the meter climbs
                 mx /= ml;
                 my /= ml;
             }
@@ -250,7 +268,16 @@ public final class StageSoak {
                 in.aimStickX = dx / m;
                 in.aimStickY = dy / m;
             }
-            if ((bolt || crowd >= 6) && s.dodgeCd <= 0f) in.dodgeReq = true;
+            boolean wave = false;
+            if (s.rules instanceof se.felixarvid.thorsurvivors.game.stage.RefineryRules) { // a Heat Wave about to reach the hero: dodge through it
+                se.felixarvid.thorsurvivors.game.stage.RefineryRules rr = (se.felixarvid.thorsurvivors.game.stage.RefineryRules) s.rules;
+                for (int w = 0; w < se.felixarvid.thorsurvivors.game.stage.RefineryRules.MAXW; w++) {
+                    if (!rr.wLive[w] || rr.waveWarning(w)) continue;
+                    float ahead = (s.px - rr.waveEdge(w, s.time)) * rr.wDir[w];
+                    if (ahead > 0f && ahead < 70f) wave = true;
+                }
+            }
+            if ((bolt || crowd >= 6 || wave) && s.dodgeCd <= 0f) in.dodgeReq = true;
             if (immortal) s.hp = s.maxHp;
             s.update(dt, in);
             if (immortal && s.ended == 1) { // v1.3.1: late hits are bigger than the whole health bar, so a refill per step is not enough: undo the death
@@ -362,6 +389,10 @@ public final class StageSoak {
             r.latePick /= r.lateN;
         }
         r.endTime = s.time;
+        if (s.rules instanceof se.felixarvid.thorsurvivors.game.stage.RefineryRules) {
+            se.felixarvid.thorsurvivors.game.stage.RefineryRules rr = (se.felixarvid.thorsurvivors.game.stage.RefineryRules) s.rules;
+            r.stageNote = String.format("heat/gate/molten/wave=%.0f/%.0f/%.0f/%.0f", rr.dmgHeat, rr.dmgGate, rr.dmgMolten, rr.dmgWave);
+        }
         r.ended = s.ended;
         r.kills = s.kills;
         r.level = s.level;

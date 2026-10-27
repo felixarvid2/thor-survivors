@@ -132,8 +132,8 @@ public class StageFrameworkTest {
             assertEquals(KEYS[i], 1800.0, def.timeLimit, 0);
             assertEquals(KEYS[i] + " difficulty rises along the order", i + 1, def.difficulty);
             assertTrue(KEYS[i] + " blurb fits the card: " + def.blurb, def.blurb.length() > 10 && def.blurb.length() <= 48);
-            assertEquals(5, def.timedAt.length);
-            assertEquals(5, def.eventAt.length);
+            assertEquals(KEYS[i].equals("REFINERY") ? 6 : 5, def.timedAt.length); // the Refinery adds the finale at 28:00 ...
+            assertEquals(KEYS[i].equals("REFINERY") ? 4 : 5, def.eventAt.length); // ... in place of The Tide
             assertNotNull(def.rules);
             if (i == 0) assertEquals(null, def.unlockKey);
             else assertEquals("each stage opens on the one before it", prev, def.unlockKey);
