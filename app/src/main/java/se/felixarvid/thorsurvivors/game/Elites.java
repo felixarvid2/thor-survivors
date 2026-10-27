@@ -33,6 +33,21 @@ public final class Elites {
         return (float) Math.max(floor, base * (1.0 - shrink * (t / 60.0)));
     }
 
+    /** The same with the stage's own elite numbers (stages.KEY.elites) over the global ones. */
+    static float interval(se.felixarvid.thorsurvivors.data.GameData d, se.felixarvid.thorsurvivors.data.StageDef st, double t) {
+        double base = ov(d, st, "interval", 150), floor = ov(d, st, "min", 100), shrink = ov(d, st, "shrinkPerMin", 0.01);
+        return (float) Math.max(floor, base * (1.0 - shrink * (t / 60.0)));
+    }
+
+    static double ov(se.felixarvid.thorsurvivors.data.GameData d, se.felixarvid.thorsurvivors.data.StageDef st, String k, double dflt) {
+        Double v = st == null ? null : st.eliteOv.get(k);
+        return v != null ? v : d.elite(k, dflt);
+    }
+
+    static int modCount(se.felixarvid.thorsurvivors.data.GameData d, se.felixarvid.thorsurvivors.data.StageDef st, double t) {
+        return t >= ov(d, st, "mods3At", 1440) ? 3 : t >= ov(d, st, "mods2At", 720) ? 2 : 1;
+    }
+
     /** How many modifiers an elite gets at run time {@code t}: 1, 2 after 12:00, 3 after 24:00. */
     static int modCount(se.felixarvid.thorsurvivors.data.GameData d, double t) {
         return t >= d.elite("mods3At", 1440) ? 3 : t >= d.elite("mods2At", 720) ? 2 : 1;

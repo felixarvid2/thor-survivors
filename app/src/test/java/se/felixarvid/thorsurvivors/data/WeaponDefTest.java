@@ -62,9 +62,11 @@ public class WeaponDefTest {
     @Test
     public void shopPriceGrowsPerRank() throws Exception {
         PowerUpDef p = TestData.load().powerUps.get("POWER");
-        assertEquals(200, p.priceForNext(0));
-        assertEquals(400, p.priceForNext(1));
-        assertEquals(1000, p.priceForNext(4));
+        assertEquals("v1.4 overlay: 400 * (1 + n)^1.5, rounded to 10", 400, p.priceForNext(0));
+        assertEquals(1130, p.priceForNext(1));
+        assertEquals(4470, p.priceForNext(4));
+        PowerUpDef plain = p.withPrice(200, 1.0);
+        assertEquals("exp 1 is the plain Vampire Survivors line", 1000, plain.priceForNext(4));
         assertEquals(0.15, p.statsAt(3).get("power"), 1e-9);
     }
 }

@@ -44,6 +44,11 @@ public final class StageSoak {
         public boolean firstKilled;
         /** Level and kills at 5, 10 ... 30 minutes, the time any weapon first became an evolution (-1 = never), the weapons and main branch tiers at the end, worn gear points. */
         public final int[] lvlAt = new int[6], killsAt = new int[6];
+        /** Per 5 minute band (0 = 0-5 min ...): lowest hero health fraction, share of the band spent under 50 % health, damage taken. */
+        public final float[] minHp = {1, 1, 1, 1, 1, 1}, lowShare = new float[6], dmgBand = new float[6];
+        public int banked, heroHits, bought, spentGold;
+        public final java.util.ArrayList<Integer> visitGold = new java.util.ArrayList<>();
+        public final float[][] srcBand = new float[6][4];
         public final long[] xpAt = new long[6];
         public double firstEvo = -1, firstFuse = -1;
         public String weaponsEnd = "", mainEnd = "", slotsEnd = "";
@@ -70,7 +75,7 @@ public final class StageSoak {
     static synchronized GameData data() throws Exception {
         if (data == null) {
             try (InputStream in = new FileInputStream("src/main/assets/game_data.json");
-                 InputStream over = new FileInputStream("src/main/assets/ashfall_data.json")) {
+                 InputStream over = new FileInputStream(System.getenv("ASHFALL_DATA") != null ? System.getenv("ASHFALL_DATA") : "src/main/assets/ashfall_data.json")) {
                 data = GameData.load(in, over);
             }
         }
@@ -118,10 +123,17 @@ public final class StageSoak {
         r.seed = seed;
         boolean immortal = policy.equals("immortal"), naked = policy.equals("naked");
         boolean plan = policy.equals("plan");
+        boolean skilled = policy.equals("skilled");
+        SkilledBot bot = skilled ? new SkilledBot() : null;
+        SkilledBot.fusions = d.fusions;
+        float lastDmg = 0f;
+        int lastVisits = 0;
+        float[] lastSrc = new float[4];
         boolean noGear = "0".equals(System.getenv("GEAR")); // A/B: the same run without any equipment worn
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), hero, seed);
-        s.findN = 0; // the soak measures the balance without the map finds (they depend on where the bot wanders)
-        s.merchant.enabled = false; // nor the Salvager: the headless Sim never pauses for a shop, and a purchase would change the balance numbers
+        boolean humanLike = skilled && !"0".equals(System.getenv("SKILLED_EXTRAS")); // the skilled bot walks to the map finds and the Salvager
+        if (!humanLike) s.findN = 0; // the soak measures the balance without the map finds (they depend on where the bot wanders)
+        if (!humanLike) s.merchant.enabled = false; // nor the Salvager: the headless Sim never pauses for a shop, and a purchase would change the balance numbers
         if (!withEvents) s.events.enabled = false; // schedule tests (EliteTest) measure the plain elite timer without the Tide's extra elites
         s.pois.enabled = false; // nor the places: a relay terminal screen never closes headless, and vents/nests depend on where the bot wanders
         Random rng = new Random(seed * 7919 + 1);
@@ -129,6 +141,8 @@ public final class StageSoak {
         float dt = 1f / 60f;
         long step = 0;
         while (s.time < limit && s.ended == 0) {
+            if (bot != null) bot.steer(s, in);
+            else {
             // the bot: flee the melee crowd, chase the nearest shooter, sidestep bolts, otherwise circle; aim at the nearest enemy
             float fx = 0, fy = 0, cx = 0, cy = 0, bx = 0, by = 0;
             Enemy best = null, shooter = null;
@@ -251,6 +265,7 @@ public final class StageSoak {
                 in.aimStickY = dy / m;
             }
             if ((bolt || crowd >= 6) && s.dodgeCd <= 0f) in.dodgeReq = true;
+            }
             if (immortal) s.hp = s.maxHp;
             s.update(dt, in);
             if (immortal && s.ended == 1) { // v1.3.1: late hits are bigger than the whole health bar, so a refill per step is not enough: undo the death
@@ -264,6 +279,11 @@ public final class StageSoak {
                     List<Offer> o = OfferGenerator.generate(s.inv, d.weapons.values(), s.stats.luck, rng,
                             s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, lvl);
                     s.addFuseCard(o);
+                    if (bot != null) {
+                        s.applyOffer(bot.pick(s, o, rng));
+                        s.pendingLevelUps--;
+                        continue;
+                    }
                     Offer pick = o.get(0);
                     int bestScore = -1;
                     for (Offer c : o) {
@@ -289,6 +309,21 @@ public final class StageSoak {
                 r.choices++;
             }
             trackEvents(s, r);
+            if (s.merchant.present && s.merchant.visits != lastVisits) { // wallet when a Salvager arrives (before any purchase)
+                lastVisits = s.merchant.visits;
+                r.visitGold.add(s.gold);
+            }
+            {
+                int band = Math.min(5, (int) (s.time / 300.0));
+                float frac = s.maxHp <= 0 ? 0 : s.hp / s.maxHp;
+                if (s.ended == 0 && frac < r.minHp[band]) r.minHp[band] = Math.max(0f, frac);
+                if (frac < 0.5f) r.lowShare[band] += dt / 300f;
+                for (int q = 0; q < 4; q++) r.srcBand[band][q] += s.dmgBy[q] - lastSrc[q];
+                System.arraycopy(s.dmgBy, 0, lastSrc, 0, 4);
+                float tot = s.dmgBy[0] + s.dmgBy[1] + s.dmgBy[2] + s.dmgBy[3];
+                r.dmgBand[band] += tot - lastDmg;
+                lastDmg = tot;
+            }
             if (noGear && s.equip.count() > 0) {
                 s.equip.clear();
                 s.recomputeAll();
@@ -366,6 +401,9 @@ public final class StageSoak {
         r.kills = s.kills;
         r.level = s.level;
         r.gold = s.gold;
+        r.banked = s.endGold();
+        r.heroHits = s.heroHits;
+        r.bought = bot == null ? 0 : bot.bought;
         r.weapons = s.inv.weaponCount;
         r.dmg = s.dmgBy.clone();
         StringBuilder wb = new StringBuilder();
@@ -430,7 +468,27 @@ public final class StageSoak {
         }
     }
 
+    /** Batch: {@code BATCH stage hero policy seedFrom seedTo [limit]} prints one machine line per seed (see the balance skill). */
+    static void batch(String[] a) throws Exception {
+        double limit = a.length > 6 ? Double.parseDouble(a[6]) : 1800.0;
+        for (long seed = Long.parseLong(a[4]); seed <= Long.parseLong(a[5]); seed++) {
+            Result r = run(a[1], a[2], a[3], seed, limit);
+            StringBuilder sb = new StringBuilder(String.format("R %s %s %s %d %d %.1f %d %d %d %d", r.stage, r.hero, r.policy, seed, r.ended, r.endTime, r.kills, r.level, r.banked, r.heroHits));
+            for (float v : r.minHp) sb.append(String.format(" %.2f", v));
+            for (float v : r.lowShare) sb.append(String.format(" %.2f", v));
+            for (float v : r.dmgBand) sb.append(String.format(" %.0f", v));
+            sb.append(String.format(" %d %d %d %d", (int) r.firstEvo, (int) r.firstFuse, r.eliteKilled, r.nan + r.overflow + r.capBreak));
+            for (int b = 0; b < 6; b++) for (int q = 0; q < 3; q++) sb.append(String.format(" %.0f", r.srcBand[b][q] + (q == 2 ? r.srcBand[b][3] : 0)));
+            System.out.println(sb);
+            System.out.println("V " + r.stage + " " + r.hero + " " + seed + " " + r.bought + " " + r.visitGold);
+        }
+    }
+
     public static void main(String[] a) throws Exception {
+        if (a[0].equals("BATCH")) {
+            batch(a);
+            return;
+        }
         String stage = a[0], hero = a[1], policy = a[2];
         long seed = Long.parseLong(a[3]);
         double limit = a.length > 4 ? Double.parseDouble(a[4]) : 1800.0;

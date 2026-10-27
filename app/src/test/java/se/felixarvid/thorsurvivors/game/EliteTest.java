@@ -60,15 +60,15 @@ public class EliteTest {
                 StageSoak.withEvents = true;
             }
             assertEquals(r.toString(), 0, r.nan);
-            assertTrue("first elite at 3:00 +-10 s: " + r.eliteAt, Math.abs(r.eliteAt.get(0) - 180) <= 10);
+            assertTrue("first elite at 2:00 +-10 s: " + r.eliteAt, Math.abs(r.eliteAt.get(0) - 120) <= 10);
             for (int i = 1; i < r.eliteAt.size(); i++) {
                 double gap = r.eliteAt.get(i) - r.eliteAt.get(i - 1);
                 double want = Elites.interval(d, r.eliteAt.get(i - 1));
                 assertTrue(stage + " gap " + gap + " wanted " + want + " +-10 s", Math.abs(gap - want) <= 10.0);
-                assertTrue("never over 125 s + 10 s, never under the 60 s floor - 10 s: " + gap, gap <= 135 && gap >= 50);
+                assertTrue("never over 90 s + 10 s, never under the 45 s floor - 10 s: " + gap, gap <= 100 && gap >= 35);
             }
-            // 180, then 120 s shrinking to 100 s at the end: 18 to 22 elites in 30 minutes (phase 13: 125 s less 2% per minute, floor 60 s)
-            assertTrue(stage + " elites " + r.eliteAt.size(), r.eliteAt.size() >= 18 && r.eliteAt.size() <= 23);
+            // v1.4: 120, then 90 s less 2% per minute down to the 45 s floor: about 24 to 34 elites in 30 minutes
+            assertTrue(stage + " elites " + r.eliteAt.size(), r.eliteAt.size() >= 24 && r.eliteAt.size() <= 34);
             assertTrue("they die too: " + r.eliteKilled, r.eliteKilled >= r.eliteAt.size() - 2);
         }
     }
@@ -76,21 +76,21 @@ public class EliteTest {
     @Test
     public void theIntervalShrinksTwoPercentAMinuteDownToTheFloor() throws Exception {
         GameData d = TestData.load();
-        assertEquals(125f, Elites.interval(d, 0), 1e-3f);
-        assertEquals(100f, Elites.interval(d, 600), 1e-3f);
-        assertEquals("125 x 0.6 = 75", 75f, Elites.interval(d, 1200), 1e-3f);
-        assertEquals("125 x 0.4 = 50 is under the floor", 60f, Elites.interval(d, 1800), 1e-3f);
-        assertEquals("the floor", 60f, Elites.interval(d, 6000), 1e-3f);
+        assertEquals(90f, Elites.interval(d, 0), 1e-3f);
+        assertEquals(72f, Elites.interval(d, 600), 1e-3f);
+        assertEquals("90 x 0.6 = 54", 54f, Elites.interval(d, 1200), 1e-3f);
+        assertEquals("90 x 0.4 = 36 is under the floor", 45f, Elites.interval(d, 1800), 1e-3f);
+        assertEquals("the floor", 45f, Elites.interval(d, 6000), 1e-3f);
     }
 
     @Test
     public void noElitesBeforeThreeMinutesAndOnlyOneAtATime() throws Exception {
         GameData d = TestData.load();
         Sim s = new Sim(d, d.stages.get("FLATS"), null, new HashMap<String, Double>(), "BASTION", 4);
-        run(s, 170);
+        run(s, 110);
         assertEquals(0, s.eliteSpawned);
         run(s, 15);
-        assertEquals("the first one at 3:00", 1, s.eliteSpawned);
+        assertEquals("the first one at 2:00", 1, s.eliteSpawned);
         Enemy first = s.eliteNow;
         assertNotNull(first);
         // freeze the schedule's next slot into the past while it still lives: no second elite until it dies
@@ -147,7 +147,7 @@ public class EliteTest {
         assertEquals(plain.speed * 0.9f, e.speed, 1e-4f);
         assertEquals(plain.radius * 1.4f, e.radius, 1e-3f);
         assertEquals(plain.xp * 4f, e.xp, 1e-4f);
-        assertEquals("shots hit 1.5 times as hard (times the 0.8 of the curve at 0:00)", 1.5f * 0.8f, e.shotMul, 1e-6f);
+        assertEquals("shots hit 1.5 times as hard (times the 1.35 of the Flats curve at 0:00)", 1.5f * 1.35f, e.shotMul, 1e-6f);
         assertEquals("six adds came with it", 1 + 1 + 6, s.enemyN);
         assertEquals(1, s.sound.emitted[SoundEvents.ELITE_SPAWN]);
         // it lives in the ordinary enemy pool: same record class, no extra array
@@ -160,10 +160,10 @@ public class EliteTest {
     public void oneModifierToTwelveMinutesTwoAfterThatThreeAfterTwentyFour() throws Exception {
         GameData d = TestData.load();
         assertEquals(1, Elites.modCount(d, 3 * 60));
-        assertEquals(1, Elites.modCount(d, 12 * 60 - 1));
-        assertEquals(2, Elites.modCount(d, 12 * 60));
-        assertEquals(2, Elites.modCount(d, 24 * 60 - 1));
-        assertEquals(3, Elites.modCount(d, 24 * 60));
+        assertEquals(1, Elites.modCount(d, 8 * 60 - 1));
+        assertEquals(2, Elites.modCount(d, 8 * 60));
+        assertEquals(2, Elites.modCount(d, 18 * 60 - 1));
+        assertEquals(3, Elites.modCount(d, 18 * 60));
         java.util.Random rng = new java.util.Random(7);
         int seen = 0;
         for (int i = 0; i < 300; i++) {
@@ -247,7 +247,7 @@ public class EliteTest {
             double a = Math.atan2(Math.sin(Math.atan2(p.vy, p.vx) - base), Math.cos(Math.atan2(p.vy, p.vx) - base)); // relative to the aim
             lo = Math.min(lo, a);
             hi = Math.max(hi, a);
-            assertEquals("elite shots hit 1.5x (the curve is 0.8 at 0:00)", 9f * 1.5f * 0.8f, p.dmg, 0.01f);
+            assertEquals("elite shots hit 1.5x (the curve is 1.35 at 0:00)", 9f * 1.5f * 1.35f, p.dmg, 0.01f);
         }
         assertEquals("an 80 degree fan", Math.toRadians(80), hi - lo, 0.05);
         run(s, 3.2);

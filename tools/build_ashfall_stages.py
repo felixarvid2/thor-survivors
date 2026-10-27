@@ -7,7 +7,7 @@ Survivors stages FOREST and LIBRARY), so the XP and gold curves stay familiar. D
 x1.25 and speed x1.05 on top of the LIBRARY mods (it is the second stage).
 
 Run from thor-survivors/:  python3 tools/build_ashfall_stages.py
-Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `equipment`, `equipmentRules` and `fusions`
+Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `powerups`, `equipment`, `equipmentRules` and `fusions`
 are touched, plus the balance numbers listed in HERO_TUNE and MAIN_TUNE (design phase 12: they are applied on top of the
 heroes and mainWeapons that are already in the file; names, texts and branches stay as they are).
 """
@@ -135,27 +135,27 @@ ENEMIES = {
 # --------------------------------------------------------------------------- elites (design 5) and equipment (design 6)
 # phase 12: an elite every 125 s (floor 90 s), the XP of an elite x4 and its pile 0.7 levels (was 8 and 2.0: the elites alone were a
 # quarter of all XP late), the Armored modifier takes `armor` off every hit
-ELITES = dict(first=180, interval=125, min=60, shrinkPerMin=0.02, hpMul=6, damageMul=1.5, scale=1.4, speedMul=0.9,
-              xpMul=4, dist=400, adds=6, mods2At=720, mods3At=1440, xpPileGems=5, xpPileLevels=0.7, armor=3)
+ELITES = dict(first=120, interval=90, min=45, shrinkPerMin=0.02, hpMul=6, damageMul=1.5, scale=1.4, speedMul=0.9,
+              xpMul=4, dist=400, adds=6, mods2At=480, mods3At=1080, xpPileGems=5, xpPileLevels=0.7, armor=3)
 
 # --------------------------------------------------------------------------- phase 12 balance (heroes and main weapons)
 # Applied on top of the heroes / mainWeapons already in ashfall_data.json: dotted path -> value. Measured with StageSoak (see the
 # thor-survivors-balance skill): a main weapon is strong but no longer replaces the VS build, Spectre survives like the others.
 HERO_TUNE = {
     # glass cannon, but not made of glass: HP 80 -> 105, armor 1, regen 0.5, and every level takes 0.7% less damage (-35% at level 50)
-    "SPECTRE.hp": 105, "SPECTRE.armor": 1, "SPECTRE.regen": 0.5, "SPECTRE.perLevel.maxHp": 0.004,
-    "SPECTRE.perLevel.damageTaken": -0.007,
-    "BASTION.regen": 0.3,   # was 0.4: the tank survived 90% of the Mines runs once the early deaths were gone
+    "SPECTRE.hp": 115, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
+    "SPECTRE.perLevel.damageTaken": -0.009,
+    "BASTION.regen": 0.7,   # v1.4 (was 0.3): chronic attrition from bolts and slag is what kills the slow tank, see "Svårighet (v1.4)"
     # v1.3.1 hero parity (mid bot, 32 seeds): Spectre and Xenomant died of contact late (the damage curve makes a Colonist hit 96 at 30:00, Xenomant
     # had 95 HP and no armor), Bastion survived 3 in 4. Defence now grows with the level for all three.
-    "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
+    "BASTION.hp": 140, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
     "SPECTRE.perLevel.power": 0.006, "SPECTRE.perLevel.maxHp": 0.005,              # new / was 0.004 (damageTaken stays -0.007)
-    "XENOMANT.hp": 100, "XENOMANT.armor": 1,                                       # was 95 / 0
+    "XENOMANT.hp": 115, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
     "XENOMANT.perLevel.maxHp": 0.004, "XENOMANT.perLevel.damageTaken": -0.0015,    # new
 }
 MAIN_TUNE = {
-    "HAMMER.power": 1.2, "HAMMER.params.slamPower": 1.8, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
-    "CASTER.power": 0.8, "CASTER.params.burstPower": 0.4,                              # was 1.2 / 0.5
+    "HAMMER.power": 1.5, "HAMMER.params.slamPower": 2.2, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
+    "CASTER.power": 0.5, "CASTER.params.burstPower": 0.3,                              # was 1.2 / 0.5
     # PISTOLS stay as they were (0.6, no pierce): pierce 1 made Spectre the strongest main weapon (111% of the Whip) without helping his survival
 }
 HERO_TEXT = {
@@ -301,28 +301,57 @@ MINES_ROWS = [
     row(28, 130, 375, "all", ["THE_FIRST"]), row(29, 140, 350, "all"),
 ]
 
-# --------------------------------------------------------------------------- phase 13 difficulty (measured with StageSoak, see TEKNIK "Svårighet")
-# Owner: "too few enemies for how strong you are, especially after minute 20". Measured before: the field was ~ `minimum` (80..140), the
-# hero cleared it in ~3 s (mean life = alive / kills per s) because the enemy HP was flat. Now: from DIFF_FROM on `minimum` follows
-# MIN_TABLE (every minute gets a row, the composition of the sparse Mines table is inherited) and, from minute 16, `frequency` follows
-# FREQ_TABLE; the HP and damage of wave enemies and elites grow along HP_CURVE / DMG_CURVE (StageDef.hpCurve / dmgCurve, Sim.initEnemy;
-# bosses and tentacles excluded); HORDES (StageDef.hordes, Sim.updateWaves) are 16 s bursts of cheap enemies between the bosses (a burst
-# every 150 s from 11:15, 75 s before or after each boss minute); the elites come faster late (ELITES.shrinkPerMin 0.02, floor 60 s).
-DIFF_FROM = 5                                   # minutes 0..4 are left as they were (the weak hero is already swamped there)
-MIN_TABLE = [[5, 40], [9, 40], [10, 50], [14, 65], [17, 110], [20, 190], [25, 270], [29, 300]]   # [minute, minimum alive]: linear between, flat after
-FREQ_TABLE = [[16, 600], [20, 480], [25, 380], [29, 300]]   # [minute, ms between spawn ticks] from minute 16 (earlier rows keep their original frequency)
-DMG_CURVE = [[0, 0.8], [4, 0.85], [7, 1.0], [16, 1.0], [20, 3.0], [24, 8.5], [30, 18.0]]   # [minute, multiplier on contact and bolt damage of wave enemies]; v1.3.1: 0.8 at the start (minutes 1-4 softer), 18 at 30:00
-HP_CURVE = [[0, 1.0], [15, 1.0], [20, 1.6], [25, 3.0], [30, 5.0]]   # [minute, multiplier on the wave enemy HP]
-HORDE_TYPES = ["COLONIST", "SPORE_HOUND"]
-# [start s, minimum]; nominal starts 675, 825, ..., 1575 (every 150 s), shifted where a burst would sit on a v1.3/v1.4 boss spawn or event:
-# 1275 -> 1245 (the Signal Tower runs 1260-1350), Flats 1425 -> 1420 (Lumen Surge starts 1440), Mines 1425 -> 1430 (after the Collapse
-# 1405-1430), 1575 -> Flats 1545 (before the Beacon 1560) / Mines 1600 (the Beacon 1530-1590 and Kade at 1590 are over their spawn)
-HORDES = {
-    "FLATS": [[675, 75], [825, 95], [975, 130], [1125, 180], [1245, 240], [1420, 290], [1545, 290]],
-    "MINES": [[675, 75], [825, 95], [975, 130], [1125, 180], [1245, 240], [1430, 290], [1600, 290]],
+# --------------------------------------------------------------------------- v1.4 shop prices (salvage terminal, permanent)
+# GameData overlay key `powerups`: rank n+1 of a power-up costs price * (1 + n) ** exp, rounded to 10 (exp 1 = the Vampire Survivors line price * (1 + n)).
+# The strongest upgrades (Might, Cooldown, Growth) get exp 1.5, Amount and Revival a higher flat price. Whole catalog 78 090 -> about 119 000 gold; measured
+# income per run (StageSoak, skilled bot, 192 runs): 1 925 on average, 3 200-3 600 for a run that survives to the end (TEKNIK "Svårighet (v1.4)").
+# Curse (a handicap, not an upgrade) is left at the Vampire Survivors price. A new stage does not touch this table.
+POWERUP_PRICES = {
+    "POWER": (400, 1.5), "ARMOR": (700, 1.3), "MAXHEALTH": (350, 1.3), "REGEN": (260, 1.3), "COOLDOWN": (1300, 1.5),
+    "AREA": (350, 1.2), "SPEED": (350, 1.2), "DURATION": (350, 1.2), "AMOUNT": (10000, 1.0), "MOVESPEED": (350, 1.2),
+    "MAGNET": (350, 1.2), "LUCK": (650, 1.2), "GROWTH": (700, 1.5), "GREED": (300, 1.3), "REVIVAL": (18000, 1.0),
 }
-HORDE_LEN, HORDE_FREQ = 16, 250
-BOSS_ROW_MUL = 0.85                              # a row with a boss: minimum x this (the boss and its adds are the pressure there)
+
+# --------------------------------------------------------------------------- phase 13 / v1.4 difficulty (measured with StageSoak, see TEKNIK "Svårighet")
+# Every knob lives in one dict PER STAGE (STAGE_TUNE below; a new stage lists only what differs from TUNE_DEFAULT):
+#   min_table   [minute, minimum alive] linear between points, flat after; a row with a boss gets x boss_row_mul
+#   freq_table  [minute, ms between spawn ticks] (never slower than the row's own frequency)
+#   hp_curve / dmg_curve / speed_curve  [minute, multiplier] on HP, contact+bolt damage and walking speed of wave enemies and elites
+#   hordes      [start s, minimum] bursts of horde_len s of cheap enemies (horde_types) that fill the field; horde_freq ms per spawn tick
+#   elites      overrides of the global ELITES numbers for this stage (first, interval, min, shrinkPerMin, hpMul, damageMul, mods2At ...)
+#   ranged_cap  ranged enemies alive at once (0 = Sim.RANGED_CAP 24); extra_types [[minute, key]] added to every wave row from that minute
+# v1.4: the mid bot was far weaker than the owner, so v1.3.1 (tuned to 43 % for the mid bot) was too easy for a human. The yardstick is now
+# the `skilled` policy of StageSoak (kites, dodges, plays a build): survival to 30:00 about 35-45 %, pressure in every 5 minute band.
+DIFF_FROM = 0
+TUNE_DEFAULT = dict(
+    from_minute=0,
+    min_table=[[0, 16], [2, 30], [4, 48], [6, 60], [9, 70], [12, 85], [15, 110], [18, 150], [21, 200], [24, 250], [27, 290], [29, 300]],
+    freq_table=[[0, 1000], [5, 800], [10, 700], [16, 550], [20, 450], [25, 350], [29, 300]],
+    hp_curve=[[0, 1], [10, 1.2], [15, 1.6], [20, 2.4], [25, 5], [30, 9]],
+    dmg_curve=[[0, 1.35], [3, 1.4], [6, 1.35], [10, 1.65], [13, 1.98], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]],
+    speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.4], [20, 1.65], [25, 1.92], [30, 2.25]],
+    hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]],
+    horde_types=["COLONIST", "SPORE_HOUND"], horde_len=16, horde_freq=250,
+    boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
+)
+STAGE_TUNE = {
+    "FLATS": dict(extra_types=[]),   # v1.4: the Flats rows already carry Sergeants; extra ones made 5-10 min lethal (14 of 32 Xenomants died there)
+    "MINES": dict(hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1430, 290], [1600, 290]], extra_types=[[1, "SGT"], [3, "DRN"]],
+                  dmg_curve=[[0, 1.4], [3, 1.45], [6, 1.45], [10, 1.72], [13, 2.0], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]]),
+}
+# Hordes sit between the bosses and events: nominal starts 675, 825, ..., 1575 (every 150 s) shifted off every timed boss (7:30, 12:30,
+# 17:30, 22:30, Kade 27:30 Flats / 26:30 Mines) and event start (Signal Tower 1260, Lumen Surge 1440, Beacon Flats 1560, Collapse Mines 1405-1430).
+
+
+def tune_of(stage):
+    t = dict(TUNE_DEFAULT)
+    t.update(STAGE_TUNE.get(stage, {}))
+    ov = os.environ.get("TUNE_JSON")           # experiments: {"FLATS": {"speed_curve": ...}, "*": {...}}
+    if ov:
+        o = json.loads(ov)
+        t.update(o.get("*", {}))
+        t.update(o.get(stage, {}))
+    return t
 
 
 def interp(table, x):
@@ -334,22 +363,28 @@ def interp(table, x):
     return table[-1][1]
 
 
-def apply_difficulty(rows):
-    """Fills every minute from DIFF_FROM (the sparse Mines table inherits composition) and sets minimum / frequency by formula."""
+def apply_difficulty(rows, tune):
+    """Fills every minute from tune.from_minute (the sparse Mines table inherits composition) and sets minimum / frequency by formula."""
     out, last = [], None
     by_min = {r["minute"]: r for r in rows}
+    frm = tune["from_minute"]
+    mt, ft = tune["min_table"], tune["freq_table"]
     for m in range(0, 30):
         if m in by_min:
             last = by_min[m]
             r = dict(last)
-        elif m >= DIFF_FROM:
+        elif m >= frm:
             r = dict(last, minute=m, bosses=[])
         else:
             continue
-        if m >= DIFF_FROM:
-            r["minimum"] = int(round(max(MIN_TABLE[0][1], interp(MIN_TABLE, m) * (BOSS_ROW_MUL if r["bosses"] else 1.0))))
-            if m >= FREQ_TABLE[0][0]:
-                r["frequency"] = int(min(r["frequency"], round(interp(FREQ_TABLE, m))))
+        r["enemies"] = list(r["enemies"])
+        for (mm, key) in tune["extra_types"]:
+            if m >= mm and K[key] not in r["enemies"]:
+                r["enemies"].append(K[key])
+        if m >= frm:
+            r["minimum"] = int(round(max(mt[0][1], interp(mt, m) * (tune["boss_row_mul"] if r["bosses"] else 1.0))))
+            if m >= ft[0][0]:
+                r["frequency"] = int(min(r["frequency"], round(interp(ft, m))))
         out.append(r)
     return out
 
@@ -423,6 +458,7 @@ def main():
     base = json.load(open(os.path.join(ASSETS, "game_data.json")))
     path = os.path.join(ASSETS, "ashfall_data.json")
     data = json.load(open(path))
+    out_path = os.environ.get("OUT_JSON", path)   # experiments write a variant next to the real file
 
     def fix(params):  # "raise" is a Python keyword in the table above
         return {k.rstrip("_"): v for k, v in params.items()}
@@ -434,14 +470,14 @@ def main():
         enemies[key] = e
     data["enemies"] = enemies
 
-    def stage(name, vs_key, rows, treasure_map, destructible, mods_fn, spawn_type=None, starting=10):
+    def stage(key, name, vs_key, rows, treasure_map, destructible, mods_fn, spawn_type=None, starting=10):
         vs = base["stages"][vs_key]
         mods = {k: vs[0]["mods"][k] for k in ("TimeLimit", "PlayerPxSpeed", "EnemySpeed", "EnemyHealthMultiplier",
                                               "GoldMultiplier", "XPBonus")}
         mods_fn(mods)
         tre = treasure_rows(vs, treasure_map)
         out_rows = []
-        for r in apply_difficulty(rows):
+        for r in apply_difficulty(rows, tune_of(key)):
             r = dict(r)
             if r["minute"] in tre:
                 t = tre[r["minute"]]
@@ -462,17 +498,23 @@ def main():
         m["EnemySpeed"] = round(m["EnemySpeed"] * 1.05, 4)
 
     stages = data.setdefault("stages", {})
-    stages["FLATS"] = stage("Cinder Flats", "FOREST", FLATS_ROWS, FLATS_TREASURE, "MIXED_FLATS", flats_mods,
+    stages["FLATS"] = stage("FLATS", "Cinder Flats", "FOREST", FLATS_ROWS, FLATS_TREASURE, "MIXED_FLATS", flats_mods,
                             starting=10)
-    stages["MINES"] = stage("Deep Mines", "LIBRARY", MINES_ROWS, MINES_TREASURE, "MIXED_MINES", mines_mods,
+    stages["MINES"] = stage("MINES", "Deep Mines", "LIBRARY", MINES_ROWS, MINES_TREASURE, "MIXED_MINES", mines_mods,
                             spawn_type="HORIZONTAL", starting=12)
     for key, fade in XP_FADE.items():
         stages[key]["xpFade"] = fade
     for key in ("FLATS", "MINES"):
-        stages[key]["hpCurve"] = HP_CURVE
-        stages[key]["dmgCurve"] = DMG_CURVE
-        stages[key]["hordes"] = dict(types=HORDE_TYPES, bursts=[dict(at=a, length=HORDE_LEN, minimum=mn, frequency=HORDE_FREQ)
-                                                              for a, mn in HORDES[key]])
+        tn = tune_of(key)
+        stages[key]["hpCurve"] = tn["hp_curve"]
+        stages[key]["dmgCurve"] = tn["dmg_curve"]
+        stages[key]["speedCurve"] = tn["speed_curve"]
+        stages[key]["hordes"] = dict(types=tn["horde_types"], bursts=[dict(at=a, length=tn["horde_len"], minimum=mn, frequency=tn["horde_freq"])
+                                                                    for a, mn in tn["hordes"]])
+        if tn["elites"]:
+            stages[key]["elites"] = tn["elites"]
+        if tn["ranged_cap"]:
+            stages[key]["rangedCap"] = tn["ranged_cap"]
     stages["MINES"]["tentacles"] = dict(minutes=[8, 13, 18, 23, 27], length=20, every=4, count=3, radius=400)
     for key, lst in TIMED_BOSSES.items():
         stages[key]["timedBosses"] = [dict(t=t, boss=b) for t, b in lst]
@@ -480,6 +522,7 @@ def main():
         stages[key]["events"] = [dict(id=i, at=t) for i, t in lst]
     add_v14_stages(data)   # v1.4: the three new stages (copies of Flats until their chunks tune them) and the card fields
     data["elites"] = ELITES
+    data["powerups"] = {k: dict(price=p, exp=e) for k, (p, e) in POWERUP_PRICES.items()}
     eq = {}
     for key, (slot, name, icon, values) in EQUIPMENT.items():
         eq[key] = dict(name=name, slot=slot, icon=icon, values=values)
@@ -489,6 +532,9 @@ def main():
     data["equipmentRules"] = EQUIPMENT_RULES
     data["fusions"] = {k: dict(name=FUSIONS[k]["name"], description=FUSIONS[k]["description"],
                                parents=FUSIONS[k]["parents"], rarity=1, rows=fusion_rows(FUSIONS[k])) for k in FUSION_KEYS}
+    ov = json.loads(os.environ.get("TUNE_JSON") or "{}").get("*", {})   # experiments: hero_tune / main_tune over the tables above
+    HERO_TUNE.update(ov.get("hero_tune", {}))
+    MAIN_TUNE.update(ov.get("main_tune", {}))
     for table, root in ((HERO_TUNE, data["heroes"]), (MAIN_TUNE, data["mainWeapons"])):
         for dotted, value in table.items():
             keys = dotted.split(".")
@@ -501,10 +547,10 @@ def main():
     lighting = data.setdefault("lighting", {})
     lighting["FLATS"] = dict(ambient=0.65, radius=240)
     lighting["MINES"] = dict(ambient=0.78, radius=200)
-    with open(path, "w") as f:
+    with open(out_path, "w") as f:
         json.dump(data, f, indent=1, ensure_ascii=False)
         f.write("\n")
-    print("wrote", path)
+    print("wrote", out_path)
 
 
 if __name__ == "__main__":

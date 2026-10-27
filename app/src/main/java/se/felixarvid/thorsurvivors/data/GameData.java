@@ -82,6 +82,16 @@ public final class GameData {
                 if (p != null) powerUps.put(id, p.withName(o.optString("name", p.name)));
             }
         }
+        JSONObject pu = root.optJSONObject("powerups"); // v1.4 shop prices: {KEY: {price, exp}}
+        if (pu != null) {
+            Iterator<String> it = pu.keys();
+            while (it.hasNext()) {
+                String id = it.next();
+                PowerUpDef p = powerUps.get(id);
+                JSONObject o = pu.getJSONObject(id);
+                if (p != null) powerUps.put(id, p.withPrice(o.optInt("price", p.basePrice), o.optDouble("exp", p.priceExp)));
+            }
+        }
         JSONObject fu = root.optJSONObject("fusions");
         if (fu != null) {
             List<WeaponDef> list = new ArrayList<>();
@@ -214,6 +224,10 @@ public final class GameData {
         }
         sd.hpCurve = curve(o.optJSONArray("hpCurve")); // [[minute, multiplier], ...]
         sd.dmgCurve = curve(o.optJSONArray("dmgCurve"));
+        sd.speedCurve = curve(o.optJSONArray("speedCurve"));
+        JSONObject eo = o.optJSONObject("elites");
+        if (eo != null) sd.eliteOv.putAll(numbers(eo));
+        sd.rangedCap = o.optInt("rangedCap", 0);
         JSONObject hd = o.optJSONObject("hordes");
         if (hd != null) {
             sd.hordeTypes = strings(hd.optJSONArray("types")).toArray(new String[0]);
