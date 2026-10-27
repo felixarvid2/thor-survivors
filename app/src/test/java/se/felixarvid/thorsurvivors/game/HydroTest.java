@@ -168,6 +168,7 @@ public class HydroTest {
         Sim s = sim(6);
         HydroRules r = rules(s);
         r.heartsOn = true;
+        r.holdNaturalHearts(1e9); // only the seeding is under test
         r.addHeart(2000f, 0f, true);
         step(s, 149);
         int before = r.heartN;
@@ -332,7 +333,7 @@ public class HydroTest {
     @Test
     public void destructiblesOfTheStageAreTankersFeedersAndBarrels() throws Exception {
         Sim s = sim(14);
-        int[] n = new int[8];
+        int[] n = new int[64];
         for (int cy = -40; cy < 40; cy++) {
             for (int cx = -40; cx < 40; cx++) {
                 if (!s.destPlace(cx, cy)) continue;
@@ -341,7 +342,9 @@ public class HydroTest {
         }
         int total = n[Sim.DK_BARREL] + n[HydroRules.DK_TANKER] + n[HydroRules.DK_FEEDER];
         System.out.println("HYDRO destructibles " + java.util.Arrays.toString(n));
-        assertEquals("only those three kinds", total, n[1] + n[2] + n[3] + n[4] + n[5] + n[6] + n[7] + n[0]);
+        int all = 0;
+        for (int c : n) all += c;
+        assertEquals("only those three kinds", total, all);
         assertTrue("tankers ~35%: " + n[HydroRules.DK_TANKER] + "/" + total, n[HydroRules.DK_TANKER] > total * 0.28 && n[HydroRules.DK_TANKER] < total * 0.42);
         assertTrue("feeders ~25%", n[HydroRules.DK_FEEDER] > total * 0.18 && n[HydroRules.DK_FEEDER] < total * 0.32);
         assertTrue("barrels ~40%", n[Sim.DK_BARREL] > total * 0.32 && n[Sim.DK_BARREL] < total * 0.48);
@@ -385,7 +388,8 @@ public class HydroTest {
     public void sporeCloudsHealEnemies() throws Exception {
         Sim s = sim(17);
         HydroRules r = rules(s);
-        s.px = 3000f;
+        s.px = 0f;
+        s.py = 400f; // near enough not to be recycled (an enemy far behind the hero is moved to the screen edge)
         Enemy e = s.spawnAt("SERGEANT", 0f, 0f, false);
         e.speed = 0f;
         e.hp = e.maxHp * 0.5f;
@@ -403,7 +407,8 @@ public class HydroTest {
     @Test
     public void aGardenerPulsesSixPercentOverAnEnemyWithin110AndTheCapIsSix() throws Exception {
         Sim s = sim(18);
-        s.px = 5000f;
+        s.px = 0f;
+        s.py = 450f; // within the recycle distance
         Enemy g = s.spawnAt("GARDENER", 0f, 0f, false);
         assertNotNull(g);
         assertEquals(EnemyDef.ARCH_HEALER, g.type.arch);
@@ -437,7 +442,7 @@ public class HydroTest {
         s.time = 300;
         r.addHeart(400f, 0f, true);
         r.hSwarm[0] = 0.05f;
-        step(s, 0.5);
+        step(s, 0.1);
         int m = 0;
         for (int i = 0; i < s.enemyN; i++) {
             Enemy e = s.enemies[i];
@@ -465,7 +470,7 @@ public class HydroTest {
         step(s, 26);
         assertEquals(1, r.purgeWon);
         assertEquals("every heart gone", 0, r.heartN);
-        boolean crate = false;
+        boolean crate = s.pendingChests > 0; // the hero stands on the terminal, so the crate is picked up at once
         for (int i = 0; i < s.pickN; i++) if (s.picks[i].kind == Entities.K_CHEST) crate = true;
         assertTrue("an Arms Crate", crate);
     }
@@ -532,6 +537,7 @@ public class HydroTest {
         s.time = 1680;
         Enemy b = s.spawnAt("ROOTMIND", 0f, 0f, true);
         assertNotNull(b);
+        step(s, 0.05); // the boss takes its place on the first step
         float dist = (float) Math.hypot(b.x - s.px, b.y - s.py);
         assertTrue("400-ish u from the hero at a dome centre: " + dist, dist >= 300f && dist <= 650f);
         float cell = DomesLayout.CELL * WorldGen.TILE;

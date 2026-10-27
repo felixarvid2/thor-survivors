@@ -860,6 +860,11 @@ public final class HydroRules extends StageRules {
         }
     }
 
+    /** Tests: the next natural Bloom Heart comes at this run time (the seeding of old hearts is unaffected). */
+    public void holdNaturalHearts(double until) {
+        nextHeart = until;
+    }
+
     /** Fills the weather clock so that a test can start from a clean slate. */
     public void resetWeather() {
         weatherUntil = 0;
