@@ -25,7 +25,12 @@ public class RefineryTest {
 
     private static Sim run(long seed) throws Exception {
         GameData d = StageSoak.data();
-        Sim s = new Sim(d, d.stages.get("REFINERY"), null, new HashMap<String, Double>(), "BASTION", seed);
+        // the v1.4 tuning scales hero damage x0.5 at 0:00; these tests assert the base numbers, so they run on a copy with the factors at 1
+        StageDef def = d.stages.get("REFINERY").withName("REFINERY");
+        def.rules = new HashMap<String, Double>(def.rules);
+        def.rules.put("areaMul0", 1.0);
+        def.rules.put("areaMul1", 1.0);
+        Sim s = new Sim(d, def, null, new HashMap<String, Double>(), "BASTION", seed);
         s.noSpawnsForTest();
         s.enemyN = 0;
         s.stats.regen = 0;
