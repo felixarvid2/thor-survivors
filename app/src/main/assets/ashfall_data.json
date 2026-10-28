@@ -2932,7 +2932,10 @@
    ],
    "difficulty": 4,
    "blurb": "Belts, furnaces, heat. Never stand still.",
-   "rules": {},
+   "rules": {
+    "areaMul0": 0.5,
+    "areaMul1": 1.15
+   },
    "unlock": {
     "key": "HYDRO",
     "seconds": 1200
@@ -3681,7 +3684,9 @@
     "breachRamp": 0.5,
     "breachEnemyPct": 0.03,
     "gateAt": 1650,
-    "gateUntil": 1770
+    "gateUntil": 1770,
+    "breachMul0": 0.4,
+    "breachMul1": 1.5
    },
    "unlock": {
     "key": "REFINERY",
