@@ -121,9 +121,19 @@ public final class RefineryRules extends StageRules {
     public void init(Sim sim) {
         super.init(sim);
         rr = new Random(sim.runSeed ^ SALT);
-        nextWave = WAVE_FIRST;
+        waveEvery = (float) def.rule("waveEvery", WAVE_EVERY);
+        nextWave = (float) def.rule("waveFirst", WAVE_FIRST);
+        areaMul0 = (float) def.rule("areaMul0", 1);
+        areaMul1 = (float) def.rule("areaMul1", 1);
+        heatGain = (float) def.rule("heatGain", HEAT_GAIN);
         overdriveNext = 0f;
     }
+
+    /** v1.4 tuning: damage to the hero from heat, molten floor, gates and heat waves, x areaMul0 at 0:00 rising linearly to x areaMul1 at 30:00. */
+    private float am() {
+        return areaMul0 + (areaMul1 - areaMul0) * (float) Math.min(1.0, s.time / 1800.0);
+    }
+    private float waveEvery = WAVE_EVERY, areaMul0 = 1f, areaMul1 = 1f, heatGain = HEAT_GAIN;
 
     // ------------------------------------------------------------------ queries
 
@@ -267,7 +277,7 @@ public final class RefineryRules extends StageRules {
             heat = 0f;
         } else if (nearHeat || !moving) {
             boolean frost = s.stats.statusChance[Entities.ST_FROST] > 0.0 || s.inv.weaponLevel("HOLYWATER") > 0;
-            heat += HEAT_GAIN * (frost ? 0.5f : 1f) * dt;
+            heat += heatGain * (frost ? 0.5f : 1f) * dt;
         } else {
             heat -= HEAT_LOSS * dt;
         }
@@ -275,10 +285,10 @@ public final class RefineryRules extends StageRules {
         if (heat >= limit - 1e-3f) overheated = true;
         else if (heat < HEAT_BURN_AT) overheated = false;
         if (overheated) {
-            RefineryOps.areaDamage(s, OVERHEAT_DPS * dt);
+            RefineryOps.areaDamage(s, OVERHEAT_DPS * am() * dt);
             dmgHeat += OVERHEAT_DPS * dt;
         } else if (heat >= HEAT_BURN_AT) {
-            RefineryOps.areaDamage(s, HEAT_BURN_DPS * dt);
+            RefineryOps.areaDamage(s, HEAT_BURN_DPS * am() * dt);
             dmgHeat += HEAT_BURN_DPS * dt;
         }
     }
@@ -319,7 +329,7 @@ public final class RefineryRules extends StageRules {
         if (t >= nextWave - WAVE_TELE) { // the regular wave: alternating sides, starting off screen
             float dir = (waveCount++ & 1) == 0 ? 1f : -1f;
             startWave(dir, s.px - dir * WAVE_START, nextWave);
-            nextWave += WAVE_EVERY;
+            nextWave += waveEvery;
         }
         for (int i = 0; i < MAXW; i++) {
             if (!wLive[i]) continue;
@@ -333,7 +343,7 @@ public final class RefineryRules extends StageRules {
             if (wHero[i] != wSerial[i] && hx <= 0f && hx >= -WAVE_THICK) {
                 wHero[i] = wSerial[i];
                 if (s.invuln <= 0f && s.dodgeT <= 0f && s.ended == 0) {
-                    RefineryOps.hurtHero(s, Math.max(1f, WAVE_HERO - (float) s.stats.armor), 0.5f, Sim.DMG_AREA);
+                    RefineryOps.hurtHero(s, Math.max(1f, WAVE_HERO * am() - (float) s.stats.armor), 0.5f, Sim.DMG_AREA);
                     dmgWave += WAVE_HERO;
                     if (!s.stats.burnImmune) s.heroBurnT = Status.HERO_BURN_TIME;
                 }
@@ -412,7 +422,7 @@ public final class RefineryRules extends StageRules {
         boolean safe = s.dodgeT > 0f;
         int b = StreetsLayout.surfaceAt((int) Math.floor(s.px / WorldGen.TILE), (int) Math.floor(s.py / WorldGen.TILE));
         if ((b & WorldGen.SURF_MOLTEN) != 0 && !safe) {
-            RefineryOps.areaDamage(s, MOLTEN_HERO * dt);
+            RefineryOps.areaDamage(s, MOLTEN_HERO * am() * dt);
             dmgMolten += MOLTEN_HERO * dt;
             if (!s.stats.burnImmune) s.heroBurnT = Status.HERO_BURN_TIME;
         }
@@ -420,7 +430,7 @@ public final class RefineryRules extends StageRules {
         if (inGate && !heroInGate && gateCd <= 0f) { // the gate hurts on entering, not while standing in it; one second before the next entry counts
             gateCd = GATE_COOLDOWN;
             if (s.invuln <= 0f && !safe) {
-                RefineryOps.hurtHero(s, Math.max(1f, GATE_DMG - (float) s.stats.armor), 0.5f, Sim.DMG_AREA);
+                RefineryOps.hurtHero(s, Math.max(1f, GATE_DMG * am() - (float) s.stats.armor), 0.5f, Sim.DMG_AREA);
                 dmgGate += GATE_DMG;
                 if (!s.stats.burnImmune) s.heroBurnT = Status.HERO_BURN_TIME;
                 RefineryOps.fx(s, Entities.FX_FLASH, s.px, s.py - 8f, 90f, 0f, 0.25f);
@@ -446,7 +456,7 @@ public final class RefineryRules extends StageRules {
                 float dx = s.px - gx, dy = s.py - gy;
                 if (dx * dx + dy * dy < 70f * 70f && s.invuln <= 0f && s.dodgeT <= 0f && gateCd <= 0f) {
                     gateCd = GATE_COOLDOWN;
-                    RefineryOps.hurtHero(s, Math.max(1f, GATE_DMG - (float) s.stats.armor), 0.5f, Sim.DMG_AREA);
+                    RefineryOps.hurtHero(s, Math.max(1f, GATE_DMG * am() - (float) s.stats.armor), 0.5f, Sim.DMG_AREA);
                 }
             }
         }

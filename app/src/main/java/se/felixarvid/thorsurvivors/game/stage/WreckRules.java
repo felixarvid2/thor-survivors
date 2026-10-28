@@ -54,6 +54,8 @@ public final class WreckRules extends StageRules {
     // ---- parameters (see StageDef.rules)
     private float padR, padChannel, padCooldown, shockR, shockDmg;
     private float wellOnT, wellOffT, pullHero, pullEnemy, pullPickup, coreR, coreEnemyDps, coreEliteDps, coreHeroDps;
+    /** v1.4 tuning: the bubble's damage to the hero is x breachMul0 at the first breach and x breachMul1 at the fifth (linear between). */
+    private float breachMul0 = 1f, breachMul1 = 1f;
     private float breachLen, breachTele, breachR0, breachR1, breachDrift, breachHeroDps, breachRamp, breachEnemyPct;
     private double gateAt, gateUntil;
     private boolean ready;
@@ -154,6 +156,8 @@ public final class WreckRules extends StageRules {
         breachHeroDps = (float) def.rule("breachHeroDps", 4);
         breachRamp = (float) def.rule("breachRamp", 0.5);
         breachEnemyPct = (float) def.rule("breachEnemyPct", 0.03);
+        breachMul0 = (float) def.rule("breachMul0", 1);
+        breachMul1 = (float) def.rule("breachMul1", 1);
         gateAt = def.rule("gateAt", 1650);
         gateUntil = def.rule("gateUntil", 1770);
         float px = DebrisLayout.pillarX(), py = DebrisLayout.pillarY();
@@ -523,7 +527,8 @@ public final class WreckRules extends StageRules {
             float dx = s.px - bubbleX, dy = s.py - bubbleY;
             if (dx * dx + dy * dy >= bubbleR * bubbleR) { // outside: 4 per second, +0.5 per second of time out here
                 outT += dt;
-                float dmg = (breachHeroDps + breachRamp * outT) * dt;
+                float dmg = (breachHeroDps + breachRamp * outT) * dt
+                        * (breachMul0 + (breachMul1 - breachMul0) * Math.max(0, Math.min(4, breachIdx)) / 4f);
                 bubbleDamage += dmg * (float) s.stats.damageTaken;
                 WreckOps.areaDamage(s, dmg);
             } else {
