@@ -2092,27 +2092,27 @@
     ],
     [
      10,
-     1.65
+     1.732
     ],
     [
      13,
-     1.98
+     2.228
     ],
     [
      16,
-     2.64
+     3.102
     ],
     [
      20,
-     3.5
+     4.288
     ],
     [
      24,
-     5
+     6.375
     ],
     [
      30,
-     7.5
+     10.125
     ]
    ],
    "speedCurve": [
@@ -2130,19 +2130,19 @@
     ],
     [
      15,
-     1.4
+     1.435
     ],
     [
      20,
-     1.65
+     1.732
     ],
     [
      25,
-     1.92
+     2.064
     ],
     [
      30,
-     2.25
+     2.475
     ]
    ],
    "hordes": {
@@ -2269,7 +2269,7 @@
    "rows": [
     {
      "minute": 0,
-     "minimum": 16,
+     "minimum": 11,
      "frequency": 1000,
      "enemies": [
       "COLONIST"
@@ -2278,7 +2278,7 @@
     },
     {
      "minute": 1,
-     "minimum": 23,
+     "minimum": 16,
      "frequency": 960,
      "enemies": [
       "COLONIST"
@@ -2287,7 +2287,7 @@
     },
     {
      "minute": 2,
-     "minimum": 30,
+     "minimum": 22,
      "frequency": 920,
      "enemies": [
       "COLONIST",
@@ -2297,7 +2297,7 @@
     },
     {
      "minute": 3,
-     "minimum": 39,
+     "minimum": 29,
      "frequency": 880,
      "enemies": [
       "COLONIST",
@@ -2308,7 +2308,7 @@
     },
     {
      "minute": 4,
-     "minimum": 48,
+     "minimum": 36,
      "frequency": 840,
      "enemies": [
       "COLONIST",
@@ -2319,7 +2319,7 @@
     },
     {
      "minute": 5,
-     "minimum": 46,
+     "minimum": 36,
      "frequency": 800,
      "enemies": [
       "SECURITY_DRONE",
@@ -2348,7 +2348,7 @@
     },
     {
      "minute": 6,
-     "minimum": 60,
+     "minimum": 47,
      "frequency": 780,
      "enemies": [
       "COLONIST",
@@ -2359,7 +2359,7 @@
     },
     {
      "minute": 7,
-     "minimum": 63,
+     "minimum": 51,
      "frequency": 760,
      "enemies": [
       "SECURITY_DRONE",
@@ -2370,7 +2370,7 @@
     },
     {
      "minute": 8,
-     "minimum": 67,
+     "minimum": 55,
      "frequency": 740,
      "enemies": [
       "COLONIST",
@@ -2382,7 +2382,7 @@
     },
     {
      "minute": 9,
-     "minimum": 70,
+     "minimum": 58,
      "frequency": 720,
      "enemies": [
       "WELDER",
@@ -2393,7 +2393,7 @@
     },
     {
      "minute": 10,
-     "minimum": 64,
+     "minimum": 54,
      "frequency": 700,
      "enemies": [
       "SMELTER",
@@ -2422,7 +2422,7 @@
     },
     {
      "minute": 11,
-     "minimum": 80,
+     "minimum": 70,
      "frequency": 675,
      "enemies": [
       "IRONCLAD",
@@ -2433,7 +2433,7 @@
     },
     {
      "minute": 12,
-     "minimum": 85,
+     "minimum": 76,
      "frequency": 650,
      "enemies": [
       "SECURITY_DRONE",
@@ -2445,7 +2445,7 @@
     },
     {
      "minute": 13,
-     "minimum": 93,
+     "minimum": 86,
      "frequency": 625,
      "enemies": [
       "COLONIST",
@@ -2456,7 +2456,7 @@
     },
     {
      "minute": 14,
-     "minimum": 102,
+     "minimum": 97,
      "frequency": 600,
      "enemies": [
       "WELDER",
@@ -2467,7 +2467,7 @@
     },
     {
      "minute": 15,
-     "minimum": 94,
+     "minimum": 92,
      "frequency": 575,
      "enemies": [
       "IRONCLAD",
@@ -2753,19 +2753,19 @@
    "dmgCurve": [
     [
      0,
-     1.35
+     1.08
     ],
     [
      3,
-     1.4
+     1.141
     ],
     [
      6,
-     1.35
+     1.121
     ],
     [
      10,
-     1.65
+     1.402
     ],
     [
      13,
@@ -2773,19 +2773,19 @@
     ],
     [
      16,
-     2.64
+     2.81
     ],
     [
      20,
-     3.5
+     4.025
     ],
     [
      24,
-     5
+     6.05
     ],
     [
      30,
-     7.5
+     9.75
     ]
    ],
    "speedCurve": [
@@ -2807,15 +2807,15 @@
     ],
     [
      20,
-     1.65
+     1.732
     ],
     [
      25,
-     1.92
+     2.112
     ],
     [
      30,
-     2.25
+     2.587
     ]
    ],
    "hordes": {
@@ -2953,7 +2953,7 @@
    "rows": [
     {
      "minute": 0,
-     "minimum": 18,
+     "minimum": 11,
      "frequency": 1000,
      "enemies": [
       "SECURITY_DRONE",
@@ -2963,7 +2963,7 @@
     },
     {
      "minute": 1,
-     "minimum": 25,
+     "minimum": 16,
      "frequency": 960,
      "enemies": [
       "SECURITY_DRONE",
@@ -2973,7 +2973,7 @@
     },
     {
      "minute": 2,
-     "minimum": 33,
+     "minimum": 21,
      "frequency": 920,
      "enemies": [
       "SECURITY_DRONE",
@@ -2983,7 +2983,7 @@
     },
     {
      "minute": 3,
-     "minimum": 43,
+     "minimum": 28,
      "frequency": 880,
      "enemies": [
       "SECURITY_DRONE",
@@ -2993,7 +2993,7 @@
     },
     {
      "minute": 4,
-     "minimum": 53,
+     "minimum": 36,
      "frequency": 840,
      "enemies": [
       "SECURITY_DRONE",
@@ -3004,7 +3004,7 @@
     },
     {
      "minute": 5,
-     "minimum": 51,
+     "minimum": 36,
      "frequency": 800,
      "enemies": [
       "SECURITY_DRONE",
@@ -3033,7 +3033,7 @@
     },
     {
      "minute": 6,
-     "minimum": 66,
+     "minimum": 48,
      "frequency": 780,
      "enemies": [
       "SERGEANT",
@@ -3045,7 +3045,7 @@
     },
     {
      "minute": 7,
-     "minimum": 69,
+     "minimum": 51,
      "frequency": 760,
      "enemies": [
       "SERGEANT",
@@ -3057,7 +3057,7 @@
     },
     {
      "minute": 8,
-     "minimum": 74,
+     "minimum": 56,
      "frequency": 740,
      "enemies": [
       "SERGEANT",
@@ -3069,7 +3069,7 @@
     },
     {
      "minute": 9,
-     "minimum": 77,
+     "minimum": 60,
      "frequency": 720,
      "enemies": [
       "SERGEANT",
@@ -3082,7 +3082,7 @@
     },
     {
      "minute": 10,
-     "minimum": 70,
+     "minimum": 56,
      "frequency": 700,
      "enemies": [
       "SERGEANT",
@@ -3113,7 +3113,7 @@
     },
     {
      "minute": 11,
-     "minimum": 88,
+     "minimum": 73,
      "frequency": 675,
      "enemies": [
       "SERGEANT",
@@ -3126,7 +3126,7 @@
     },
     {
      "minute": 12,
-     "minimum": 94,
+     "minimum": 81,
      "frequency": 650,
      "enemies": [
       "SERGEANT",
@@ -3139,7 +3139,7 @@
     },
     {
      "minute": 13,
-     "minimum": 102,
+     "minimum": 92,
      "frequency": 625,
      "enemies": [
       "SERGEANT",
@@ -3152,7 +3152,7 @@
     },
     {
      "minute": 14,
-     "minimum": 112,
+     "minimum": 105,
      "frequency": 600,
      "enemies": [
       "COLONIST",
@@ -3166,7 +3166,7 @@
     },
     {
      "minute": 15,
-     "minimum": 103,
+     "minimum": 100,
      "frequency": 575,
      "enemies": [
       "COLONIST",
@@ -3454,7 +3454,7 @@
    "hpCurve": [
     [
      0,
-     1
+     0.8
     ],
     [
      10,
@@ -3462,37 +3462,37 @@
     ],
     [
      15,
-     1.6
+     1.68
     ],
     [
      20,
-     2.4
+     2.64
     ],
     [
      25,
-     5
+     6.0
     ],
     [
      30,
-     9
+     11.7
     ]
    ],
    "dmgCurve": [
     [
      0,
-     1.35
+     1.08
     ],
     [
      3,
-     1.4
+     1.141
     ],
     [
      6,
-     1.35
+     1.121
     ],
     [
      10,
-     1.65
+     1.402
     ],
     [
      13,
@@ -3500,19 +3500,19 @@
     ],
     [
      16,
-     2.64
+     2.81
     ],
     [
      20,
-     3.5
+     4.025
     ],
     [
      24,
-     5
+     6.05
     ],
     [
      30,
-     7.5
+     9.75
     ]
    ],
    "speedCurve": [
@@ -3534,15 +3534,15 @@
     ],
     [
      20,
-     1.65
+     1.732
     ],
     [
      25,
-     1.92
+     2.112
     ],
     [
      30,
-     2.25
+     2.587
     ]
    ],
    "hordes": {

@@ -346,10 +346,13 @@ TUNE_DEFAULT = dict(
 )
 STAGE_TUNE = {
     # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
-    "HYDRO": dict(extra_types=[], horde_types=["COLONIST", "SPORE_HOUND", "MYCELID"],   # the 975 s horde moves to 990: the 16:00 Sporefall runs 960-980
+    "HYDRO": dict(extra_types=[], horde_types=["COLONIST", "SPORE_HOUND", "MYCELID"],
+                  # v1.4 tuning (skilled bot, 16 seeds x 3 heroes): damage x1.0 -> x1.15 (14 min) -> x1.35, enemies x1.0 -> x1.1 faster by 30:00
+                  dmg_curve=[[0, 1.35], [3, 1.4], [6, 1.35], [10, 1.732], [13, 2.228], [16, 3.102], [20, 4.288], [24, 6.375], [30, 10.125]], speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.435], [20, 1.732], [25, 2.064], [30, 2.475]],   # the 975 s horde moves to 990: the 16:00 Sporefall runs 960-980
                   hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [990, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),
-    "REFINERY": dict(extra_types=[]),
-    "WRECK": dict(extra_types=[],   # the 825 and 1125 s hordes move off the Vacuum Breaches (840 and 1140, 25 s each)
+    "REFINERY": dict(extra_types=[],   # v1.4 tuning: a gentle opening (fewer enemies and x0.8 damage until 10 min), then x1.15 damage / speed by 30:00
+                     wave_mul=[[0, 0.7], [10, 0.85], [16, 1.0]], dmg_curve=[[0, 1.08], [3, 1.141], [6, 1.121], [10, 1.402], [13, 1.98], [16, 2.81], [20, 4.025], [24, 6.05], [30, 9.75]], speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.4], [20, 1.732], [25, 2.112], [30, 2.587]]),
+    "WRECK": dict(extra_types=[], wave_mul=[[0, 0.6], [10, 0.8], [16, 1.0]], dmg_curve=[[0, 1.08], [3, 1.141], [6, 1.121], [10, 1.402], [13, 1.98], [16, 2.81], [20, 4.025], [24, 6.05], [30, 9.75]], hp_curve=[[0, 0.8], [10, 1.2], [15, 1.68], [20, 2.64], [25, 6.0], [30, 11.7]], speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.4], [20, 1.732], [25, 2.112], [30, 2.587]],   # v1.4 tuning: gentle opening (x0.6 enemies, x0.8 HP and damage), steeper late; the 825 and 1125 s hordes move off the Vacuum Breaches (840 and 1140, 25 s each)
                   hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [875, 140], [975, 170], [1170, 200], [1245, 250], [1420, 290], [1545, 290]]),
     "FLATS": dict(extra_types=[],
                   hordes=[[200, 50], [370, 70], [565, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),   # 520 -> 565: the first convoy crosses 495-555   # v1.4: the Flats rows already carry Sergeants; extra ones made 5-10 min lethal (14 of 32 Xenomants died there)
