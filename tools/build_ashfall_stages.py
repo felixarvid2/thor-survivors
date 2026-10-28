@@ -341,6 +341,8 @@ TUNE_DEFAULT = dict(
     hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]],
     horde_types=["COLONIST", "SPORE_HOUND"], horde_len=16, horde_freq=250,
     boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
+    wave_mul=[[0, 1.0]],   # v1.4 (Hydro / Refinery / Wreck only): [minute, factor] on the finished rows' minimum, linear between points
+    rules={},              # v1.4 (Hydro / Refinery / Wreck only): overrides of the stage's rules params (StageDef.rules)
 )
 STAGE_TUNE = {
     # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
@@ -835,6 +837,17 @@ def main():
             for k in keys[:-1]:
                 node = node[k]
             node[keys[-1]] = value
+    for key in ("HYDRO", "REFINERY", "WRECK"):   # v1.4 tuning: the copied stages take their OWN curves, elites, density factor and rules
+        tn, st = tune_of(key), data["stages"][key]
+        st["hpCurve"], st["dmgCurve"], st["speedCurve"] = tn["hp_curve"], tn["dmg_curve"], tn["speed_curve"]
+        for k2, k3 in (("elites", "elites"), ("ranged_cap", "rangedCap")):
+            if tn[k2]:
+                st[k3] = tn[k2]
+            else:
+                st.pop(k3, None)
+        for r in st["rows"]:
+            r["minimum"] = min(300, int(round(r["minimum"] * interp(tn["wave_mul"], r["minute"]))))
+        st["rules"] = dict(st.get("rules", {}), **tn["rules"])
     for hero, text in HERO_TEXT.items():
         data["heroes"][hero]["description"] = text
     lighting = data.setdefault("lighting", {})
