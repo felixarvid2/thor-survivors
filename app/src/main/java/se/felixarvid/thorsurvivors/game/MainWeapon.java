@@ -480,6 +480,7 @@ public final class MainWeapon {
         }
         s.hitDest(p.x, p.y, r);
         s.addFx(Entities.FX_BLAST, p.x, p.y, r, 1f, 0.3f, 0, false);
+        s.rules.onBlast(p.x, p.y, r); // chunk E: firedamp
         if (p.sub != Entities.SUB_GRENADE) return;
         float base = s.rng.nextFloat() * TAU;
         for (int i = 0; i < bomblets; i++) {

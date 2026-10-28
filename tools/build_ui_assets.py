@@ -3,6 +3,9 @@
 
 Sources (assets/ashfall-ai, the owner's own FLUX / Meshy art):
   flux/regions/{cinder_flats,deep_mines}  -> ui/region_flats.webp, ui/region_mines.webp   (640x360, lossy)
+  flux/regions/{hydroponic_vaults,refinery_district} -> ui/region_hydro.webp, ui/region_refinery.webp
+  region_wreck.webp: no painting of the Meridian Wreck exists yet, so it is the refinery district desaturated and tinted blue
+                     (a stand-in; replace by a flux/regions image and one line in main() when there is one)
   flux/menu/title                         -> ui/title.webp                               (960x540, top screen)
   flux/menu/{bastion,spectre,xenomant}    -> ui/hero_<key>.webp                          (640x360, hero cards)
   meshy/icons/portrait_<hero>             -> ui/portrait_<key>.webp                      (256x256)
@@ -11,7 +14,7 @@ Sources (assets/ashfall-ai, the owner's own FLUX / Meshy art):
 Run: python3 tools/build_ui_assets.py   (needs Pillow). The panel decodes these lazily, at display size, when a screen opens.
 """
 import os
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # shared asset library: felixarvid2/test/assets (set ASSET_LIBRARY, default: a sibling clone ../test/assets)
@@ -40,9 +43,23 @@ def rounded(im, frac):
     return im
 
 
-def main():
-    for src, dst in (("cinder_flats", "region_flats"), ("deep_mines", "region_mines")):
+def wreck_stand_in(im):
+    """The refinery painting with most of its colour taken out and a cold blue-black cast (the Wreck has no painting of its own yet)."""
+    grey = ImageOps.grayscale(im).convert("RGB")
+    cast = ImageOps.colorize(ImageOps.grayscale(im), black=(4, 8, 18), white=(150, 182, 230))
+    return Image.blend(Image.blend(im, grey, 0.8), cast, 0.55)
+
+
+def regions():
+    for src, dst in (("cinder_flats", "region_flats"), ("deep_mines", "region_mines"),
+                     ("hydroponic_vaults", "region_hydro"), ("refinery_district", "region_refinery")):
         save(Image.open(os.path.join(AI, "flux", "regions", src + ".webp")).convert("RGB").resize((640, 360), Image.LANCZOS), dst + ".webp", 78)
+    refinery = Image.open(os.path.join(AI, "flux", "regions", "refinery_district.webp")).convert("RGB").resize((640, 360), Image.LANCZOS)
+    save(wreck_stand_in(refinery), "region_wreck.webp", 78)
+
+
+def main():
+    regions()
     save(Image.open(os.path.join(AI, "flux", "menu", "title.webp")).convert("RGB").resize((960, 540), Image.LANCZOS), "title.webp", 80)
     for k in ("bastion", "spectre", "xenomant"):
         save(Image.open(os.path.join(AI, "flux", "menu", k + ".webp")).convert("RGB").resize((640, 360), Image.LANCZOS), "hero_" + k + ".webp", 78)

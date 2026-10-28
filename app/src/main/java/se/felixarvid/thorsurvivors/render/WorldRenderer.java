@@ -40,6 +40,10 @@ import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.WorldGen;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Clip;
+import se.felixarvid.thorsurvivors.game.stage.RefineryRules;
+import se.felixarvid.thorsurvivors.game.stage.HydroRules;
+import se.felixarvid.thorsurvivors.game.stage.WreckRules;
+import se.felixarvid.thorsurvivors.render.stagefx.StageFx;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Img;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Model;
 
@@ -75,6 +79,8 @@ public final class WorldRenderer {
     private static final float ENEMY_GAIN = 1.8f;
     /** Multiply tints of the rock texture per stage: Cinder Flats ash grey, Deep Mines darker and colder. */
     private static final int TINT_FLATS = 0xFF8C8680, TINT_MINES = 0xFF6F7480;
+    /** Multiply tint of the ground rock per {@code WorldGen} layout: flats, mines, domes (green), streets (rust), debris (cold blue). */
+    private static final int[] TINT = {TINT_FLATS, TINT_MINES, 0xFF789080, 0xFF6E5C50, 0xFF48525F};
 
     private final SpriteAtlas atlas = SpriteAtlas.get();
     private final Paint bmp = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -215,6 +221,25 @@ public final class WorldRenderer {
         return Math.round(wy * sc) + oy;
     }
 
+    // ---- v1.4 stage fx accessors (chunk C): what render/stagefx needs of the camera and the lights
+    public int fxX(float wx) { return sx(wx); }
+    public int fxY(float wy) { return sy(wy); }
+    public float fxWx(float px) { return (px - ox) / sc; }
+    public float fxWy(float py) { return (py - oy) / sc; }
+    /** Pixels per world unit, and the 1080p scale of fixed-size things. */
+    public float fxScale() { return sc; }
+    public float fxK() { return ks; }
+    public float fxUi() { return ks; }
+    public float fxNow() { return (float) now; }
+    /** A warm light at a world position (radius in world units); ignored when the lightmap is full or off. */
+    public void fxLight(float wx, float wy, float worldRadius, float strength) {
+        if (lightMode != MetaProgress.LIGHT_FULL || light.n >= Lighting.MAX - 1) return;
+        int px = sx(wx), py = sy(wy);
+        if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) return;
+        light.add(px, py, worldRadius * sc, strength, Lighting.WARM);
+    }
+    // ---- end stage fx accessors
+
     public void draw(Canvas c, int w, int h, Engine e, boolean dualScreen) {
         c.drawColor(0xFF000000);
         orderN = 0;
@@ -256,12 +281,12 @@ public final class WorldRenderer {
         oy = h / 2 - camPy;
         String stage = e.stage().key;
         tilePx = Math.max(8, Math.round(WorldGen.TILE * sc));
-        boolean mines = WorldGen.of(stage).mines;
-        ground.setup(WorldGen.of(stage), stage, tilePx, mines ? TINT_MINES : TINT_FLATS);
+        gen = WorldGen.of(stage);
+        ground.setup(gen, stage, tilePx, TINT[gen.layout]);
         bmp.setColorFilter(null);
         bmp.setAlpha(255);
         ground.draw(c, bmp, ox, oy, camPx, camPy, w, h);
-        gen = WorldGen.of(stage);
+        if (!menu) StageFx.forKey(s.stage.key).drawFloor(this, c, s, w, h); // v1.4: belts, molten metal, gates
         listProps();
         float[] lp = e.data.lightingOf(stage);
         setupLights(c, w, h, e, s, menu, lp);
@@ -271,9 +296,10 @@ public final class WorldRenderer {
         } else {
             drawWorld(c, s, stage);
         }
+        if (!menu) StageFx.forKey(s.stage.key).drawGround(this, c, s, w, h);
         if (lightMode == MetaProgress.LIGHT_FULL) light.drawGlows(c);
         drawMood(c, w, h);
-        if (!menu) drawAsh(c, s, w, h);
+        if (!menu) StageFx.forKey(s.stage.key).drawOver(this, c, s, w, h); // Flats: the ash; the v1.4 stages draw their own
         if (!menu) drawEvents(c, s, w, h);
         drawOverlay(c, w, h, e, s, menu, dualScreen);
     }
@@ -282,7 +308,7 @@ public final class WorldRenderer {
 
     /** Collects the lights of the frame and draws the darkness over the ground (FULL: dynamic map, LOW: static, OFF: none). */
     private void setupLights(Canvas c, int w, int h, Engine e, Sim s, boolean menu, float[] lp) {
-        light.begin(Math.max(0f, Math.min(1f, lp[0] - (s != null && !menu ? s.events.ambientLift() : 0f)))); // the Surge lifts the dark, the Tide's lull flickers it
+        light.begin(Math.max(0f, Math.min(1f, lp[0] - (s != null && !menu ? s.events.ambientLift() + s.rules.ambientLift() : 0f)))); // the Surge lifts the dark, the Tide's lull flickers it
         // ash storms shrink the pool of light, a Headlamp or the Heart of Lumen widens it (equipment: lightRadius)
         float pr = lp[1] * sc * (s != null && !menu ? s.lightRadiusMul() * (float) s.stats.lightRadius : 1f);
         if (menu) {
@@ -296,6 +322,7 @@ public final class WorldRenderer {
                 gatherFindLights(s);
                 gatherMerchantLight(s);
                 gatherPoiLights(s);
+                StageFx.forKey(s.stage.key).lights(this, s); // v1.4: furnaces, gates, molten metal
             }
             gatherPropLights(c, menu);
             if (!DBG_NO_MASK) light.drawFull(c, w, h);
@@ -401,8 +428,8 @@ public final class WorldRenderer {
     }
 
     // v1.3 boss recolours: a luminance x tint colour matrix per brightness step for every enemy type with a tintRGB (made once)
-    private final int[] tintRgb = new int[12];
-    private final ColorFilter[][] tintSet = new ColorFilter[12][];
+    private final int[] tintRgb = new int[24];
+    private final ColorFilter[][] tintSet = new ColorFilter[24][];
     private int tintN;
     private GameData tintFor;
 
@@ -483,13 +510,16 @@ public final class WorldRenderer {
     private final float[] lstX = new float[WorldGen.MAX_LIST], lstY = new float[WorldGen.MAX_LIST];
     private final int[] lstK = new int[WorldGen.MAX_LIST];
     private WorldGen gen;
-    private final Img[] propImg = new Img[WorldGen.PROP.length];
+    private final Img[] propImg = new Img[WorldGen.P_EXT_MAX]; // the kinds of WorldGen.PROP, then the layout kinds from P_EXT_BASE
     private boolean propsResolved;
 
     /** Lists the props around the view into the prop arrays (unsorted). */
     private void listProps() {
         if (!propsResolved) {
-            for (int i = 0; i < propImg.length; i++) propImg[i] = atlas.img("prop." + WorldGen.PROP[i]);
+            for (int i = 0; i < propImg.length; i++) {
+                String pn = WorldGen.propName(i);
+                propImg[i] = pn == null ? null : atlas.img("prop." + pn);
+            }
             propsResolved = true;
         }
         propN = 0;
@@ -514,7 +544,8 @@ public final class WorldRenderer {
         prA[n] = a;
         prSx[n] = px;
         prSy[n] = py;
-        prKey[n] = (bias(py) << 32) | n;
+        // a flat floor prop (the Wreck's teleporter) sorts by its far edge, so creatures standing on it are drawn over it
+        prKey[n] = (bias(kind == se.felixarvid.thorsurvivors.game.layout.DebrisLayout.K_TELEPORTER ? py - Math.round(150f * ks) : py) << 32) | n;
         prIdx[n] = n;
     }
 
@@ -541,6 +572,8 @@ public final class WorldRenderer {
         }
         if (im == null) return;
         float sc2 = ks;
+        if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == HydroRules.DK_HEART) sc2 *= 1.6f * (1f + 0.06f * (float) Math.sin(now * 3.0 + prA[i])); // Bloom Heart: big and pulsing
+        else if (prKind[i] == DEST_PROP && s != null && s.destKind[prA[i]] == HydroRules.DK_FEEDER) sc2 *= 0.75f;
         drawShadow(c, px, py - 2, Math.max(10, Math.round(im.w() * sc2 * 0.36f)));
         bmp.setColorFilter(shadeAt(px, py - im.ay * ks * 0.3f, prKind[i] == DEST_PROP ? 0.45f : FLOOR_PROP));
         bmp.setAlpha(255);
@@ -763,10 +796,10 @@ public final class WorldRenderer {
             if (px >= -300 && px <= scrW + 300 && py >= -300 && py <= scrH + 300) light.add(px, py - 30f * ks, 160f * sc * pu, 0.9f, Lighting.WARM);
         }
         for (int i = 0; i < s.destN && light.n < Lighting.MAX - 3; i++) {
-            if (s.destKind[i] != Sim.DK_NEST) continue;
+            if (s.destKind[i] != Sim.DK_NEST && s.destKind[i] != HydroRules.DK_HEART) continue;
             int px = sx(s.destX[i]), py = sy(s.destY[i]);
             if (px < -300 || px > scrW + 300 || py < -300 || py > scrH + 300) continue;
-            light.add(px, py - 20f * ks, 130f * sc * pu, 0.9f, Lighting.GREEN);
+            light.add(px, py - 20f * ks, (s.destKind[i] == HydroRules.DK_HEART ? 190f : 130f) * sc * pu, 0.9f, Lighting.GREEN);
         }
         for (int i = 0; i < p.ventN && light.n < Lighting.MAX - 3; i++) {
             if (p.ventBurst[i] <= 0f) continue;
@@ -1010,6 +1043,13 @@ public final class WorldRenderer {
             case Sim.DK_CHEST: return "prop.supply_chest";
             case Sim.DK_PYLON: return "prop.stim_pylon";
             case Sim.DK_NEST: return "prop.spore_nest";
+            case RefineryRules.DK_COOLANT: case RefineryRules.DK_VALVE_HEAVY: return "prop.coolant_valve"; // v1.4 chunk C
+            case RefineryRules.DK_FUEL: return "prop.fuel_tank";
+            case WreckRules.DK_GENERATOR: return "prop.generator"; // v1.4 Wreck: a generator (disables a gravity well when broken)
+            case WreckRules.DK_CRATE: return "prop.cargo_crate"; // v1.4 Wreck: a cargo crate (30% gold)
+            case HydroRules.DK_HEART: return "prop.lumen_growth"; // v1.4 Hydroponic Vaults
+            case HydroRules.DK_TANKER: return "prop.water_tanker";
+            case HydroRules.DK_FEEDER: return "prop.spore_nest";
             default: return "CANDELABRA".equals(type) ? "prop.supply_chest" : "prop.explosive_barrel";
         }
     }
@@ -1312,6 +1352,7 @@ public final class WorldRenderer {
             Enemy en = s.enemies[i];
             int px = sx(en.x), py = sy(en.y);
             if (px < -m || px > w + m || py < -m || py > h + m) continue;
+            if (s.rules.hidden(en.type, en.x, en.y)) continue; // chunk E: a Dark Lurker outside the light is not drawn
             if (en.flash > 0) flashing++;
             Model mo = atlas.model(en.boss ? en.type.bossModel : en.type.model);
             entModel[i] = mo;
@@ -1563,6 +1604,7 @@ public final class WorldRenderer {
             if (!k.active) continue;
             int px = sx(k.x), py = sy(k.y);
             if (px < -200 || px > scrW + 200 || py < -200 || py > scrH + 200) continue;
+            if (s.rules.hidden(k.type, k.x, k.y)) continue; // chunk E: a Dark Lurker's fall is only seen in the light
             Model m = atlas.model(k.boss ? k.type.bossModel : k.type.model);
             if (m == null) continue;
             float life = Sim.CORPSE_LIFE;
@@ -2476,8 +2518,7 @@ public final class WorldRenderer {
     }
 
     /** Falling ash on Cinder Flats (40 flakes, many more and slanted streaks in a storm), a dust haze and the storm banner. */
-    private void drawAsh(Canvas c, Sim s, int w, int h) {
-        if (!s.stage.key.equals("FLATS")) return;
+    public void drawAsh(Canvas c, Sim s, int w, int h) {
         float storm = s.stormLevel();
         int n = 40 + (int) (130 * storm);
         float tt = (float) now;

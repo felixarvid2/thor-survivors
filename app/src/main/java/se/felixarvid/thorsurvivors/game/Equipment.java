@@ -91,9 +91,13 @@ public final class Equipment {
             case "amount": return String.format(Locale.ROOT, "%s%d projectile on all auto weapons", sign, Math.round(a));
             case "enemySpeed": return pct("Enemy speed", sign, a);
             case "revivals": return String.format(Locale.ROOT, "%s%d revival", sign, Math.round(a));
+            case "padRecharge": return String.format(Locale.ROOT, "Teleporter pads recharge in %.0f s", a); // v1.4 Wreck: Echo of the Pillar
+            case "padShock": return pct("Pad arrival shockwave", sign, a);
             case "burnImmune": return "Immune to Burn";
             case "ashTrail": return "Leaves an ash trail that slows enemies 20%";
             case "cloudHeal": return "Spore Carrier clouds heal you";
+            case "healMul": return pct("Healing from all sources", sign, a);
+            case "heartVacuum": return String.format(Locale.ROOT, "Bloom Hearts drop a Vacuum %.0f%% of the time", a * 100);
             default: return key + " " + sign + a;
         }
     }

@@ -86,6 +86,14 @@ public class PanelCostTest {
             h.eng.advance(1f / 60f);
             measure("menu focus " + f, p, c, 1240, 1080, null);
         }
+        h.eng.meta.unlockAll = false; // the stage select: a locked card (greyed painting, padlocks, unlock line) with the refusal shake running
+        h.eng.selectStage("REFINERY");
+        h.eng.focus = Engine.MENU_STAGE;
+        h.eng.advance(1f / 60f);
+        measure("menu stage locked + shake", p, c, 1240, 1080, () -> h.eng.lockShake = 0.3f);
+        measure("menu stage locked", p, c, 1240, 1080, null);
+        h.eng.meta.unlockAll = true;
+        h.eng.selectStage("FLATS");
         measure("menu compact", compact, cc, 1920, 1080, null);
         h.eng.phase = Engine.PH_SHOP;
         h.eng.focus = 2;

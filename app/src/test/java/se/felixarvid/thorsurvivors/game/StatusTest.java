@@ -169,7 +169,7 @@ public class StatusTest {
         e.speed = 0f;
         s.applyStatus(e, Entities.ST_DECAY, 5, 0.01f, 0f); // -20%: the colonist's contact damage times 0.8
         s.update(DT, new Input());
-        assertEquals(100f - 0.8f * 0.8f * (float) s.type("COLONIST").def.power, s.hp, 0.05f); // Decay 0.8, the curve 0.8 at 0:00
+        assertEquals(100f - 0.8f * 1.35f * (float) s.type("COLONIST").def.power, s.hp, 0.05f); // Decay 0.8, the Flats curve 1.35 at 0:00
     }
 
     @Test

@@ -53,7 +53,7 @@ public class WeaponDefTest {
         GameData d = TestData.load();
         assertTrue(d.weapons.get("VAMPIRICA").evolution);
         assertTrue(d.weapons.get("POWER").powerUp);
-        assertEquals("FOREST and LIBRARY (legacy) plus FLATS and MINES", 4, d.stages.size());
+        assertEquals("FOREST and LIBRARY (legacy) plus the five menu stages", 7, d.stages.size());
         assertEquals(16, d.powerUps.size());
         assertEquals(100.0, d.enemies.get("ZOMBIE").speed, 1e-9);
         assertEquals(1800.0, d.stages.get("FOREST").timeLimit, 1e-9);
@@ -62,9 +62,11 @@ public class WeaponDefTest {
     @Test
     public void shopPriceGrowsPerRank() throws Exception {
         PowerUpDef p = TestData.load().powerUps.get("POWER");
-        assertEquals(200, p.priceForNext(0));
-        assertEquals(400, p.priceForNext(1));
-        assertEquals(1000, p.priceForNext(4));
+        assertEquals("v1.4 overlay: 400 * (1 + n)^1.5, rounded to 10", 400, p.priceForNext(0));
+        assertEquals(1130, p.priceForNext(1));
+        assertEquals(4470, p.priceForNext(4));
+        PowerUpDef plain = p.withPrice(200, 1.0);
+        assertEquals("exp 1 is the plain Vampire Survivors line", 1000, plain.priceForNext(4));
         assertEquals(0.15, p.statsAt(3).get("power"), 1e-9);
     }
 }

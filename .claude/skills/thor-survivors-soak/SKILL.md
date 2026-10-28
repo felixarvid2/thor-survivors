@@ -59,6 +59,14 @@ on the field during minutes 25 to 30) and `TRACE` lines with hazards by kind and
 A matrix of 240 runs (40 seeds x 2 stages x 3 heroes) takes about 3 minutes with `xargs -P 4`; retry a cell that prints nothing (once in 120 a JVM
 printed no line during a parallel run).
 
+v1.4 additions: policy `skilled` (`SkilledBot.java`, a competent human: kites by scoring 16 headings against enemies, bolts, hazards and charge lines, dodges on imminent
+contact, picks up food and crates, walks to the map finds and the Salvager and buys, builds weapons + synergy passives + fusions) is the difficulty yardstick; `mid` is far
+weaker than the owner. `StageSoak BATCH <stage> <hero> <policy> <seedFrom> <seedTo> [limit]` prints one `R` line per run (ended, time, kills, level, banked gold, hero hits, min hero HP
+per 5 minute band, share of the band under 50 % HP, damage per band, first evolution/fusion, damage by source per band) and a `V` line (purchases, wallet at each Salvager visit).
+`ASHFALL_DATA=<json>` points the soak at a variant of `ashfall_data.json`; `TUNE_JSON='{"*": {...}, "MINES": {...}}' OUT_JSON=<file> python3 tools/build_ashfall_stages.py` writes one
+(keys of `TUNE_DEFAULT` / `STAGE_TUNE`, `hero_tune`, `main_tune`). 32 seeds x 6 cells = 192 runs: about 25 minutes for `skilled` with 3 parallel JVMs (`-Xmx700m`), 10 for `mid`.
+Run Gradle only through `flock /tmp/claude-0/gradle.lock`.
+
 Lessons from earlier soaks:
 - `Sim.rng` is unseeded: call `s.rng.setSeed(seed)` right after construction or no run is reproducible.
 - System properties (`-Dsoak=1`) do not reach the forked test JVM. Gate long runs on an env var (`SOAK=1`, read with

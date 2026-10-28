@@ -1,6 +1,8 @@
 package se.felixarvid.thorsurvivors.data;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class StageDef {
     public final String key;
@@ -42,11 +44,37 @@ public final class StageDef {
     /** Same shape: multiplier on the contact damage and the bolt / ring damage of wave enemies and elites (not bosses). */
     public double[][] dmgCurve = new double[0][];
     /**
+     * v1.4: multiplier on the walking speed of wave enemies and elites spawned at a run time (not bosses, not tentacles), same shape as
+     * {@link #hpCurve}. Empty = 1. Per stage, so a new stage can be as quick as it likes.
+     */
+    public double[][] speedCurve = new double[0][];
+    /** v1.4: per-stage overrides of the global elite numbers (ashfall_data.json {@code elites}); a key missing here falls back to the global one. */
+    public java.util.Map<String, Double> eliteOv = new java.util.HashMap<>();
+    /** v1.4: ranged enemies alive at once (Sim.RANGED_CAP when 0). */
+    public int rangedCap;
+    /**
      * Horde bursts (phase 13): {start s, length s, minimum alive, frequency ms}; while one runs the wave minimum is raised to
      * {@code minimum}, the spawn tick shortened to {@code frequency} and the top-up picks from {@link #hordeTypes}.
      */
     public double[][] hordes = new double[0][];
     public String[] hordeTypes = new String[0];
+
+    /**
+     * v1.4 stage framework (ashfall_data.json {@code rules}, {@code unlock}, {@code difficulty}, {@code blurb}): numeric parameters
+     * for the stage's {@code game/stage/StageRules}, the stage and best time that open it ({@code unlockKey} null = open from the
+     * start), the difficulty pips on the stage card (1-5) and the one-line card text.
+     */
+    public Map<String, Double> rules = new HashMap<>();
+    public String unlockKey;
+    public int unlockSec;
+    public int difficulty = 1;
+    public String blurb = "";
+
+    /** A rules parameter (see {@link #rules}), or {@code def} when the stage has none by that name. */
+    public double rule(String name, double def) {
+        Double v = rules.get(name);
+        return v == null ? def : v;
+    }
 
     public StageDef(String key, String name, double timeLimit, double playerSpeed, double enemySpeed,
                     double enemyHealth, double goldMultiplier, double xpBonus, int startingSpawns,
@@ -83,8 +111,16 @@ public final class StageDef {
         d.xpFadeEnd = xpFadeEnd;
         d.hpCurve = hpCurve;
         d.dmgCurve = dmgCurve;
+        d.speedCurve = speedCurve;
+        d.eliteOv = eliteOv;
+        d.rangedCap = rangedCap;
         d.hordes = hordes;
         d.hordeTypes = hordeTypes;
+        d.rules = rules;
+        d.unlockKey = unlockKey;
+        d.unlockSec = unlockSec;
+        d.difficulty = difficulty;
+        d.blurb = blurb;
         return d;
     }
 
@@ -103,6 +139,11 @@ public final class StageDef {
     /** Multiplier on the damage a wave enemy spawned at run time {@code seconds} deals ({@link #dmgCurve}). */
     public double dmgMul(double seconds) {
         return curve(dmgCurve, seconds);
+    }
+
+    /** Multiplier on the walking speed of a wave enemy spawned at run time {@code seconds} ({@link #speedCurve}). */
+    public double speedMul(double seconds) {
+        return curve(speedCurve, seconds);
     }
 
     static double curve(double[][] c, double seconds) {

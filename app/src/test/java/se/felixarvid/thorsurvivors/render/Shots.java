@@ -49,6 +49,7 @@ final class Shots {
         // tests (e.g. EngineSoundTest) leak into these runs and make the shots depend on test order.
         MetaProgress mp = new MetaProgress(d, new MemStore());
         mp.addGold(1234);
+        mp.unlockAll = true; // every stage open: the harness starts MINES and the new stages directly (StageSelectShotsTest closes them)
         eng.init(d, mp);
         eng.meta = mp;
         SpriteAtlas.get().load(path -> new FileInputStream("src/main/assets/" + path));

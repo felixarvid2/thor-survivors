@@ -51,16 +51,16 @@ public class AshfallStageTest {
         assertEquals(1800.0, f.timeLimit, 0.0);
         assertEquals(1800.0, m.timeLimit, 0.0);
         // wave tables of the design
-        assertEquals(10, f.rows.get(0).minimum);
-        assertEquals(1400, f.rows.get(0).frequencyMs);
+        assertEquals(16, f.rows.get(0).minimum); // v1.4: the early field is denser
+        assertEquals(1000, f.rows.get(0).frequencyMs);
         assertEquals(255, f.rows.get(29).minimum); // phase 13: 300 x 0.85 (a boss row)
         assertEquals(8, f.rows.get(29).enemies.length);
         assertEquals("CARGO_LOADER", f.rows.get(5).bosses[0]);
         assertEquals(2, f.rows.get(25).bosses.length);
         assertEquals("THE_FIRST", m.rows.get(m.rows.size() - 2).bosses[0]); // 28:00 (phase 12)
         // phase 13: from minute 5 every minute has a row (the composition of the sparse table is inherited), minimum from MIN_TABLE
-        assertEquals(54, m.rowAt(11 * 60).minimum);
-        assertEquals(58, m.rowAt(12 * 60).minimum);
+        assertEquals(80, m.rowAt(11 * 60).minimum);
+        assertEquals(85, m.rowAt(12 * 60).minimum);
         assertArrayEquals(m.rowAt(10 * 60 + 59).enemies, m.rowAt(11 * 60).enemies);
         // treasure tables copied from the VS boss minutes
         assertNotNull(f.treasureAt(5 * 60 + 1));
@@ -77,7 +77,7 @@ public class AshfallStageTest {
     }
 
     @Test
-    public void theMenuOffersTheTwoNewStagesAndTheOldOnesAreADebugHook() throws Exception {
+    public void theMenuOffersTheFiveStagesAndTheOldOnesAreADebugHook() throws Exception {
         GameData d = TestData.load();
         Engine e = Engine.get();
         e.init(d, new MetaProgress(d, new MetaProgress.Store() {
@@ -88,7 +88,7 @@ public class AshfallStageTest {
             public void putInt(String k, int v) {
             }
         }));
-        assertEquals(java.util.Arrays.asList("FLATS", "MINES"), e.stageKeys);
+        assertEquals(java.util.Arrays.asList("FLATS", "MINES", "HYDRO", "REFINERY", "WRECK"), e.stageKeys);
         assertFalse(e.stageKeys.contains("FOREST"));
         e.selectStage("MINES");
         assertEquals("MINES", e.stage().key);

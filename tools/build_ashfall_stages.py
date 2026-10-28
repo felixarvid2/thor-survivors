@@ -7,7 +7,7 @@ Survivors stages FOREST and LIBRARY), so the XP and gold curves stay familiar. D
 x1.25 and speed x1.05 on top of the LIBRARY mods (it is the second stage).
 
 Run from thor-survivors/:  python3 tools/build_ashfall_stages.py
-Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `equipment`, `equipmentRules` and `fusions`
+Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `powerups`, `equipment`, `equipmentRules` and `fusions`
 are touched, plus the balance numbers listed in HERO_TUNE and MAIN_TUNE (design phase 12: they are applied on top of the
 heroes and mainWeapons that are already in the file; names, texts and branches stay as they are).
 """
@@ -125,6 +125,14 @@ ENEMIES = {
                        sprite="vire",
                        params=dict(radius=12, warn=0.9, up=8.0, hitR=60, ring=1, blast=12, drawScale=2.0,
                                    tintRGB=0xFFE08A)),
+    # ---- v1.4 chunk E (Flats / Mines add-ons): the convoy's tanker (driven by FlatsRules, HP is set to 400 there) and the Dark Lurker
+    # (a colonist variant that MinesRules draws only inside the light)
+    "CONVOY_TANKER": dict(name="Convoy Tanker", archetype="CONVOY", maxHp=1.0, speed=0, power=0, xp=6, knockback=0,
+                          sprite="cargo_loader",
+                          params=dict(radius=26, drawScale=1.5, tintRGB=0x6C9AA8)),
+    "DARK_LURKER": dict(name="Dark Lurker", archetype="LURKER", maxHp=2.0, speed=100, power=12, xp=2,
+                        sprite="infected_colonist",
+                        params=dict(radius=11, tintRGB=0x4A4A66)),
     # a killable tentacle: bursts from the ground (warn ring, then up for `up` seconds), see BossAi.tentacle.
     # Design 4.1 gives it 150 Z when exposed, which no build kills in the 1.2 s it is up: 8 Z here.
     "LUMEN_TENTACLE": dict(name="Lumen Tentacle", archetype="TENTACLE", maxHp=8.0, speed=0, power=25, xp=5,
@@ -135,27 +143,27 @@ ENEMIES = {
 # --------------------------------------------------------------------------- elites (design 5) and equipment (design 6)
 # phase 12: an elite every 125 s (floor 90 s), the XP of an elite x4 and its pile 0.7 levels (was 8 and 2.0: the elites alone were a
 # quarter of all XP late), the Armored modifier takes `armor` off every hit
-ELITES = dict(first=180, interval=125, min=60, shrinkPerMin=0.02, hpMul=6, damageMul=1.5, scale=1.4, speedMul=0.9,
-              xpMul=4, dist=400, adds=6, mods2At=720, mods3At=1440, xpPileGems=5, xpPileLevels=0.7, armor=3)
+ELITES = dict(first=120, interval=90, min=45, shrinkPerMin=0.02, hpMul=6, damageMul=1.5, scale=1.4, speedMul=0.9,
+              xpMul=4, dist=400, adds=6, mods2At=480, mods3At=1080, xpPileGems=5, xpPileLevels=0.7, armor=3)
 
 # --------------------------------------------------------------------------- phase 12 balance (heroes and main weapons)
 # Applied on top of the heroes / mainWeapons already in ashfall_data.json: dotted path -> value. Measured with StageSoak (see the
 # thor-survivors-balance skill): a main weapon is strong but no longer replaces the VS build, Spectre survives like the others.
 HERO_TUNE = {
     # glass cannon, but not made of glass: HP 80 -> 105, armor 1, regen 0.5, and every level takes 0.7% less damage (-35% at level 50)
-    "SPECTRE.hp": 105, "SPECTRE.armor": 1, "SPECTRE.regen": 0.5, "SPECTRE.perLevel.maxHp": 0.004,
-    "SPECTRE.perLevel.damageTaken": -0.007,
-    "BASTION.regen": 0.3,   # was 0.4: the tank survived 90% of the Mines runs once the early deaths were gone
+    "SPECTRE.hp": 115, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
+    "SPECTRE.perLevel.damageTaken": -0.009,
+    "BASTION.regen": 0.7,   # v1.4 (was 0.3): chronic attrition from bolts and slag is what kills the slow tank, see "Svårighet (v1.4)"
     # v1.3.1 hero parity (mid bot, 32 seeds): Spectre and Xenomant died of contact late (the damage curve makes a Colonist hit 96 at 30:00, Xenomant
     # had 95 HP and no armor), Bastion survived 3 in 4. Defence now grows with the level for all three.
-    "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
+    "BASTION.hp": 140, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
     "SPECTRE.perLevel.power": 0.006, "SPECTRE.perLevel.maxHp": 0.005,              # new / was 0.004 (damageTaken stays -0.007)
-    "XENOMANT.hp": 100, "XENOMANT.armor": 1,                                       # was 95 / 0
+    "XENOMANT.hp": 115, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
     "XENOMANT.perLevel.maxHp": 0.004, "XENOMANT.perLevel.damageTaken": -0.0015,    # new
 }
 MAIN_TUNE = {
-    "HAMMER.power": 1.2, "HAMMER.params.slamPower": 1.8, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
-    "CASTER.power": 0.8, "CASTER.params.burstPower": 0.4,                              # was 1.2 / 0.5
+    "HAMMER.power": 1.5, "HAMMER.params.slamPower": 2.2, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
+    "CASTER.power": 0.5, "CASTER.params.burstPower": 0.3,                              # was 1.2 / 0.5
     # PISTOLS stay as they were (0.6, no pierce): pierce 1 made Spectre the strongest main weapon (111% of the Whip) without helping his survival
 }
 HERO_TEXT = {
@@ -301,28 +309,77 @@ MINES_ROWS = [
     row(28, 130, 375, "all", ["THE_FIRST"]), row(29, 140, 350, "all"),
 ]
 
-# --------------------------------------------------------------------------- phase 13 difficulty (measured with StageSoak, see TEKNIK "Svårighet")
-# Owner: "too few enemies for how strong you are, especially after minute 20". Measured before: the field was ~ `minimum` (80..140), the
-# hero cleared it in ~3 s (mean life = alive / kills per s) because the enemy HP was flat. Now: from DIFF_FROM on `minimum` follows
-# MIN_TABLE (every minute gets a row, the composition of the sparse Mines table is inherited) and, from minute 16, `frequency` follows
-# FREQ_TABLE; the HP and damage of wave enemies and elites grow along HP_CURVE / DMG_CURVE (StageDef.hpCurve / dmgCurve, Sim.initEnemy;
-# bosses and tentacles excluded); HORDES (StageDef.hordes, Sim.updateWaves) are 16 s bursts of cheap enemies between the bosses (a burst
-# every 150 s from 11:15, 75 s before or after each boss minute); the elites come faster late (ELITES.shrinkPerMin 0.02, floor 60 s).
-DIFF_FROM = 5                                   # minutes 0..4 are left as they were (the weak hero is already swamped there)
-MIN_TABLE = [[5, 40], [9, 40], [10, 50], [14, 65], [17, 110], [20, 190], [25, 270], [29, 300]]   # [minute, minimum alive]: linear between, flat after
-FREQ_TABLE = [[16, 600], [20, 480], [25, 380], [29, 300]]   # [minute, ms between spawn ticks] from minute 16 (earlier rows keep their original frequency)
-DMG_CURVE = [[0, 0.8], [4, 0.85], [7, 1.0], [16, 1.0], [20, 3.0], [24, 8.5], [30, 18.0]]   # [minute, multiplier on contact and bolt damage of wave enemies]; v1.3.1: 0.8 at the start (minutes 1-4 softer), 18 at 30:00
-HP_CURVE = [[0, 1.0], [15, 1.0], [20, 1.6], [25, 3.0], [30, 5.0]]   # [minute, multiplier on the wave enemy HP]
-HORDE_TYPES = ["COLONIST", "SPORE_HOUND"]
-# [start s, minimum]; nominal starts 675, 825, ..., 1575 (every 150 s), shifted where a burst would sit on a v1.3/v1.4 boss spawn or event:
-# 1275 -> 1245 (the Signal Tower runs 1260-1350), Flats 1425 -> 1420 (Lumen Surge starts 1440), Mines 1425 -> 1430 (after the Collapse
-# 1405-1430), 1575 -> Flats 1545 (before the Beacon 1560) / Mines 1600 (the Beacon 1530-1590 and Kade at 1590 are over their spawn)
-HORDES = {
-    "FLATS": [[675, 75], [825, 95], [975, 130], [1125, 180], [1245, 240], [1420, 290], [1545, 290]],
-    "MINES": [[675, 75], [825, 95], [975, 130], [1125, 180], [1245, 240], [1430, 290], [1600, 290]],
+# --------------------------------------------------------------------------- v1.4 shop prices (salvage terminal, permanent)
+# GameData overlay key `powerups`: rank n+1 of a power-up costs price * (1 + n) ** exp, rounded to 10 (exp 1 = the Vampire Survivors line price * (1 + n)).
+# The strongest upgrades (Might, Cooldown, Growth) get exp 1.5, Amount and Revival a higher flat price. Whole catalog 78 090 -> about 119 000 gold; measured
+# income per run (StageSoak, skilled bot, 192 runs): 1 925 on average, 3 200-3 600 for a run that survives to the end (TEKNIK "Svårighet (v1.4)").
+# Curse (a handicap, not an upgrade) is left at the Vampire Survivors price. A new stage does not touch this table.
+POWERUP_PRICES = {
+    "POWER": (400, 1.5), "ARMOR": (700, 1.3), "MAXHEALTH": (350, 1.3), "REGEN": (260, 1.3), "COOLDOWN": (1300, 1.5),
+    "AREA": (350, 1.2), "SPEED": (350, 1.2), "DURATION": (350, 1.2), "AMOUNT": (10000, 1.0), "MOVESPEED": (350, 1.2),
+    "MAGNET": (350, 1.2), "LUCK": (650, 1.2), "GROWTH": (700, 1.5), "GREED": (300, 1.3), "REVIVAL": (18000, 1.0),
 }
-HORDE_LEN, HORDE_FREQ = 16, 250
-BOSS_ROW_MUL = 0.85                              # a row with a boss: minimum x this (the boss and its adds are the pressure there)
+
+# --------------------------------------------------------------------------- phase 13 / v1.4 difficulty (measured with StageSoak, see TEKNIK "Svårighet")
+# Every knob lives in one dict PER STAGE (STAGE_TUNE below; a new stage lists only what differs from TUNE_DEFAULT):
+#   min_table   [minute, minimum alive] linear between points, flat after; a row with a boss gets x boss_row_mul
+#   freq_table  [minute, ms between spawn ticks] (never slower than the row's own frequency)
+#   hp_curve / dmg_curve / speed_curve  [minute, multiplier] on HP, contact+bolt damage and walking speed of wave enemies and elites
+#   hordes      [start s, minimum] bursts of horde_len s of cheap enemies (horde_types) that fill the field; horde_freq ms per spawn tick
+#   elites      overrides of the global ELITES numbers for this stage (first, interval, min, shrinkPerMin, hpMul, damageMul, mods2At ...)
+#   ranged_cap  ranged enemies alive at once (0 = Sim.RANGED_CAP 24); extra_types [[minute, key]] added to every wave row from that minute
+# v1.4: the mid bot was far weaker than the owner, so v1.3.1 (tuned to 43 % for the mid bot) was too easy for a human. The yardstick is now
+# the `skilled` policy of StageSoak (kites, dodges, plays a build): survival to 30:00 about 35-45 %, pressure in every 5 minute band.
+DIFF_FROM = 0
+TUNE_DEFAULT = dict(
+    from_minute=0,
+    min_table=[[0, 16], [2, 30], [4, 48], [6, 60], [9, 70], [12, 85], [15, 110], [18, 150], [21, 200], [24, 250], [27, 290], [29, 300]],
+    freq_table=[[0, 1000], [5, 800], [10, 700], [16, 550], [20, 450], [25, 350], [29, 300]],
+    hp_curve=[[0, 1], [10, 1.2], [15, 1.6], [20, 2.4], [25, 5], [30, 9]],
+    dmg_curve=[[0, 1.35], [3, 1.4], [6, 1.35], [10, 1.65], [13, 1.98], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]],
+    speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.4], [20, 1.65], [25, 1.92], [30, 2.25]],
+    hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]],
+    horde_types=["COLONIST", "SPORE_HOUND"], horde_len=16, horde_freq=250,
+    boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
+    wave_mul=[[0, 1.0]],   # v1.4 (Hydro / Refinery / Wreck only): [minute, factor] on the finished rows' minimum, linear between points
+    rules={},              # v1.4 (Hydro / Refinery / Wreck only): overrides of the stage's rules params (StageDef.rules)
+)
+STAGE_TUNE = {
+    # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
+    "HYDRO": dict(extra_types=[], horde_types=["COLONIST", "SPORE_HOUND", "MYCELID"],
+                  # v1.4 tuning (skilled bot, 16 seeds x 3 heroes): damage x1.0 -> x1.15 (14 min) -> x1.35, enemies x1.0 -> x1.1 faster by 30:00
+                  dmg_curve=[[0, 1.35], [3, 1.4], [6, 1.35], [10, 1.732], [13, 2.228], [16, 3.102], [20, 4.288], [24, 6.375], [30, 10.125]], speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.435], [20, 1.732], [25, 2.064], [30, 2.475]],   # the 975 s horde moves to 990: the 16:00 Sporefall runs 960-980
+                  hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [990, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),
+    "REFINERY": dict(extra_types=[], rules=dict(areaMul0=0.5, areaMul1=1.15),   # hero damage from heat / molten floor / gates / waves x0.5 at 0:00 to x1.15 at 30:00
+                        # v1.4 tuning: a gentle opening (fewer enemies and x0.8 damage until 10 min), then x1.15 damage / speed by 30:00
+                     wave_mul=[[0, 0.7], [10, 0.85], [16, 1.0]], dmg_curve=[[0, 1.08], [3, 1.141], [6, 1.121], [10, 1.402], [13, 1.98], [16, 2.81], [20, 4.025], [24, 6.05], [30, 9.75]], speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.4], [20, 1.732], [25, 2.112], [30, 2.587]]),
+    "WRECK": dict(extra_types=[], rules=dict(breachMul0=0.4, breachMul1=1.5),   # Vacuum Breach damage to the hero x0.4 (first) to x1.5 (fifth)
+                   wave_mul=[[0, 0.6], [10, 0.8], [16, 1.0]], dmg_curve=[[0, 1.08], [3, 1.141], [6, 1.121], [10, 1.402], [13, 1.98], [16, 2.81], [20, 4.025], [24, 6.05], [30, 9.75]], hp_curve=[[0, 0.8], [10, 1.2], [15, 1.68], [20, 2.64], [25, 6.0], [30, 11.7]], speed_curve=[[0, 1.0], [5, 1.1], [10, 1.25], [15, 1.4], [20, 1.732], [25, 2.112], [30, 2.587]],   # v1.4 tuning: gentle opening (x0.6 enemies, x0.8 HP and damage), steeper late; the 825 and 1125 s hordes move off the Vacuum Breaches (840 and 1140, 25 s each)
+                  hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [875, 140], [975, 170], [1170, 200], [1245, 250], [1420, 290], [1545, 290]]),
+    "FLATS": dict(extra_types=[],
+                  hordes=[[200, 50], [370, 70], [565, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1420, 290], [1545, 290]]),   # 520 -> 565: the first convoy crosses 495-555   # v1.4: the Flats rows already carry Sergeants; extra ones made 5-10 min lethal (14 of 32 Xenomants died there)
+    "MINES": dict(hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1430, 290], [1600, 290]], extra_types=[[1, "SGT"], [3, "DRN"]],
+                  dmg_curve=[[0, 1.4], [3, 1.45], [6, 1.45], [10, 1.72], [13, 2.0], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]]),
+}
+# Hordes sit between the bosses and events: nominal starts 675, 825, ..., 1575 (every 150 s) shifted off every timed boss (7:30, 12:30,
+# 17:30, 22:30, Kade 27:30 Flats / 26:30 Mines) and event start (Signal Tower 1260, Lumen Surge 1440, Beacon Flats 1560, Collapse Mines 1405-1430).
+
+
+def set_hordes(st, key):
+    """A stage copied from Flats gets the hordes of its own tune (TUNE_DEFAULT plus its overrides), not Flats' (which sit between the convoys)."""
+    tn = tune_of(key)
+    st["hordes"] = dict(types=tn["horde_types"], bursts=[dict(at=a, length=tn["horde_len"], minimum=mn, frequency=tn["horde_freq"]) for a, mn in tn["hordes"]])
+
+
+def tune_of(stage):
+    t = dict(TUNE_DEFAULT)
+    t.update(STAGE_TUNE.get(stage, {}))
+    ov = os.environ.get("TUNE_JSON")           # experiments: {"FLATS": {"speed_curve": ...}, "*": {...}}
+    if ov:
+        o = json.loads(ov)
+        t.update(o.get("*", {}))
+        t.update(o.get(stage, {}))
+    return t
 
 
 def interp(table, x):
@@ -334,22 +391,28 @@ def interp(table, x):
     return table[-1][1]
 
 
-def apply_difficulty(rows):
-    """Fills every minute from DIFF_FROM (the sparse Mines table inherits composition) and sets minimum / frequency by formula."""
+def apply_difficulty(rows, tune):
+    """Fills every minute from tune.from_minute (the sparse Mines table inherits composition) and sets minimum / frequency by formula."""
     out, last = [], None
     by_min = {r["minute"]: r for r in rows}
+    frm = tune["from_minute"]
+    mt, ft = tune["min_table"], tune["freq_table"]
     for m in range(0, 30):
         if m in by_min:
             last = by_min[m]
             r = dict(last)
-        elif m >= DIFF_FROM:
+        elif m >= frm:
             r = dict(last, minute=m, bosses=[])
         else:
             continue
-        if m >= DIFF_FROM:
-            r["minimum"] = int(round(max(MIN_TABLE[0][1], interp(MIN_TABLE, m) * (BOSS_ROW_MUL if r["bosses"] else 1.0))))
-            if m >= FREQ_TABLE[0][0]:
-                r["frequency"] = int(min(r["frequency"], round(interp(FREQ_TABLE, m))))
+        r["enemies"] = list(r["enemies"])
+        for (mm, key) in tune["extra_types"]:
+            if m >= mm and K[key] not in r["enemies"]:
+                r["enemies"].append(K[key])
+        if m >= frm:
+            r["minimum"] = int(round(max(mt[0][1], interp(mt, m) * (tune["boss_row_mul"] if r["bosses"] else 1.0))))
+            if m >= ft[0][0]:
+                r["frequency"] = int(min(r["frequency"], round(interp(ft, m))))
         out.append(r)
     return out
 
@@ -378,10 +441,323 @@ def treasure_rows(vs_stage, mapping):
     return {m: by_min[src]["treasure"] for m, src in mapping.items()}
 
 
+# ---------------------------------------------------------------------------------------------------------------------------
+# v1.4 stage registry (stage framework, chunk A). One entry per menu stage: the card text, the difficulty pips, what opens it
+# (stage key, best time in seconds), the stage-rules parameters (StageDef.rules, read by game/stage/*Rules) and, for the stages
+# added in v1.4, the name, the mods relative to Cinder Flats and the darkness. The new stages start as a copy of Cinder Flats (rows,
+# timed bosses, events, curves, hordes) and are tuned by their own chunks; the relative mods are the first guesses of the spec.
+# ---------------------------------------------------------------------------------------------------------------------------
+STAGE_REGISTRY = {
+    "FLATS": dict(difficulty=1, blurb="Open ash plains. Storms, vents, convoys.", unlock=None,
+                  # convoy start seconds: 8:00 / 16:00 / 24:00 shifted +15 / +30 / +45 s to keep clear of the timed bosses (7:30, 12:30,
+                  # 17:30, 22:30), the events (Lumen Surge starts 24:00), the horde bursts and the storms (checked in FlatsAddonTest)
+                  rules=dict(convoyAt0=495, convoyAt1=990, convoyAt2=1485)),
+    "MINES": dict(difficulty=2, blurb="Dark shafts and carts. Mind the firedamp.", unlock=("FLATS", 600), rules={}),
+    "HYDRO": dict(name="Hydroponic Vaults", difficulty=3, blurb="Overgrown domes. Burn the hearts or drown.",
+                  unlock=("MINES", 900), rules=dict(firstHeart=120, purgeAt=1260, bloomAt=1440), copy_of="FLATS", lighting=dict(ambient=0.71, radius=240),
+                  mods=dict(EnemyHealthMultiplier=1.3, EnemySpeed=1.0, GoldMultiplier=1.2, XPBonus=1.1)),
+    "REFINERY": dict(name="Refinery District", difficulty=4, blurb="Belts, furnaces, heat. Never stand still.",
+                     unlock=("HYDRO", 1200), rules={}, copy_of="FLATS", lighting=dict(ambient=0.55, radius=240),
+                     tune="refinery_tune",   # HP and speed relative to Flats x1.0 for now (spec: x1.4 / x1.05): with those the mid bot dies at 4.5 min on average, 0 of 12 pass 8 min
+                     mods=dict(EnemyHealthMultiplier=1.0, EnemySpeed=1.0, GoldMultiplier=1.35, XPBonus=1.1)),
+    "WRECK": dict(name="Meridian Wreck", difficulty=5, blurb="A falling ship. Wells, pads, no air.",
+                  unlock=("REFINERY", 1500), rules={}, copy_of="FLATS", lighting=dict(ambient=0.77, radius=230),
+                  mods=dict(EnemyHealthMultiplier=1.5, EnemySpeed=1.05, GoldMultiplier=1.5, XPBonus=1.15)),
+}
+
+
+# ---------------------------------------------------------------------------------------------------------------------------
+# v1.4 chunk C: REFINERY DISTRICT ("Stay moving", spec 1.2). The roster additions, the rows, the bosses, the events and the
+# unique of the finale; the mechanics live in game/stage/RefineryRules and game/boss/IronheartAi.
+# ---------------------------------------------------------------------------------------------------------------------------
+REFINERY_ENEMIES = {
+    # welder variant: after every dash a fire patch (fireR/fireT/fireDps), immune to Burn (RefineryRules)
+    "STOKER": dict(name="Stoker", archetype="STOKER", maxHp=3.5, speed=110, power=20, xp=5, sprite="welder",
+                   params=dict(radius=16, runSpeed=300, minDist=80, maxDist=160, gapMin=2, gapMax=6, windup=0.6, dash=0.6,
+                               recover=1.0, fireR=40, fireT=3, fireDps=6, tintRGB=0xFF5A1F, drawScale=1.15)),
+    # cargo loader variant: -50% from hits, +50% from Burn / Electrify / Decay, no knockback, at most 8 alive
+    "IRONCLAD": dict(name="Ironclad", archetype="IRONCLAD", maxHp=5.0, speed=75, power=24, xp=9, knockback=0, sprite="cargo_loader",
+                     params=dict(radius=14, tintRGB=0x8A97A6, drawScale=0.8)),
+    # timed bosses (BossAi pattern 12, game/boss/IronheartAi; `variant` picks the pattern)
+    "FOREMAN_BRASS": dict(name="Foreman Brass", archetype="BOSS", boss=True, maxHp=300, speed=65, power=30, xp=100,
+                          sprite="smelter", scale=2.4,
+                          description="Carpets the floor with slag and stomps: every stomp turns all the belts around.",
+                          params=dict(pattern=12, variant=1, hpRamp=20, radius=10, tintRGB=0xFFC080, gearSlot=3, xpPileLevels=1.5,
+                                      castEvery=6, castTime=0.9, pools=5, poolR=60, poolT=3, poolDps=7, stompR=110, stompDmg=20)),
+    "STOKER_CAPTAIN": dict(name="Stoker Captain", archetype="BOSS", boss=True, maxHp=420, speed=70, power=24, xp=100,
+                           sprite="welder", scale=2.2,
+                           description="Three chained dashes, each ending in a ring of fire and a burning pool.",
+                           params=dict(pattern=12, variant=2, hpRamp=20, radius=10, tintRGB=0xFF5A1F, gearSlot=1, xpPileLevels=1.5,
+                                       pre=0.9, dashLen=200, dash=0.45, gap=0.25, lineW=46, dashDmg=16, recover=2.0, gapMin=2.0,
+                                       gapMax=3.5, range=380, dashes=3, ringR=120, ringWarn=0.55, ringDmg=14, poolR=44, poolT=3,
+                                       poolDps=7)),
+    # the finale at 28:00: Slagborn x3.2, white-hot
+    "IRONHEART": dict(name="The Ironheart", archetype="BOSS", boss=True, maxHp=1800, speed=60, power=40, xp=250,
+                      sprite="slagborn", scale=3.2,
+                      description="Belts drag you in, heat waves cross from both sides, the gates open. Make its slam smash a coolant valve.",
+                      params=dict(pattern=12, variant=0, hpRamp=28, radius=10, tintRGB=0xFFA050, gearSlot=4, xpPileLevels=2.0,
+                                  phase1Hp=0.66, phase2Hp=0.33, slamR=150, slamWarn=1.0, slamDmg=28, slamEvery=3.5, waveEvery=12,
+                                  trail=45, trailT=4, trailDps=6, ventR=230, ventWarn=1.2, ventDmg=14, ventHeat=30)),
+}
+ENEMIES.update(REFINERY_ENEMIES)
+# the Ironheart Core: Ring, dropped by the finale. Overheat limit 100 -> 130 and +15% might while the heat is above 50 (RefineryRules);
+# the hero can run hotter and hit harder for it, but the burn from 50 heat (1.5/s) and Overheat (5/s) are still there.
+UNIQUES["IRONHEART_CORE"] = ("RING", "Ironheart Core", "unique_ironheart_core", {"heatCore": 1}, "IRONHEART")
+
+KR = dict(K, STK="STOKER", IRC="IRONCLAD")
+# composition per minute (the numbers per row come from the Flats rows): Colonists and Drones from 0, Welders from 3, Smelters from 6,
+# Stokers from 9, Ironclads from 11; about 15% fewer fodder and 15% more armour than Flats.
+REFINERY_COMP = {
+    0: "COL", 1: "COL", 2: "COL DRN", 3: "COL DRN WLD", 4: "COL DRN WLD", 5: "DRN WLD SGT", 6: "COL SML SGT", 7: "DRN WLD SML",
+    8: "COL DRN SML SGT", 9: "WLD STK DRN", 10: "SML STK COL", 11: "IRC SGT WLD", 12: "DRN STK SML IRC", 13: "COL IRC SGT",
+    14: "WLD STK SML", 15: "IRC SML SGT STK", 16: "DRN STK IRC", 17: "COL SML IRC STK", 18: "WLD DRN IRC SPC", 19: "SML IRC VIR",
+    20: "STK SGT VIR IRC", 21: "DRN SML IRC", 22: "WLD STK SPC IRC", 23: "COL SML IRC VIR", 24: "DRN STK WLD IRC",
+    25: "SML IRC VIR STK", 26: "SGT DRN WLD IRC", 27: "COL SML IRC VIR", 28: "STK WLD SML IRC", 29: "COL DRN WLD SML STK IRC VIR",
+}
+REFINERY_BOSSES = {5: ["CARGO_LOADER"], 10: ["SMELTER_FOREMAN"], 15: ["SLAGBORN"], 20: ["VIRE_AWAKENED"],
+                   25: ["CARGO_LOADER", "CARGO_LOADER"], 29: ["SMELTER_FOREMAN"]}
+# 7:30 Foreman Brass and 12:30 Stoker Captain replace the Brood Mother and the Frozen Welder; Hale, the Overseer and Kade stay;
+# the finale comes at 28:00 where the Tide would
+REFINERY_TIMED = [(450, "FOREMAN_BRASS"), (750, "STOKER_CAPTAIN"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
+                  (1650, "GOVERNOR_KADE"), (1680, "IRONHEART")]
+# 21:00 Cooling Tower (Signal Tower), 23:00 Slag Rain, 24:00 Overdrive (Lumen Surge), 26:00 Defend the Boiler (Beacon)
+REFINERY_EVENTS = [("SIGNAL_TOWER", 1260), ("SLAG_RAIN", 1380), ("LUMEN_SURGE", 1440), ("BEACON", 1560)]
+
+
+def refinery_tune(st, data):
+    """Rows (the Flats numbers, the Refinery roster), bosses and events of the stage; everything else stays the copy of Flats."""
+    flats = {r["minute"]: r for r in FLATS_ROWS}
+    rows = []
+    for m in range(30):
+        f = flats[m] if m in flats else None
+        rows.append(row(m, 0, 0, "COL", ()) if f is None else dict(f))
+    for r in rows:
+        m = r["minute"]
+        r["enemies"] = [KR[k] for k in REFINERY_COMP[m].split()]
+        r["bosses"] = list(REFINERY_BOSSES.get(m, []))
+    old = {r["minute"]: r for r in st["rows"]}
+    out = []
+    for r in apply_difficulty(rows, tune_of("REFINERY")):
+        r = dict(r)
+        if r["minute"] in old and "treasure" in old[r["minute"]]:
+            r["treasure"] = old[r["minute"]]["treasure"]
+        out.append(r)
+    st["rows"] = out
+    set_hordes(st, "REFINERY")
+    st["timedBosses"] = [dict(t=t, boss=b) for t, b in REFINERY_TIMED]
+    st["events"] = [dict(id=i, at=t) for i, t in REFINERY_EVENTS]
+
+
+# ---------------------------------------------------------------------------------------------------------------------------
+# v1.4 chunk B: Hydroponic Vaults (game/stage/HydroRules, game/layout/DomesLayout, game/boss/RootmindAi). Enemies, the stage's rows,
+# timed bosses, events, hordes and the finale's unique. Applied by add_v14_stages through hydro_stage().
+# ---------------------------------------------------------------------------------------------------------------------------
+HYDRO_ENEMIES = {
+    # ARCH_HEALER: heals every enemy within 110 u by 6% every 2 s (HydroRules.updateArch), at most 6 alive
+    "GARDENER": dict(name="Gardener", archetype="HEALER", maxHp=3.0, speed=100, power=12, xp=3, sprite="infected_colonist",
+                     description="Pulses a heal over every enemy near it. Kill it first.",
+                     params=dict(radius=12, tintRGB=0x6FD36F, drawScale=1.1)),
+    # a third of a hound's health; comes in swarms of 8 from the edge of a growth patch
+    "MYCELID": dict(name="Mycelid", archetype="FAST_PACK", maxHp=round(0.5 / 3, 4), speed=160, power=7, xp=1, sprite="spore_hound",
+                    params=dict(radius=7, group=8, weave=0.8, phase=1.0, tintRGB=0xBFE8C8, drawScale=0.7)),
+    # Frozen Welder (pattern 7) without frost: its dashes leave sprouts instead (HydroRules.sprouts)
+    "VERDANT_WELDER": dict(name="Verdant Welder", archetype="BOSS", boss=True, maxHp=420, speed=70, power=24, xp=100,
+                           sprite="welder", scale=2.0,
+                           description="Three chained dashes; every dash sows growth patches.",
+                           params=dict(pattern=7, hpRamp=20, radius=12, tintRGB=0x6FD060, gearSlot=4, xpPileLevels=1.5,
+                                       pre=0.9, dashLen=190, dash=0.45, gap=0.25, lineW=46, dashDmg=16, recover=2.0,
+                                       gapMin=2.0, gapMax=3.5, range=380, patchEvery=1000000, patchR=38, patchT=0.02,
+                                       ringR=140, ringExtra=0.3, ringDmg=14, ringStun=0.4)),
+    # the finale (BossAi pattern 11 -> game/boss/RootmindAi): stationary, shielded by three hearts
+    "ROOTMIND": dict(name="The Rootmind", archetype="BOSS", boss=True, maxHp=1800, speed=0, power=30, xp=250,
+                     sprite="spore_carrier", scale=3.5,
+                     description="Stands in a dome behind three shield hearts. Burn the hearts, then hit it.",
+                     params=dict(pattern=11, hpRamp=28, radius=20, tintRGB=0xC8E070, xpPileLevels=1.5, phase1Hp=0.66,
+                                 phase2Hp=0.33, ring=12, ringSpeed=200, ringDmg=12, ringEvery=3.5, ringEvery3=5,
+                                 lanes=2, laneLen=560, laneW=46, laneDps=22, laneWarn=1.0, laneLife=3.2, laneSpin=0.85,
+                                 laneGap=2.0, hounds=6, houndEvery=9, sporeEvery=10)),
+    # a shield heart of the Rootmind: pinned like a tentacle, stays (the Rootmind sets its health to 120)
+    "ROOT_HEART": dict(name="Root Heart", archetype="TENTACLE", maxHp=9.2, speed=0, power=0, xp=2, knockback=0,
+                       sprite="lumen_tentacle",
+                       params=dict(radius=18, warn=1.0, up=99999, hitR=34, drawScale=1.4, tintRGB=0xC8E070)),
+}
+ENEMIES.update(HYDRO_ENEMIES)
+HYDRO_UNIQUES = {
+    "ROOTMINDS_HEARTWOOD": ("NECK", "Rootmind's Heartwood", "unique_ashen_heartwood",
+                            {"healMul": 0.25, "heartVacuum": 0.25}, "ROOTMIND"),
+}
+UNIQUES.update(HYDRO_UNIQUES)
+
+KH = dict(K, GDN="GARDENER")
+
+
+def hrow(minute, minimum, freq, enemies, bosses=()):
+    return dict(minute=minute, minimum=minimum, frequency=freq, enemies=[KH[e] for e in enemies.split()], bosses=list(bosses))
+
+
+# Minutes 0-5 colonists and hounds, carriers every minute from 6, Gardeners from 8, Vire from 15; the density is ~10% under Flats
+# (minutes 0-4 by hand, from minute 5 apply_difficulty x 0.9). The 29:00 bosses are gone: the finale is the closing fight.
+HYDRO_ROWS = [
+    hrow(0, 9, 1400, "COL"), hrow(1, 13, 1200, "COL HND"), hrow(2, 16, 1100, "COL HND"), hrow(3, 20, 1000, "COL HND"),
+    hrow(4, 23, 900, "COL HND"), hrow(5, 20, 1100, "COL HND", ["CARGO_LOADER"]), hrow(6, 24, 1000, "COL HND SPC"),
+    hrow(7, 30, 900, "COL HND SPC SGT"), hrow(8, 32, 850, "HND SPC SGT GDN"), hrow(9, 36, 800, "COL SPC GDN WLD"),
+    hrow(10, 40, 800, "HND SPC GDN WLD", ["SMELTER_FOREMAN"]), hrow(11, 44, 750, "COL SPC GDN SGT"),
+    hrow(12, 48, 750, "HND SPC GDN WLD"), hrow(13, 52, 700, "COL HND SPC GDN SGT"), hrow(14, 56, 700, "HND SPC GDN SML"),
+    hrow(15, 60, 650, "COL SPC GDN VIR", ["SLAGBORN"]), hrow(16, 64, 650, "HND SPC GDN WLD"),
+    hrow(17, 68, 600, "COL SPC GDN SML"), hrow(18, 72, 600, "HND SPC GDN VIR"), hrow(19, 76, 600, "COL SPC GDN SML VIR"),
+    hrow(20, 80, 550, "HND SPC GDN SGT VIR", ["VIRE_AWAKENED"]), hrow(21, 84, 550, "COL SPC GDN SML"),
+    hrow(22, 88, 500, "HND SPC GDN WLD"), hrow(23, 92, 500, "COL SPC GDN SML VIR"), hrow(24, 96, 500, "HND SPC GDN WLD"),
+    hrow(25, 100, 450, "COL SPC GDN SML VIR", ["CARGO_LOADER", "CARGO_LOADER"]), hrow(26, 110, 450, "HND SPC GDN SGT WLD"),
+    hrow(27, 120, 400, "COL SPC GDN SML VIR"), hrow(28, 130, 400, "HND SPC GDN WLD VIR"),
+    hrow(29, 140, 350, "COL HND SPC GDN SML VIR"),
+]
+HYDRO_DENSITY = 0.9
+HYDRO_TIMED = [(450, "BROOD_MOTHER"), (750, "VERDANT_WELDER"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"),
+               (1680, "ROOTMIND")]
+# Purge Terminal / Sporefall / Bloom run from HydroRules (rules purgeAt, bloomAt; Sporefall 4:00 every 4 min and 23:00); the data
+# keeps the Beacon (26:00). The Tide is replaced by the finale at 28:00.
+HYDRO_EVENTS = [("BEACON", 1560)]
+
+
+def hydro_stage(st):
+    """Replaces the Flats copy by the Hydroponic Vaults' rows, timed bosses, events and hordes."""
+    old = {r["minute"]: r for r in st["rows"]}
+    rows = []
+    tn = tune_of("HYDRO")
+    for r in apply_difficulty(HYDRO_ROWS, tn):
+        r = dict(r)
+        r["minimum"] = int(round(r["minimum"] * HYDRO_DENSITY))
+        if "treasure" in old.get(r["minute"], {}):
+            r["treasure"] = old[r["minute"]]["treasure"]
+        rows.append(r)
+    st["rows"] = rows
+    st["timedBosses"] = [dict(t=t, boss=b) for t, b in HYDRO_TIMED]
+    st["events"] = [dict(id=i, at=t) for i, t in HYDRO_EVENTS]
+    set_hordes(st, "HYDRO")
+    st["destructibleType"] = "MIXED_FLATS"
+
+
+def add_v14_stages(data):
+    """Adds the registry's stages to data['stages'] / data['lighting'] and the card fields to every menu stage."""
+    import copy
+    stages, lighting = data["stages"], data.setdefault("lighting", {})
+    for key, reg in STAGE_REGISTRY.items():
+        if "copy_of" in reg:
+            st = copy.deepcopy(stages[reg["copy_of"]])
+            st["name"] = reg["name"]
+            for mod, mul in reg["mods"].items():
+                st["mods"][mod] = round(st["mods"][mod] * mul, 4)
+            stages[key] = st
+            lighting[key] = reg["lighting"]
+        st = stages[key]
+        st["difficulty"] = reg["difficulty"]
+        st["blurb"] = reg["blurb"]
+        if reg["unlock"]:
+            st["unlock"] = dict(key=reg["unlock"][0], seconds=reg["unlock"][1])
+        st["rules"] = reg["rules"]
+        if reg.get("tune"):   # a stage's own rows, bosses and events (the section of its chunk below)
+            globals()[reg["tune"]](st, data)
+        if key == "HYDRO":
+            hydro_stage(st)
+
+
+# ---------------------------------------------------------------------------------------------------------------------------
+# Meridian Wreck (v1.4 chunk D): roster additions, rows, timed bosses, events, hordes and the Echo of the Pillar. Applied by add_wreck()
+# after the registry copied Cinder Flats into WRECK; nothing here touches another stage.
+# ---------------------------------------------------------------------------------------------------------------------------
+WRECK_ENEMIES = {
+    # spore_hound in violet: blinks to a flank every 6 s (game/stage/WreckRules.updateArch), packs of 4 (WreckRules.initArch)
+    "RIFT_HOUND": dict(name="Rift Hound", archetype="RIFT", maxHp=0.5, speed=165, power=7, xp=1, sprite="spore_hound",
+                       params=dict(radius=9, drawScale=1.05, tintRGB=0x8A5CFF, group=4, weave=0.8, blinkEvery=6, tele=0.3,
+                                   blinkMin=150, blinkMax=250)),
+    # security_drone in hazard yellow: a thin warning line for 1.0 s, then a dive that bursts (r 60, 20 damage); at most 8 alive
+    "BREACHER": dict(name="Breacher", archetype="BREACHER", maxHp=0.4, speed=150, power=3, xp=2, sprite="security_drone",
+                     params=dict(radius=8, drawScale=0.85, tintRGB=0xE8C23A, warn=1.0, diveSpeed=380, diveLen=340, lineW=14,
+                                 burstR=60, burstDmg=20, cap=8, range=300, gapMin=2.5, gapMax=5.5)),
+    # remixes of the timed bosses (BossAi pattern 13 is the Wreck family: mode 1 Alpha, 2 Warden, 0 The Pillar; game/boss/PillarAi)
+    "HULL_BREACHER_ALPHA": dict(name="Hull Breacher Alpha", archetype="BOSS", boss=True, maxHp=300, speed=70, power=24, xp=100,
+                                sprite="cargo_loader", scale=1.8,
+                                description="Stomps the deck; every stomp tears open a short-lived gravity well on you.",
+                                params=dict(pattern=13, mode=1, hpRamp=20, radius=20, tintRGB=0x9A7A1E, gearSlot=3, xpPileLevels=1.5,
+                                            stompEvery=4.2, stompR=130, stompWarn=0.9, stompDmg=22, wellR=160, wellT=6,
+                                            crates=3, crateR=44, crateWarn=1.0, crateDmg=16, stopDist=60)),
+    "SALVAGE_WARDEN": dict(name="Salvage Warden", archetype="BOSS", boss=True, maxHp=280, speed=80, power=22, xp=100,
+                           sprite="security_drone", scale=3.0,
+                           description="Hovers and fires drone barrages; blinks away and leaves decoys that burst.",
+                           params=dict(pattern=13, mode=2, hpRamp=20, radius=9, tintRGB=0x9AA0AA, gearSlot=4, xpPileLevels=1.5,
+                                       hover=230, barrageEvery=3.2, fan=7, fanSpread=0.55, boltSpeed=210, boltDmg=9,
+                                       blinkEvery=9, blinkTele=0.6, blinkMin=200, blinkMax=300, decoys=2)),
+    "WARDEN_DECOY": dict(name="Warden's Decoy", archetype="TENTACLE", maxHp=0.1, speed=0, power=0, xp=1, knockback=0,
+                         sprite="security_drone",
+                         params=dict(radius=10, warn=0.9, up=8.0, hitR=60, ring=1, blast=12, drawScale=3.0, tintRGB=0x9AA0AA)),
+    # the finale: a stationary prop-sized boss (its picture is prop.the_pillar drawn by WreckFx, the model is nearly invisible)
+    "THE_PILLAR": dict(name="The Pillar", archetype="BOSS", boss=True, maxHp=1800, speed=0, power=30, xp=250, knockback=0,
+                       sprite="the_first", alpha=0.02,
+                       description="A dead ship's spine still pulling the wreck down: beams, orbiting wells, a failing bubble.",
+                       params=dict(pattern=13, mode=0, hpRamp=28, radius=34, gearSlot=5, xpPileLevels=2.0, phase1Hp=0.66,
+                                   phase2Hp=0.33, beams=4, beamLen=520, beamW=46, beamDps=22, beamWarn=1.0, beamLife=5.0,
+                                   beamSpin=0.85, beamEvery=8, orbitDist=260, orbitSpeed=0.6, echoEvery=8, echoN=16, echoSpeed=190,
+                                   echoDmg=14, bubbleR=170, bubbleDist=140, pulseEvery=6, pulseWarn=1.5, pulseDmg=28)),
+}
+WRECK_PORTRAITS_NOTE = "boss portraits are mapped in tools/build_ashfall_assets.py PORTRAITS"
+
+# minute -> enemy keys (the spec's pacing: drones and colonists 0-4, Rift Hounds from 4, Sergeants from 6, Vire from 8, Breachers from 9, Carriers from 14)
+def wreck_enemies(m):
+    if m < 4:
+        return ["SECURITY_DRONE", "COLONIST"]
+    if m < 6:
+        return ["SECURITY_DRONE", "COLONIST", "RIFT_HOUND"]
+    if m < 8:
+        return ["SERGEANT", "SECURITY_DRONE", "COLONIST", "RIFT_HOUND"]
+    if m < 9:
+        return ["SERGEANT", "SECURITY_DRONE", "RIFT_HOUND", "VIRE"]
+    if m < 11:
+        return ["SERGEANT", "SECURITY_DRONE", "RIFT_HOUND", "VIRE", "BREACHER"]
+    if m < 14:
+        return ["SERGEANT", "SECURITY_DRONE", "RIFT_HOUND", "BREACHER", "WELDER"]
+    return ["COLONIST", "SERGEANT", "RIFT_HOUND", "BREACHER", "SPORE_CARRIER", "VIRE" if m % 2 == 0 else "WELDER"]
+
+
+WRECK_BOSS_ROWS = {5: ["CARGO_LOADER"], 10: ["SMELTER_FOREMAN"], 15: ["SLAGBORN"], 20: ["VIRE_AWAKENED"], 25: ["CARGO_LOADER", "CARGO_LOADER"]}
+# 27:30 Kade is dropped for the Pillar Gate (WreckRules); The Pillar itself is the fifth timed boss at 28:00 (its AI moves it to its spire)
+WRECK_TIMED = [(450, "HULL_BREACHER_ALPHA"), (750, "SALVAGE_WARDEN"), (1050, "COMMANDANT_HALE"), (1350, "OVERSEER_UNIT_7"), (1680, "THE_PILLAR")]
+# Distress Beacon (the Signal Tower), Collapse, Power Surge (the Lumen Surge, 24:40) and the Beacon; the Tide is replaced by the gate and the finale.
+# The Vacuum Breaches (4:00, 9:00, 14:00, 19:00, 24:00, 25 s each) are WreckRules; nothing here overlaps them.
+WRECK_EVENTS = [("SIGNAL_TOWER", 1260), ("COLLAPSE", 1380), ("LUMEN_SURGE", 1480), ("BEACON", 1560)]
+# the Flats bursts, moved off the breaches (14:00-14:25 and 19:00-19:25 each with their 2 s warning)
+WRECK_DENSITY = 1.10     # "the highest density of the five stages": +10% over Flats at equal minutes (the wave cap of 300 still holds)
+# stage rules parameters (StageDef.rules, read by WreckRules with defaults of the same value)
+WRECK_RULES = dict(padR=70, padChannel=0.5, padCooldown=12, padShockR=140, padShockDmg=30, wellR=220, wellOn=10, wellOff=6,
+                   wellFlicker=1, wellPullHero=40, wellPullEnemy=70, wellPullPickup=120, coreR=24, coreEnemyDps=40,
+                   coreEliteDps=15, coreHeroDps=15, breachLen=25, breachTele=2, breachR0=260, breachR1=140, breachDrift=40,
+                   breachHeroDps=4, breachRamp=0.5, breachEnemyPct=0.03, gateAt=1650, gateUntil=1770)
+ECHO_OF_THE_PILLAR = dict(name="Echo of the Pillar", slot="NECK", icon="unique_heart_of_lumen",
+                          values={"padRecharge": 6, "padShock": 0.5}, unique=True, source="THE_PILLAR")
+
+
+def add_wreck(data):
+    """Meridian Wreck on top of the Flats copy: roster, rows, timed bosses, events, hordes, rules, lighting, the Echo."""
+    for key, e in WRECK_ENEMIES.items():
+        data["enemies"][key] = dict(e)
+    st = data["stages"]["WRECK"]
+    for r in st["rows"]:
+        m = r["minute"]
+        r["enemies"] = wreck_enemies(m)
+        r["bosses"] = list(WRECK_BOSS_ROWS.get(m, []))
+        r["minimum"] = min(300, int(round(r["minimum"] * WRECK_DENSITY)))
+    st["timedBosses"] = [dict(t=t, boss=b) for t, b in WRECK_TIMED]
+    st["events"] = [dict(id=i, at=t) for i, t in WRECK_EVENTS]
+    set_hordes(st, "WRECK")   # TUNE_DEFAULT + the Wreck overrides (STAGE_TUNE); the old WRECK_HORDES numbers are not applied any more
+    st["rules"] = dict(WRECK_RULES)
+    data["lighting"]["WRECK"] = dict(ambient=0.62, radius=230)
+    data["equipment"]["ECHO_OF_THE_PILLAR"] = dict(ECHO_OF_THE_PILLAR)
+
+
 def main():
     base = json.load(open(os.path.join(ASSETS, "game_data.json")))
     path = os.path.join(ASSETS, "ashfall_data.json")
     data = json.load(open(path))
+    out_path = os.environ.get("OUT_JSON", path)   # experiments write a variant next to the real file
 
     def fix(params):  # "raise" is a Python keyword in the table above
         return {k.rstrip("_"): v for k, v in params.items()}
@@ -393,14 +769,14 @@ def main():
         enemies[key] = e
     data["enemies"] = enemies
 
-    def stage(name, vs_key, rows, treasure_map, destructible, mods_fn, spawn_type=None, starting=10):
+    def stage(key, name, vs_key, rows, treasure_map, destructible, mods_fn, spawn_type=None, starting=10):
         vs = base["stages"][vs_key]
         mods = {k: vs[0]["mods"][k] for k in ("TimeLimit", "PlayerPxSpeed", "EnemySpeed", "EnemyHealthMultiplier",
                                               "GoldMultiplier", "XPBonus")}
         mods_fn(mods)
         tre = treasure_rows(vs, treasure_map)
         out_rows = []
-        for r in apply_difficulty(rows):
+        for r in apply_difficulty(rows, tune_of(key)):
             r = dict(r)
             if r["minute"] in tre:
                 t = tre[r["minute"]]
@@ -421,23 +797,31 @@ def main():
         m["EnemySpeed"] = round(m["EnemySpeed"] * 1.05, 4)
 
     stages = data.setdefault("stages", {})
-    stages["FLATS"] = stage("Cinder Flats", "FOREST", FLATS_ROWS, FLATS_TREASURE, "MIXED_FLATS", flats_mods,
+    stages["FLATS"] = stage("FLATS", "Cinder Flats", "FOREST", FLATS_ROWS, FLATS_TREASURE, "MIXED_FLATS", flats_mods,
                             starting=10)
-    stages["MINES"] = stage("Deep Mines", "LIBRARY", MINES_ROWS, MINES_TREASURE, "MIXED_MINES", mines_mods,
+    stages["MINES"] = stage("MINES", "Deep Mines", "LIBRARY", MINES_ROWS, MINES_TREASURE, "MIXED_MINES", mines_mods,
                             spawn_type="HORIZONTAL", starting=12)
     for key, fade in XP_FADE.items():
         stages[key]["xpFade"] = fade
     for key in ("FLATS", "MINES"):
-        stages[key]["hpCurve"] = HP_CURVE
-        stages[key]["dmgCurve"] = DMG_CURVE
-        stages[key]["hordes"] = dict(types=HORDE_TYPES, bursts=[dict(at=a, length=HORDE_LEN, minimum=mn, frequency=HORDE_FREQ)
-                                                              for a, mn in HORDES[key]])
+        tn = tune_of(key)
+        stages[key]["hpCurve"] = tn["hp_curve"]
+        stages[key]["dmgCurve"] = tn["dmg_curve"]
+        stages[key]["speedCurve"] = tn["speed_curve"]
+        stages[key]["hordes"] = dict(types=tn["horde_types"], bursts=[dict(at=a, length=tn["horde_len"], minimum=mn, frequency=tn["horde_freq"])
+                                                                    for a, mn in tn["hordes"]])
+        if tn["elites"]:
+            stages[key]["elites"] = tn["elites"]
+        if tn["ranged_cap"]:
+            stages[key]["rangedCap"] = tn["ranged_cap"]
     stages["MINES"]["tentacles"] = dict(minutes=[8, 13, 18, 23, 27], length=20, every=4, count=3, radius=400)
     for key, lst in TIMED_BOSSES.items():
         stages[key]["timedBosses"] = [dict(t=t, boss=b) for t, b in lst]
     for key, lst in EVENTS.items():
         stages[key]["events"] = [dict(id=i, at=t) for i, t in lst]
+    add_v14_stages(data)   # v1.4: the three new stages (copies of Flats until their chunks tune them) and the card fields
     data["elites"] = ELITES
+    data["powerups"] = {k: dict(price=p, exp=e) for k, (p, e) in POWERUP_PRICES.items()}
     eq = {}
     for key, (slot, name, icon, values) in EQUIPMENT.items():
         eq[key] = dict(name=name, slot=slot, icon=icon, values=values)
@@ -445,8 +829,12 @@ def main():
         eq[key] = dict(name=name, slot=slot, icon=icon, values=values, unique=True, source=source)
     data["equipment"] = eq
     data["equipmentRules"] = EQUIPMENT_RULES
+    add_wreck(data)   # v1.4 chunk D: Meridian Wreck roster, rows, timed bosses, events, rules, the Echo of the Pillar
     data["fusions"] = {k: dict(name=FUSIONS[k]["name"], description=FUSIONS[k]["description"],
                                parents=FUSIONS[k]["parents"], rarity=1, rows=fusion_rows(FUSIONS[k])) for k in FUSION_KEYS}
+    ov = json.loads(os.environ.get("TUNE_JSON") or "{}").get("*", {})   # experiments: hero_tune / main_tune over the tables above
+    HERO_TUNE.update(ov.get("hero_tune", {}))
+    MAIN_TUNE.update(ov.get("main_tune", {}))
     for table, root in ((HERO_TUNE, data["heroes"]), (MAIN_TUNE, data["mainWeapons"])):
         for dotted, value in table.items():
             keys = dotted.split(".")
@@ -454,15 +842,26 @@ def main():
             for k in keys[:-1]:
                 node = node[k]
             node[keys[-1]] = value
+    for key in ("HYDRO", "REFINERY", "WRECK"):   # v1.4 tuning: the copied stages take their OWN curves, elites, density factor and rules
+        tn, st = tune_of(key), data["stages"][key]
+        st["hpCurve"], st["dmgCurve"], st["speedCurve"] = tn["hp_curve"], tn["dmg_curve"], tn["speed_curve"]
+        for k2, k3 in (("elites", "elites"), ("ranged_cap", "rangedCap")):
+            if tn[k2]:
+                st[k3] = tn[k2]
+            else:
+                st.pop(k3, None)
+        for r in st["rows"]:
+            r["minimum"] = min(300, int(round(r["minimum"] * interp(tn["wave_mul"], r["minute"]))))
+        st["rules"] = dict(st.get("rules", {}), **tn["rules"])
     for hero, text in HERO_TEXT.items():
         data["heroes"][hero]["description"] = text
     lighting = data.setdefault("lighting", {})
     lighting["FLATS"] = dict(ambient=0.65, radius=240)
     lighting["MINES"] = dict(ambient=0.78, radius=200)
-    with open(path, "w") as f:
+    with open(out_path, "w") as f:
         json.dump(data, f, indent=1, ensure_ascii=False)
         f.write("\n")
-    print("wrote", path)
+    print("wrote", out_path)
 
 
 if __name__ == "__main__":

@@ -10,9 +10,16 @@ public final class PowerUpDef {
     public final String name;
     public final String description;
     public final int basePrice;
+    /** v1.4: the price curve exponent (ashfall_data.json {@code powerups.KEY.exp}); 1 = the Vampire Survivors line price * (1 + ranks). */
+    public final double priceExp;
     public final List<Map<String, Double>> rows;
 
     public PowerUpDef(String key, String name, String description, int basePrice, List<Map<String, Double>> rows) {
+        this(key, name, description, basePrice, 1.0, rows);
+    }
+
+    public PowerUpDef(String key, String name, String description, int basePrice, double priceExp, List<Map<String, Double>> rows) {
+        this.priceExp = priceExp;
         this.key = key;
         this.name = name;
         this.description = description;
@@ -22,16 +29,22 @@ public final class PowerUpDef {
 
     /** A copy with another display name (the Ashfall overlay). */
     public PowerUpDef withName(String newName) {
-        return new PowerUpDef(key, newName, description, basePrice, rows);
+        return new PowerUpDef(key, newName, description, basePrice, priceExp, rows);
+    }
+
+    /** A copy with another price line (the Ashfall overlay): rank n+1 costs basePrice * (1 + n) ^ exp, rounded to 10. */
+    public PowerUpDef withPrice(int newBase, double newExp) {
+        return new PowerUpDef(key, name, description, newBase, newExp, rows);
     }
 
     public int maxRank() {
         return rows.size();
     }
 
-    /** Price of the next rank when `ranks` are already owned: price * (1 + ranks). */
+    /** Price of the next rank when `ranks` are already owned: price * (1 + ranks) ^ exp (exp 1 = the plain VS line; otherwise rounded to 10). */
     public int priceForNext(int ranks) {
-        return basePrice * (1 + ranks);
+        if (priceExp == 1.0) return basePrice * (1 + ranks);
+        return (int) (Math.round(basePrice * Math.pow(1 + ranks, priceExp) / 10.0) * 10);
     }
 
     /** Summed stats of the first `ranks` rows. */

@@ -37,6 +37,8 @@ public final class PlayerStats {
             enemySpeed = 1, critBonus;
     public final double[] statusChance = new double[5];
     public boolean burnImmune, ashTrail, cloudHeal;
+    /** Rootmind's Heartwood (v1.4): multiplier on all healing (1 = none) and the chance a Bloom Heart drops a Vacuum (0 = the stage's 10%). */
+    public double healMul = 1, heartVacuum;
 
     public static PlayerStats compute(Inventory inv, Map<String, Double> meta, double extraLuck) {
         return compute(inv, meta, extraLuck, null, 1);
@@ -108,6 +110,8 @@ public final class PlayerStats {
         p.burnImmune = g(sum, "burnImmune") > 0;
         p.ashTrail = g(sum, "ashTrail") > 0;
         p.cloudHeal = g(sum, "cloudHeal") > 0;
+        p.healMul = 1 + g(sum, "healMul");
+        p.heartVacuum = g(sum, "heartVacuum");
         if (hero != null) {
             p.baseHp = hero.hp;
             p.armor += hero.armor;

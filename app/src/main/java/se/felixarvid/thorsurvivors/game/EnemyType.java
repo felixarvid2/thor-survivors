@@ -24,7 +24,7 @@ public final class EnemyType {
     public final boolean ranged;
     /** Hot numbers of the archetype, read from the data once (the rest is read from {@code def.params} when needed). */
     public final float stop, backoff, backoffMul, weave, phaseLen, trigger;
-    /** Boss pattern of a {@link EnemyDef#ARCH_BOSS} (BossAi: 1 Cargo Loader, 2 Slagborn, 3 Vire, 4 Foreman, 5 The First, 6 Brood Mother, 7 Frozen Welder, 8 Commandant Hale, 9 Overseer Unit 7, 10 Governor Kade). */
+    /** Boss pattern of a {@link EnemyDef#ARCH_BOSS} (BossAi: 1 Cargo Loader, 2 Slagborn, 3 Vire, 4 Foreman, 5 The First, 6 Brood Mother, 7 Frozen Welder, 8 Commandant Hale, 9 Overseer Unit 7, 10 Governor Kade, 11 The Rootmind, 12 The Ironheart, 13 The Pillar). */
     public final int pattern;
     /** Recolour of the model (0xRRGGBB, 0 = none) and extra draw scale of a non-boss (data params {@code tintRGB}, {@code drawScale}). */
     public final int tint;

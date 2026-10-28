@@ -71,6 +71,21 @@ final class EnemyAi {
             case EnemyDef.ARCH_BOSS:
                 s.boss.init(e);
                 break;
+            // ---- v1.4 stage archetypes (chunks B-D): the stage's rules own the behaviour; add nothing else here
+            case EnemyDef.ARCH_HEALER:   // Hydroponic Vaults: Gardener
+            case EnemyDef.ARCH_STOKER:   // Refinery District: Stoker
+            case EnemyDef.ARCH_IRONCLAD: // Refinery District: Ironclad
+            case EnemyDef.ARCH_RIFT:     // Meridian Wreck: Rift Hound
+            case EnemyDef.ARCH_BREACHER: // Meridian Wreck: Breacher
+                s.rules.initArch(e);
+                break;
+            // ---- end v1.4 stage archetypes
+            // ---- v1.4 chunk E (Flats / Mines add-ons): the convoy tanker and the Dark Lurker, owned by FlatsRules / MinesRules
+            case EnemyDef.ARCH_CONVOY:
+            case EnemyDef.ARCH_LURKER:
+                s.rules.initArch(e);
+                break;
+            // ---- end chunk E
             default:
         }
     }
@@ -90,6 +105,21 @@ final class EnemyAi {
             case EnemyDef.ARCH_SUMMONER: summoner(e, dt, moving, dx, dy, d); break;
             case EnemyDef.ARCH_BOSS: s.boss.update(e, dt, moving, dx, dy, d); break;
             case EnemyDef.ARCH_TENTACLE: s.boss.tentacle(e, dt); break;
+            // ---- v1.4 stage archetypes (chunks B-D): the stage's rules own the behaviour; an unfinished one walks like a chaser
+            case EnemyDef.ARCH_HEALER:
+            case EnemyDef.ARCH_STOKER:
+            case EnemyDef.ARCH_IRONCLAD:
+            case EnemyDef.ARCH_RIFT:
+            case EnemyDef.ARCH_BREACHER:
+                if (!s.rules.updateArch(e, dt, moving, dx, dy, d) && moving) walkTo(e, dt, dx, dy, d, 1f);
+                break;
+            // ---- end v1.4 stage archetypes
+            // ---- v1.4 chunk E: the tanker drives itself (its rules move it); a Lurker walks like a chaser
+            case EnemyDef.ARCH_CONVOY:
+            case EnemyDef.ARCH_LURKER:
+                if (!s.rules.updateArch(e, dt, moving, dx, dy, d) && moving) walkTo(e, dt, dx, dy, d, 1f);
+                break;
+            // ---- end chunk E
             default:
         }
     }
@@ -98,7 +128,7 @@ final class EnemyAi {
     static final float ASH_SLOW = 0.8f;
 
     float speedOf(Enemy e) {
-        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul() * s.pois.enemySpeedMul;
+        return (e.blocked ? e.speed * Sim.BLOCKED_SPEED : e.speed) * e.slow * (e.ashLeft > 0f ? ASH_SLOW : 1f) * s.events.speedMul() * s.pois.enemySpeedMul * s.rules.enemySpeedMul(e);
     }
 
     void walkTo(Enemy e, float dt, float dx, float dy, float d, float factor) {
@@ -166,7 +196,7 @@ final class EnemyAi {
         }
     }
 
-    private void charger(Enemy e, float dt, boolean moving, float dx, float dy, float d) {
+    void charger(Enemy e, float dt, boolean moving, float dx, float dy, float d) {
         EnemyDef def = e.type.def;
         switch (e.ai) {
             case A_TELE:
@@ -641,6 +671,7 @@ final class EnemyAi {
                 s.addFx(h.variant == Entities.BV_RUBBLE ? Entities.FX_SLAM : Entities.FX_BLAST, h.x, h.y, h.r * 0.9f, 1f, 0.35f, 0, false);
                 s.spark(h.x, h.y - 8f, h.variant == Entities.BV_RUBBLE ? 0xFFB08850 : 0xFFFFA030, 8);
                 s.sound.emit(h.variant == Entities.BV_RUBBLE ? SoundEvents.CRATE_BREAK : SoundEvents.BARREL_EXPLODE);
+                if (h.variant == Entities.BV_SLAGRAIN) s.rules.onBlast(h.x, h.y, h.r); // chunk E: firedamp
                 s.screenShake(0.12f);
                 int nq = s.query(h.x, h.y, h.r + 30f);
                 for (int k = 0; k < nq; k++) {
@@ -666,11 +697,13 @@ final class EnemyAi {
                 break;
             case Entities.BV_VOLCANO:
                 s.addFx(Entities.FX_BLAST, h.x, h.y, h.r * 0.8f, 1f, 0.3f, 0, false);
+                s.rules.onBlast(h.x, h.y, h.r);
                 s.spark(h.x, h.y - 8f, 0xFFFFA030, 8);
                 s.sound.emit(SoundEvents.BARREL_EXPLODE);
                 break;
             default: // a slag bomb
                 s.addFx(Entities.FX_BLAST, h.x, h.y, h.r * 0.9f, 1f, 0.35f, 0, false);
+                s.rules.onBlast(h.x, h.y, h.r);
                 s.spark(h.x, h.y - 8f, 0xFFFFA030, 10);
                 s.sound.emit(SoundEvents.BARREL_EXPLODE);
                 if (h.w > 0f) addHazard(Entities.HZ_SLAG, h.x, h.y, h.w, h.spin, h.acc, 0f);

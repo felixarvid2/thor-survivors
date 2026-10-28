@@ -26,9 +26,13 @@ public final class EnemyDef {
     public final boolean ashfallBoss;
 
     public static final int ARCH_CHASER = 0, ARCH_PACK = 1, ARCH_RANGED = 2, ARCH_FLIER = 3, ARCH_CHARGER = 4,
-            ARCH_EXPLODER = 5, ARCH_TANK = 6, ARCH_SUMMONER = 7, ARCH_BOSS = 8, ARCH_TENTACLE = 9;
+            ARCH_EXPLODER = 5, ARCH_TANK = 6, ARCH_SUMMONER = 7, ARCH_BOSS = 8, ARCH_TENTACLE = 9,
+            // v1.4 stage archetypes: behaviour lives in the stage's StageRules (game/stage), see EnemyAi's marked dispatch block
+            ARCH_HEALER = 10, ARCH_STOKER = 11, ARCH_IRONCLAD = 12, ARCH_RIFT = 13, ARCH_BREACHER = 14,
+            // chunk E (Flats and Mines add-ons): the Ash Crawler Convoy's tanker and the Dark Lurker
+            ARCH_CONVOY = 15, ARCH_LURKER = 16;
     public static final String[] ARCH_NAMES = {"CHASER", "FAST_PACK", "RANGED", "FLIER", "CHARGER", "EXPLODER", "TANK",
-            "SUMMONER", "BOSS", "TENTACLE"};
+            "SUMMONER", "BOSS", "TENTACLE", "HEALER", "STOKER", "IRONCLAD", "RIFT", "BREACHER", "CONVOY", "LURKER"};
 
     public static int archOf(String name) {
         for (int i = 0; i < ARCH_NAMES.length; i++) if (ARCH_NAMES[i].equals(name)) return i;

@@ -683,6 +683,7 @@ public class BossTest {
         MetaProgress fresh = new MetaProgress(d, new MetaProgressTest.MemStore());
         e.init(d, fresh);
         e.meta = fresh;
+        fresh.unlockAll = true; // this test starts MINES
         // death
         e.input.clearMovement();
         e.phase = Engine.PH_MENU;

@@ -18,6 +18,7 @@ public class EngineAdvanceTest {
         MetaProgress fresh = new MetaProgress(d, new MetaProgressTest.MemStore());
         e.init(d, fresh);
         e.meta = fresh; // Engine is a JVM-wide singleton: don't inherit another test's gold or power-ups
+        fresh.unlockAll = true; // an earlier test may have left a locked menu stage selected on the shared Engine
         e.input.clearMovement();
         e.phase = Engine.PH_MENU;
         e.nextRunSeed = 1L; // deterministic run

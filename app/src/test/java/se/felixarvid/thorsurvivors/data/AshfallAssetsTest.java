@@ -145,7 +145,7 @@ public class AshfallAssetsTest {
     public void equipmentIconsRarityFramesAndBossPortraitsAreInTheManifest() throws Exception {
         JSONObject images = manifest().getJSONObject("images");
         GameData d = TestData.load();
-        assertEquals(24, d.equipList.size());
+        assertTrue(d.equipList.size() >= 25);
         for (EquipDef e : d.equipList) assertTrue(e.key + " icon " + e.icon, images.has("icon." + e.icon));
         for (String f : new String[]{"frame_common", "frame_magic", "frame_rare", "frame_unique"}) assertTrue(f, images.has("icon." + f));
         for (EnemyDef e : d.enemies.values()) {

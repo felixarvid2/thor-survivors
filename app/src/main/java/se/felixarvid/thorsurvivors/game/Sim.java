@@ -11,6 +11,8 @@ import se.felixarvid.thorsurvivors.data.WaveRow;
 import se.felixarvid.thorsurvivors.data.WaveSelector;
 import se.felixarvid.thorsurvivors.data.WeaponDef;
 import se.felixarvid.thorsurvivors.game.Entities.*;
+import se.felixarvid.thorsurvivors.game.stage.FlatsRules;
+import se.felixarvid.thorsurvivors.game.stage.StageRules;
 
 import java.util.HashMap;
 import java.util.List;
@@ -184,6 +186,8 @@ public final class Sim {
             Entities.K_OROLOGION, Entities.K_ROSARY, Entities.K_CLOVER};
     static final float DEST_CELL = 500f, DEST_R = 16f, DEST_CLEAR = 300f, PYLON_CELL = 2000f;
     /** Destructible kinds: the old brazier / candelabra (drops only), explosive barrel, supply chest, stim pylon. */
+    /** Destructible kinds from here up belong to the stage's rules (StageRules.addDests / destBroken). */
+    public static final int DK_STAGE = 32;
     public static final int DK_LEGACY = 0, DK_BARREL = 1, DK_CHEST = 2, DK_PYLON = 3, DK_NEST = 4;
     /** Barrel blast (design 9.1): radius 80, 5P (50) to every enemy and to the hero if within range; the hero takes 15 (an approximation: 5P on the hero would be half its health). */
     public static final float BARREL_R = 80f, BARREL_DMG = 50f, BARREL_HERO_DMG = 10f;
@@ -207,6 +211,12 @@ public final class Sim {
     private int placeKind;
     /** The stage layout (also what the renderer draws); destructibles keep off its trees, shelves and tables. */
     public final WorldGen map;
+    /** The stage's own rules (v1.4 framework, see {@link StageRules}): hooks the Sim calls instead of testing the stage key. */
+    public final StageRules rules;
+    /** The seed of this run (0 when the run was not seeded); the places, events and stage rules derive their own generators from it. */
+    public final long runSeed;
+    /** Scratch for {@link StageRules#push}. */
+    private final float[] pushV = new float[2];
 
     // ------------------------------------------------------------------ finds (Weapon Caches and Gear Lockers on the map)
 
@@ -331,6 +341,9 @@ public final class Sim {
         MainWeaponDef mwd = hero == null ? null : data.mainWeapons.get(hero.main);
         this.main = mwd == null ? null : new MainWeapon(this, hero, mwd);
         this.map = WorldGen.of(stage.key);
+        this.runSeed = seed == null ? 0L : seed;
+        this.rules = StageRules.forKey(stage.key);
+        this.rules.init(this);
         java.util.Arrays.fill(gridHead, -1); // an empty grid until the first buildGrid (tests query before they update)
         for (int i = 0; i < MAX_ENEMIES; i++) enemies[i] = new Enemy();
         for (int i = 0; i < MAX_PROJ; i++) projs[i] = new Projectile();
@@ -342,7 +355,7 @@ public final class Sim {
         for (int i = 0; i < MAX_EPROJ; i++) eprojs[i] = new EProj();
         for (int i = 0; i < MAX_HAZ; i++) hazards[i] = new Hazard();
         for (int i = 0; i < weapons.length; i++) weapons[i] = new WeaponState();
-        nextEliteAt = (float) data.elite("first", 180);
+        nextEliteAt = (float) elite("first", 180);
         if (starterKey != null) inv.add(data.weapons.get(starterKey));
         recomputeAll();
         hp = maxHp;
@@ -358,7 +371,7 @@ public final class Sim {
 
     /** True on the two Ashfall stages; the legacy FOREST / LIBRARY runs have no finds. */
     private boolean hasFinds() {
-        return stage.key.equals("FLATS") || stage.key.equals("MINES");
+        return rules.hasFinds();
     }
 
     /**
@@ -448,7 +461,7 @@ public final class Sim {
         collectFind(kind);
     }
 
-    private void collectFind(int kind) {
+    void collectFind(int kind) { // package-private for AddonOps (chunk E): the convoy's Arms Crate
         sound.emit(SoundEvents.CHEST_OPEN);
         if (kind == FIND_GEAR) {
             toast("GEAR LOCKER", 0xFF4FA8FF);
@@ -591,6 +604,7 @@ public final class Sim {
         movePlayer(dt);
         refreshDestructibles();
         events.update(dt);
+        rules.update(dt);
         updateWaves(dt);
         statusAcc += dt;
         if (statusAcc >= Status.PASS) { // one pass at 10 Hz: Burn, Frost, Electrify, Decay and the hero's statuses
@@ -628,7 +642,7 @@ public final class Sim {
         if (bannerT > 0) bannerT -= dt;
         for (int i = 0; i < MAX_TOASTS; i++) if (toastT[i] > 0f) toastT[i] -= dt;
         if (winDelay > 0f && (winDelay -= dt) <= 0f && ended == 0) ended = 2; // The First is dead: the run is won
-        if (stats.regen > 0 && hp < maxHp) hp = Math.min(maxHp, hp + (float) stats.regen * dt);
+        if (stats.regen > 0 && hp < maxHp) hp = Math.min(maxHp, hp + (float) stats.regen * dt * rules.regenMul() * (float) stats.healMul);
         if (time >= stage.timeLimit) ended = 2;
     }
 
@@ -691,8 +705,14 @@ public final class Sim {
         float len = (float) Math.sqrt(mx * mx + my * my);
         float sp = PLAYER_SPEED_K * (float) stage.playerSpeed * (float) stats.moveSpeedMul;
         if (heroSlowT > 0) sp *= 1f - Status.HERO_SLOW;
+        sp *= rules.heroSpeedMul();
         px += mx * sp * dt;
         py += my * sp * dt;
+        if (rules.push(px, py, pushV)) { // a stage with moving ground (belts, wind) carries the hero along
+            float pw = rules.pushWeight(StageRules.PUSH_HERO, null) * sp * dt;
+            px += pushV[0] * pw;
+            py += pushV[1] * pw;
+        }
         if (stats.ashTrail && len > 0.05f) { // Ashwalker Treads: a patch of ash every 40 units, enemies in it move at 80%
             ashDist += len * sp * dt;
             if (ashDist >= ASH_EVERY) {
@@ -739,6 +759,7 @@ public final class Sim {
             placeX = x;
             placeY = y;
             placeKind = !mixedDest() ? DK_LEGACY : WorldGen.unit(WorldGen.hash(cx, cy, 698)) < 0.58f ? DK_BARREL : DK_CHEST;
+            placeKind = rules.destKindAt(cx, cy, placeKind); // v1.4: a stage may swap the kind (Hydro: tankers and feeders)
             return true;
         }
         return false;
@@ -763,6 +784,11 @@ public final class Sim {
     private boolean isBroken(long key) {
         for (int i = 0; i < brokenN; i++) if (broken[i] == key) return true;
         return false;
+    }
+
+    /** A destructible of a stage's own kind ({@link #DK_STAGE} and up), once per {@code key} until it is broken. Called from {@link StageRules#addDests}. */
+    public void addStageDest(float x, float y, int kind, long key) {
+        addDest(x, y, kind, key);
     }
 
     void addDest(float x, float y, int kind, long key) {
@@ -800,6 +826,7 @@ public final class Sim {
             }
         }
         pois.addDests(cx, cy);
+        rules.addDests(cx, cy); // v1.4: a stage's own destructibles (kinds from DK_STAGE up)
         if (!stage.destructible.equals("MIXED_MINES")) return;
         // stim pylons: rare, one per ~2000 x 2000 u
         int p0x = (int) Math.floor((cx - 2) * DEST_CELL / PYLON_CELL), p1x = (int) Math.floor((cx + 3) * DEST_CELL / PYLON_CELL);
@@ -828,6 +855,15 @@ public final class Sim {
 
     /** A hit on destructible i: a nest loses hit points first, everything else breaks. */
     private void strikeDest(int i) {
+        if (destKind[i] >= DK_STAGE) { // v1.4: a stage's own destructible: the rules keep its health (a blast does 80) or let it break
+            if (rules.destHit(destKind[i], destKey[i], hitDestDmg >= BARREL_DMG ? 80f : hitDestDmg)) {
+                addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 60f, 0f, 0.12f, 0, false);
+                spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
+                return;
+            }
+            breakDest(i);
+            return;
+        }
         if (destKind[i] == DK_NEST && (destHp[i] -= hitDestDmg) > 0f) {
             addFx(Entities.FX_FLASH, destX[i], destY[i] - 10f, 50f, 0f, 0.12f, 0, false);
             spark(destX[i], destY[i] - 8f, 0xFF39FF88, 3);
@@ -853,7 +889,7 @@ public final class Sim {
         return false;
     }
 
-    private void breakDest(int i) {
+    void breakDest(int i) { // package-private for AddonOps (chunk E): lightning breaks only the barrels
         broken[brokenHead] = destKey[i];
         brokenHead = (brokenHead + 1) % broken.length;
         brokenN = Math.min(broken.length, brokenN + 1);
@@ -868,6 +904,7 @@ public final class Sim {
         destHp[i] = destHp[destN];
         destT[i] = destT[destN];
         destsBroken++;
+        if (kind >= DK_STAGE && rules.destBroken(kind, x, y, key)) return; // v1.4: the stage's own kinds
         switch (kind) {
             case DK_BARREL:
                 explodeBarrel(x, y);
@@ -921,6 +958,7 @@ public final class Sim {
             spark(bx, by - 10f, 0xFFFFA030, 14);
             spark(bx, by, 0xFF3A3028, 8);
             screenShake(0.12f);
+            rules.onBlast(bx, by, BARREL_R); // chunk E: firedamp pockets catch
             int n = query(bx, by, BARREL_R + 40f);
             for (int k = 0; k < n; k++) {
                 Enemy e = enemies[qbuf[k]];
@@ -1036,6 +1074,30 @@ public final class Sim {
     }
 
     /** Tests and screenshot tools: breaks the destructibles touching a circle, as a weapon hit does. */
+    // ---- v1.4 stage destructibles (chunk B, Hydroponic Vaults): the rules add and break their own entries through these
+    /** Adds a stage destructible (Bloom Heart) to the standing list with a display health; ignored when the list is full or the key was broken. */
+    public void addStageDest(float x, float y, int kind, long key, float hp) {
+        int before = destN;
+        addDest(x, y, kind, key);
+        if (destN > before) destHp[before] = hp;
+    }
+
+    /** Breaks the standing destructible with this key (no-op when it is not in the list). */
+    public void breakDestByKey(long key) {
+        for (int i = 0; i < destN; i++) {
+            if (destKey[i] == key) {
+                breakDest(i);
+                return;
+            }
+        }
+    }
+
+    /** Re-lists the standing destructibles on the next step (a stage added one outside the cell grid). */
+    public void invalidateDests() {
+        destCx = destCy = Integer.MIN_VALUE;
+    }
+    // ---- end v1.4 stage destructibles
+
     public void hitDestForTest(float x, float y, float r) {
         hitDest(x, y, r);
     }
@@ -1054,29 +1116,16 @@ public final class Sim {
         return e;
     }
 
-    /** Ash storms on Cinder Flats at 12:00 and 22:00 (design 9.1): 20 s long; light radius -40%, spawns +20%. */
-    public static final float STORM_LEN = 20f, STORM_FADE = 1.5f, STORM_LIGHT = 0.4f, STORM_SPAWNS = 0.2f;
-    static final float[] STORM_AT = {720f, 1320f};
+    // The Cinder Flats ash storms (12:00 and 22:00) live in game/stage/FlatsRules; these keep the old Sim API for the renderer and tests.
 
-    /** 0..1: how strongly the ash storm blows now (ramps in and out over {@link #STORM_FADE}); 0 outside the storms and on Deep Mines. */
+    /** 0..1: how strongly the ash storm blows now (ramps in and out over {@link FlatsRules#STORM_FADE}); 0 outside the storms and on every other stage. */
     public float stormLevel() {
-        if (!stage.key.equals("FLATS")) return 0f;
-        for (float at : STORM_AT) {
-            float t = (float) time - at;
-            if (t < 0f || t > STORM_LEN) continue;
-            return Math.min(1f, Math.min(t, STORM_LEN - t) / STORM_FADE);
-        }
-        return 0f;
+        return rules instanceof FlatsRules ? ((FlatsRules) rules).stormLevel(time) : 0f;
     }
 
     /** Seconds since the current ash storm began, or -1 outside the storms (the banner shows for the first seconds). */
     public float stormElapsed() {
-        if (!stage.key.equals("FLATS")) return -1f;
-        for (float at : STORM_AT) {
-            float t = (float) time - at;
-            if (t >= 0f && t <= STORM_LEN) return t;
-        }
-        return -1f;
+        return rules instanceof FlatsRules ? ((FlatsRules) rules).stormElapsed(time) : -1f;
     }
 
     /** True while a storm blows (any strength). */
@@ -1084,9 +1133,9 @@ public final class Sim {
         return stormLevel() > 0f;
     }
 
-    /** Multiplier on the light radius: 1, or 0.6 at the height of an ash storm. */
+    /** Multiplier on the light radius: the stage's ({@link StageRules#lightMul}, 0.6 at the height of an ash storm) times the events'. */
     public float lightRadiusMul() {
-        return (1f - STORM_LIGHT * stormLevel()) * events.lightMul();
+        return rules.lightMul() * events.lightMul();
     }
 
     private void updateWaves(float dt) {
@@ -1116,7 +1165,7 @@ public final class Sim {
             minimum = Math.max(minimum, (int) stage.hordes[horde][2]);
             freq = Math.min(freq, (float) stage.hordes[horde][3]);
         }
-        spawnTimer += dt * 1000f * (ashStorm() ? 1f + STORM_SPAWNS : 1f) * events.spawnMul() * pois.spawnMul;
+        spawnTimer += dt * 1000f * rules.spawnMul() * events.spawnMul() * pois.spawnMul;
         if (spawnTimer >= freq) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
@@ -1200,8 +1249,13 @@ public final class Sim {
     void spawnAtRing(EnemyType t, boolean boss, float dist) {
         if (t == null || enemyN >= MAX_ENEMIES) return;
         if (!boss && enemyN >= WaveDirector.ENEMY_CAP) return;
-        if (!boss && t.ranged && rangedAlive() >= RANGED_CAP) {
+        if (!boss && t.ranged && rangedAlive() >= (stage.rangedCap > 0 ? stage.rangedCap : RANGED_CAP)) {
             EnemyType c = type("COLONIST");
+            if (c != null) t = c;
+        }
+        if (!boss) { // v1.4: a stage may cap a type (Refinery: Ironclads) by sending another one
+            String swap = rules.spawnSwap(t);
+            EnemyType c = swap == null ? null : type(swap);
             if (c != null) t = c;
         }
         Enemy e = enemies[enemyN++];
@@ -1262,15 +1316,15 @@ public final class Sim {
         if (elite) {
             e.elite = true;
             e.mods = mods;
-            float dmgMul = (float) data.elite("damageMul", 1.5);
-            e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
+            float dmgMul = (float) elite("damageMul", 1.5);
+            e.hp = e.maxHp = e.maxHp * (float) elite("hpMul", 6);
             e.power *= dmgMul;
             e.shotMul *= dmgMul;
-            e.radius *= (float) data.elite("scale", 1.4);
-            e.speed *= (float) data.elite("speedMul", 0.9);
-            e.xp *= (float) data.elite("xpMul", 8);
+            e.radius *= (float) elite("scale", 1.4);
+            e.speed *= (float) elite("speedMul", 0.9);
+            e.xp *= (float) elite("xpMul", 8);
             if ((mods & Elites.M_ARMORED) != 0) {
-                e.armor = (float) data.elite("armor", Elites.FLAT_ARMOR);
+                e.armor = (float) elite("armor", Elites.FLAT_ARMOR);
                 e.kbMul = 0f;
             }
             e.mt0 = 1.5f;
@@ -1343,6 +1397,7 @@ public final class Sim {
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
         if (t.arch != EnemyDef.ARCH_CHASER) ai.init(e);
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) e.speed *= (float) stage.speedMul(time); // v1.4: wave enemies get quicker with the run time
         if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) { // phase 13: contact and bolt damage grow with the run time too
             float dm = (float) stage.dmgMul(time);
             e.power *= dm;
@@ -1368,7 +1423,7 @@ public final class Sim {
                 continue;
             }
             if (e.sleeping) continue; // an outpost guard that has not woken: stands still
-            if (d2 > RECYCLE_DIST * RECYCLE_DIST && e.type.arch != EnemyDef.ARCH_TENTACLE) { // far behind the player: recycle to the opposite edge
+            if (d2 > RECYCLE_DIST * RECYCLE_DIST && e.type.arch != EnemyDef.ARCH_TENTACLE && !rules.keepFar(e)) { // far behind the player: recycle to the opposite edge
                 recycle(e, dx, dy, (float) Math.sqrt(d2));
                 continue;
             }
@@ -1398,6 +1453,11 @@ public final class Sim {
                 ai.update(e, dt, moving, dx, dy, d2);
             }
             if (e.elite && !frozen && !stunned) elites.update(e, dt, (float) Math.sqrt(d2));
+            if (rules.push(e.x, e.y, pushV)) { // moving ground carries enemies too, a share of their own speed
+                float pw = rules.pushWeight(StageRules.PUSH_ENEMY, e) * ai.speedOf(e) * dt;
+                e.x += pushV[0] * pw;
+                e.y += pushV[1] * pw;
+            }
             e.x += e.kvx * dt;
             e.y += e.kvy * dt;
             e.kvx *= decay;
@@ -1488,6 +1548,9 @@ public final class Sim {
     /** Status damage: no flash and no hit sound; the number is coloured and merged per enemy. Kills when it empties the enemy. */
     void statusDamage(Enemy e, float amount, int color, boolean show) {
         if (e.dead || amount <= 0f) return;
+        amount = rules.damageIn(e, amount, color == Status.C_BURN ? StageRules.CAT_BURN : color == Status.C_ELEC ? StageRules.CAT_ELECTRIFY
+                : color == Status.C_FROST ? StageRules.CAT_FROST : StageRules.CAT_DECAY); // stage hook (v1.4)
+        if (amount <= 0f) return;
         e.hp -= amount;
         e.dotAcc += amount;
         if (e.dotAcc >= 1f && show && statusTexts < MAX_STATUS_TEXTS) {
@@ -1777,6 +1840,7 @@ public final class Sim {
         lastCrit = crit;
         if (crit) dmg *= critMul;
         if (e.armor > 0f) dmg = Math.max(dmg * 0.4f, dmg - e.armor); // the Armored elite: 3 off every hit
+        dmg = rules.damageIn(e, dmg, StageRules.CAT_HIT); // stage hook (v1.4): e.g. Ironclad takes less from hits
         e.hp -= dmg;
         if (stats.statusChance[Entities.ST_BURN] > 0f || stats.statusChance[Entities.ST_FROST] > 0f
                 || stats.statusChance[Entities.ST_ELECTRIFY] > 0f) { // rings: a chance per hit to add a stack
@@ -1819,6 +1883,7 @@ public final class Sim {
                 continue;
             }
             kills++;
+            rules.onEnemyDeath(e);
             sound.emit(SoundEvents.ENEMY_DEATH);
             if (e.type.arch == EnemyDef.ARCH_EXPLODER) ai.carrierBurst(e); // a spore carrier bursts when it dies
             else if (e.type.arch == EnemyDef.ARCH_TENTACLE && e.type.def.param("blast", 0f) > 0f) boss.decoyBlast(e); // a Kade decoy explodes
@@ -2051,6 +2116,11 @@ public final class Sim {
         for (int i = pickN - 1; i >= 0; i--) {
             Pickup p = picks[i];
             p.bob += dt * 4f;
+            if (rules.push(p.x, p.y, pushV)) { // moving ground carries gems and coins
+                float pw = rules.pushWeight(StageRules.PUSH_PICKUP, null) * StageRules.PICKUP_SPEED * dt;
+                p.x += pushV[0] * pw;
+                p.y += pushV[1] * pw;
+            }
             float dx = px - p.x, dy = py - p.y;
             float d2 = dx * dx + dy * dy;
             boolean magnetic = p.kind <= Entities.K_COINBAG;
@@ -2145,6 +2215,7 @@ public final class Sim {
     }
 
     public void heal(float amount) {
+        amount *= (float) stats.healMul; // Rootmind's Heartwood: +25% healing from every source (1 without it)
         float before = hp;
         hp = Math.min(maxHp, hp + amount);
         if (hp - before >= 1f) addText(px, py - 20f, Math.round(hp - before), false, true);
@@ -2206,8 +2277,8 @@ public final class Sim {
         if (!data.baseItems.isEmpty()) {
             dropEquipment(e.x, e.y, data.baseItems.get(rng.nextInt(data.baseItems.size())), rollRarity());
         }
-        int gems = Math.max(1, (int) data.elite("xpPileGems", 5));
-        float each = (float) (xpNeed * data.elite("xpPileLevels", 2.0) / gems);
+        int gems = Math.max(1, (int) elite("xpPileGems", 5));
+        float each = (float) (xpNeed * elite("xpPileLevels", 2.0) / gems);
         for (int k = 0; k < gems; k++) {
             float a = k * 6.2831855f / gems;
             addPickup(Entities.K_GEM, e.x + (float) Math.cos(a) * 22f, e.y + (float) Math.sin(a) * 16f, each);
@@ -2219,12 +2290,31 @@ public final class Sim {
         EquipDef u = e.type.def.ashfallBoss ? data.uniqueBySource.get(e.type.def.key) : null;
         if (u != null && equip.def[u.slot] != u) dropEquipment(e.x + 34f, e.y + 6f, u, Equipment.UNIQUE);
         if (e.type.def.ashfallBoss && e.type.pattern >= 6) timedBossRewards(e);
-        if (e.type.pattern == 5 && !firstKilled) {
+        if (isFinale(e.type) && !firstKilled) { // the one place a finale ends the run in victory (stage rules never set firstKilled themselves)
             firstKilled = true;
             winDelay = 2.2f;
             invuln = Math.max(invuln, 3f);
             screenFlash = Math.max(screenFlash, 0.5f);
-            toast("THE FIRST IS DEAD  -  GOLD x2", 0xFF39FF88);
+            toast(e.type.pattern == 5 ? "THE FIRST IS DEAD  -  GOLD x2" : e.type.nameUpper + " IS DEAD  -  GOLD x2", 0xFF39FF88);
+        }
+    }
+
+    /**
+     * True for a boss that ends the run when it dies: The First (pattern 5) and the v1.4 stage finales: the Rootmind (11), the
+     * Ironheart (12, variant 0) and the Pillar (13, mode 0). Foreman Brass, the Stoker Captain, the Hull Breacher and the Salvage
+     * Warden share patterns 12 / 13 with another variant or mode and are ordinary timed bosses.
+     */
+    public static boolean isFinale(EnemyType t) {
+        switch (t.pattern) {
+            case 5:
+            case 11:
+                return true;
+            case 12:
+                return Math.round(t.def.param("variant", 0f)) == 0;
+            case 13:
+                return Math.round(t.def.param("mode", 0f)) == 0;
+            default:
+                return false;
         }
     }
 
@@ -2369,27 +2459,27 @@ public final class Sim {
     Enemy spawnElite(EnemyType t, int mods) {
         if (t == null || enemyN >= MAX_ENEMIES - 8) return null;
         Enemy e = enemies[enemyN++];
-        float a = rng.nextFloat() * 6.2831853f, dist = (float) data.elite("dist", 400);
+        float a = rng.nextFloat() * 6.2831853f, dist = (float) elite("dist", 400);
         e.x = px + (float) Math.cos(a) * dist;
         e.y = py + (float) Math.sin(a) * dist;
         initEnemy(e, t, false);
         e.elite = true;
         e.mods = mods;
-        float dmgMul = (float) data.elite("damageMul", 1.5);
-        e.hp = e.maxHp = e.maxHp * (float) data.elite("hpMul", 6);
+        float dmgMul = (float) elite("damageMul", 1.5);
+        e.hp = e.maxHp = e.maxHp * (float) elite("hpMul", 6);
         e.power *= dmgMul;
         e.shotMul *= dmgMul;
-        e.radius *= (float) data.elite("scale", 1.4);
-        e.speed *= (float) data.elite("speedMul", 0.9);
-        e.xp *= (float) data.elite("xpMul", 8);
+        e.radius *= (float) elite("scale", 1.4);
+        e.speed *= (float) elite("speedMul", 0.9);
+        e.xp *= (float) elite("xpMul", 8);
         if ((mods & Elites.M_ARMORED) != 0) {
-            e.armor = (float) data.elite("armor", Elites.FLAT_ARMOR);
+            e.armor = (float) elite("armor", Elites.FLAT_ARMOR);
             e.kbMul = 0f; // cannot be knocked back
         }
         e.mt0 = 1.5f;
         e.mt1 = 2.5f;
         e.mt2 = Elites.RAISE_EVERY * 0.5f;
-        int adds = (int) data.elite("adds", 6);
+        int adds = (int) elite("adds", 6);
         float a0 = rng.nextFloat() * 6.2831853f;
         for (int k = 0; k < adds; k++) {
             float b = a0 + k * 6.2831853f / adds;
@@ -2407,13 +2497,19 @@ public final class Sim {
     }
 
     /** The scheduler: the first elite at 3:00, then one every 150 s less 1% per minute (floor 100 s), one alive at a time. */
+    /** An elite number: the stage's own override (stages.KEY.elites) else the global one. */
+    double elite(String k, double d) {
+        Double v = stage.eliteOv.get(k);
+        return v != null ? v : data.elite(k, d);
+    }
+
     private void updateElites() {
         if (time < nextEliteAt || eliteAlive()) return;
         WaveRow row = stage.rows.get(WaveSelector.indexAt(stage.rows, time));
         if (row.enemies.length == 0) return;
         EnemyType t = type(row.enemies[rng.nextInt(row.enemies.length)]);
-        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, time)));
-        if (e != null) nextEliteAt = (float) time + Elites.interval(data, time);
+        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, stage, time)));
+        if (e != null) nextEliteAt = (float) time + Elites.interval(data, stage, time);
     }
 
     /** The Deep Mines hazard: bursts of tentacles at the stage's minutes, a wave of three every few seconds for a while. */

@@ -31,7 +31,8 @@ public final class MusicDirector {
     }
 
     public static String stageTrack(String stageKey) {
-        return "MINES".equals(stageKey) || "LIBRARY".equals(stageKey) ? LIBRARY : FOREST;
+        // no tracks of their own yet: the Vaults share the Mines track, the Refinery and the Wreck the Flats track
+        return "MINES".equals(stageKey) || "LIBRARY".equals(stageKey) || "HYDRO".equals(stageKey) ? LIBRARY : FOREST;
     }
 
     /** Stingers play once; every other track loops. */

@@ -22,8 +22,8 @@ public final class GameData {
     public static final String[] SHOP_ORDER = {
             "POWER", "ARMOR", "MAXHEALTH", "REGEN", "COOLDOWN", "AREA", "SPEED", "DURATION",
             "AMOUNT", "MOVESPEED", "MAGNET", "LUCK", "GROWTH", "GREED", "CURSE", "REVIVAL"};
-    /** The stages the menu offers: Cinder Flats and Deep Mines (ashfall_data.json "stages"). */
-    public static final String[] STAGE_ORDER = {"FLATS", "MINES"};
+    /** The stages the menu offers, in unlock order: Cinder Flats, Deep Mines, Hydroponic Vaults, Refinery District, Meridian Wreck (ashfall_data.json "stages"). */
+    public static final String[] STAGE_ORDER = {"FLATS", "MINES", "HYDRO", "REFINERY", "WRECK"};
     /** The Vampire Survivors stages: still loaded (older tests and balance runs), but not in the menu. */
     public static final String[] LEGACY_STAGES = {"FOREST", "LIBRARY"};
     /** Hero select order (the JSON object order is not reliable). */
@@ -80,6 +80,16 @@ public final class GameData {
                 if (w != null) weapons.put(id, w.withText(o.optString("name", w.name), o.optString("description", w.description)));
                 PowerUpDef p = powerUps.get(id);
                 if (p != null) powerUps.put(id, p.withName(o.optString("name", p.name)));
+            }
+        }
+        JSONObject pu = root.optJSONObject("powerups"); // v1.4 shop prices: {KEY: {price, exp}}
+        if (pu != null) {
+            Iterator<String> it = pu.keys();
+            while (it.hasNext()) {
+                String id = it.next();
+                PowerUpDef p = powerUps.get(id);
+                JSONObject o = pu.getJSONObject(id);
+                if (p != null) powerUps.put(id, p.withPrice(o.optInt("price", p.basePrice), o.optDouble("exp", p.priceExp)));
             }
         }
         JSONObject fu = root.optJSONObject("fusions");
@@ -214,6 +224,10 @@ public final class GameData {
         }
         sd.hpCurve = curve(o.optJSONArray("hpCurve")); // [[minute, multiplier], ...]
         sd.dmgCurve = curve(o.optJSONArray("dmgCurve"));
+        sd.speedCurve = curve(o.optJSONArray("speedCurve"));
+        JSONObject eo = o.optJSONObject("elites");
+        if (eo != null) sd.eliteOv.putAll(numbers(eo));
+        sd.rangedCap = o.optInt("rangedCap", 0);
         JSONObject hd = o.optJSONObject("hordes");
         if (hd != null) {
             sd.hordeTypes = strings(hd.optJSONArray("types")).toArray(new String[0]);
@@ -236,6 +250,21 @@ public final class GameData {
             sd.tentacleEvery = (float) tn.optDouble("every", 4);
             sd.tentacleCount = tn.optInt("count", 3);
             sd.tentacleRadius = (float) tn.optDouble("radius", 400);
+        }
+        sd.blurb = o.optString("blurb", "");
+        sd.difficulty = o.optInt("difficulty", 1);
+        JSONObject ul = o.optJSONObject("unlock");
+        if (ul != null) {
+            sd.unlockKey = ul.optString("key", null);
+            sd.unlockSec = ul.optInt("seconds", 0);
+        }
+        JSONObject ru = o.optJSONObject("rules");
+        if (ru != null) {
+            Iterator<String> ri = ru.keys();
+            while (ri.hasNext()) {
+                String rk = ri.next();
+                sd.rules.put(rk, ru.optDouble(rk, 0));
+            }
         }
         JSONArray tb = o.optJSONArray("timedBosses");
         if (tb != null) {

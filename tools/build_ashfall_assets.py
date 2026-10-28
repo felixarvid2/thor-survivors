@@ -63,7 +63,12 @@ PROPS = [
     ("environment", "pipe_cluster"), ("environment", "smokestack"), ("environment", "debris_rock"),
     ("environment", "slag_rock"), ("environment", "catwalk"), ("environment", "industrial_wall"),
     ("environment", "wall_segment"), ("environment", "furnace_block"),
+    # v1.4 chunk D (Meridian Wreck): teleporter pad, the Pillar, the freighter landmark, elevator foundation (game/layout/DebrisLayout)
+    ("props", "teleporter"), ("props", "the_pillar"), ("props", "meridian_freighter"), ("props", "elevator_foundation"),
 ]
+# ---- v1.4 chunk C (Refinery District): the pump house (the furnace block above is already baked)
+PROPS += [("environment", "pump_house")]
+# ---- end chunk C
 
 # decal -> longest side in px at 1080p (trimmed to its content first)
 DECALS = {
@@ -141,6 +146,9 @@ ICONS = {
     "unique_heart_of_lumen": "flux/items/unique_heart_of_lumen",
     "unique_seed_of_accord": "flux/items/unique_seed_of_accord",
 }
+# ---- v1.4 chunk C: the Ironheart Core (a molten tint of the Governor's Crucible) and the portraits of the three Refinery bosses
+ICONS["unique_ironheart_core"] = ("flux/items/unique_governors_crucible", (255, 120, 40))
+# ---- end chunk C
 # rarity frames (transparent middle, drawn over an item icon): Common, Uncommon = magic, Rare, Unique (design section 6)
 FRAMES = {"frame_common": "common", "frame_magic": "magic", "frame_rare": "rare", "frame_unique": "unique"}
 # boss spawn banner portraits (flux/bosses), key = the enemy key; the Ashfall bosses and the picture that suits each
@@ -151,6 +159,15 @@ PORTRAITS = {"boss_CARGO_LOADER": "drowned_engine", "boss_SLAGBORN": "pyre_warde
              "boss_BROOD_MOTHER": "brood_mother", "boss_FROZEN_WELDER": "frozen_welder",
              "boss_COMMANDANT_HALE": "commandant_hale", "boss_OVERSEER_UNIT_7": "security_chief_holm",
              "boss_GOVERNOR_KADE": "governor_kade"}
+# ---- v1.4 chunk D (Meridian Wreck): existing paintings stand in until the artist chunk makes their own
+PORTRAITS.update({"boss_HULL_BREACHER_ALPHA": "drowned_engine", "boss_SALVAGE_WARDEN": "warden", "boss_THE_PILLAR": "the_prism"})
+# ---- end chunk D
+# ---- v1.4 chunk B (Hydroponic Vaults): existing paintings stand in
+PORTRAITS.update({"boss_VERDANT_WELDER": "frozen_welder", "boss_ROOTMIND": "vire"})
+# ---- end chunk B
+# ---- v1.4 chunk C: Foreman Brass, Stoker Captain, The Ironheart (existing paintings that suit them until the owner generates new ones)
+PORTRAITS.update({"boss_FOREMAN_BRASS": "foreman_dray", "boss_STOKER_CAPTAIN": "pyre_warden", "boss_IRONHEART": "warden"})
+# ---- end chunk C
 # gem crystals (transparent icons, trimmed): key -> (source, px)
 GEMS = {"crystal_lumen": 64, "crystal_void": 64, "crystal_ember": 64}
 

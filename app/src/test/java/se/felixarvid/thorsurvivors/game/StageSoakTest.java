@@ -30,6 +30,30 @@ public class StageSoakTest {
     }
 
     /**
+     * v1.4: the {@code skilled} policy (SkilledBot: kites, dodges, plans a build, walks to finds and the Salvager) is the difficulty yardstick, so it must be clearly the better
+     * player: over 3 seeds x 2 stages (Xenomant, 8 minutes) it takes at most 70 % of the damage per minute survived that the mid bot takes, and nothing breaks (no NaN, no pool overflow).
+     */
+    @Test
+    public void theSkilledBotIsCleanAndTakesLessDamageThanMid() throws Exception {
+        double skilledDmg = 0, skilledMin = 0, midDmg = 0, midMin = 0;
+        for (String stage : new String[]{"FLATS", "MINES"}) {
+            for (long seed = 1; seed <= 3; seed++) {
+                StageSoak.Result a = StageSoak.run(stage, "XENOMANT", "skilled", seed, 480);
+                StageSoak.Result b = StageSoak.run(stage, "XENOMANT", "mid", seed, 480);
+                assertEquals(a.toString(), 0, a.nan);
+                assertEquals(a.toString(), 0, a.overflow);
+                assertEquals(a.toString(), 0, a.capBreak);
+                skilledDmg += a.dmg[0] + a.dmg[1] + a.dmg[2] + a.dmg[3];
+                skilledMin += a.endTime / 60.0;
+                midDmg += b.dmg[0] + b.dmg[1] + b.dmg[2] + b.dmg[3];
+                midMin += b.endTime / 60.0;
+            }
+        }
+        System.out.printf("damage per minute survived: skilled %.1f, mid %.1f%n", skilledDmg / skilledMin, midDmg / midMin);
+        assertTrue("skilled " + skilledDmg / skilledMin + " vs mid " + midDmg / midMin, skilledDmg / skilledMin <= 0.7 * midDmg / midMin);
+    }
+
+    /**
      * Design phases 9 and 10: 30 minutes on each stage, with the immortal bot (nothing may break: no NaN, no overflowing pool,
      * the cap held) and with the mortal mid-build bot (the run ends in a death or a victory, never in a stuck state), seeded.
      * Elites come on schedule, equipment is worn, every boss that shows up dies, the end screens are reached.
@@ -94,7 +118,7 @@ public class StageSoakTest {
             assertTrue(k + " was fought", worst.containsKey(k));
         }
         for (java.util.Map.Entry<String, Double> e : worst.entrySet()) assertTrue(e.getKey() + " took " + e.getValue() + " s", e.getValue() < 90.0);
-        assertTrue("The First reached in " + first.size() + " runs", first.size() >= 4);
+        assertTrue("The First reached in " + first.size() + " runs", first.size() >= 3); // v1.4: the mid bot dies earlier (harder stages, Mines add-ons), so fewer of 24 runs reach 28:00
         assertTrue("The First: median projected kill time " + median, median < 150.0);
         assertTrue("The First is killable: " + firstKills, firstKills >= 1);
     }
