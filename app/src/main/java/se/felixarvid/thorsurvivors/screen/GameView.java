@@ -120,7 +120,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
             }
             try {
                 synchronized (eng.lock) {
-                    eng.advance(dt);
+                    eng.advance(renderer.filterDt(dt)); // v1.5 B1: hit-stop on elite and boss kills
                     if (c != null) renderer.draw(c, getWidth(), getHeight(), eng, dual);
                 }
             } finally {
