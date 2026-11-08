@@ -186,6 +186,12 @@ public final class Merchant {
         return Math.round(BASE_PRICE[slot] * (1f + PRICE_STEP * visit + PRICE_STEP2 * visit * visit) / 5f) * 5;
     }
 
+    /** v1.5 B4: the ascension raises the Salvager's prices (+25%), rounded to 5 like the base. */
+    private int scaled(int base) {
+        float m = s.mods.merchantMult();
+        return m == 1f ? base : Math.round(base * m / 5f) * 5;
+    }
+
     /** The Fuse Kit appears only while a pair is ready (checked when the shop opens); once bought it stays on the counter as SOLD. */
     private void refreshKit() {
         if (kit && sold[SLOT_FUSE]) return;
@@ -195,7 +201,7 @@ public final class Merchant {
         if (f == null) return;
         int visit = Math.max(0, visits - 1);
         sold[SLOT_FUSE] = false;
-        price[SLOT_FUSE] = priceOf(SLOT_FUSE, visit);
+        price[SLOT_FUSE] = scaled(priceOf(SLOT_FUSE, visit));
         priceText[SLOT_FUSE] = Integer.toString(price[SLOT_FUSE]);
         name[SLOT_FUSE] = "Fuse Kit";
         desc[SLOT_FUSE] = "Fuse " + s.inv.weapons[s.inv.fuseA].def.name + " + " + s.inv.weapons[s.inv.fuseB].def.name
@@ -209,7 +215,7 @@ public final class Merchant {
         kitDef = null;
         for (int i = 0; i < SLOTS; i++) {
             sold[i] = false;
-            price[i] = priceOf(i, visit);
+            price[i] = scaled(priceOf(i, visit));
             priceText[i] = Integer.toString(price[i]);
         }
         rollOffer();
