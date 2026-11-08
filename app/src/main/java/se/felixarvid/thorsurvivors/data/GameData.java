@@ -92,6 +92,18 @@ public final class GameData {
                 if (p != null) powerUps.put(id, p.withPrice(o.optInt("price", p.basePrice), o.optDouble("exp", p.priceExp)));
             }
         }
+        JSONObject nw = root.optJSONObject("weapons"); // v1.5 B5: new base weapons, evolutions and passives (same rows as game_data.json)
+        if (nw != null) {
+            Iterator<String> it = nw.keys();
+            while (it.hasNext()) {
+                String key = it.next();
+                JSONObject o = nw.getJSONObject(key);
+                weapons.put(key, new WeaponDef(key, o.optString("name", key), o.optString("description", ""),
+                        o.has("evoInto") ? o.optString("evoInto") : null, strings(o.optJSONArray("evoSynergy")),
+                        o.optBoolean("powerUp", false), o.optBoolean("evolution", false),
+                        (int) Math.max(1, o.optDouble("rarity", 1)), numericRows(o.getJSONArray("rows"))));
+            }
+        }
         JSONObject fu = root.optJSONObject("fusions");
         if (fu != null) {
             List<WeaponDef> list = new ArrayList<>();

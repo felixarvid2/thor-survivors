@@ -96,6 +96,9 @@ public final class Equipment {
             case "burnImmune": return "Immune to Burn";
             case "ashTrail": return "Leaves an ash trail that slows enemies 20%";
             case "cloudHeal": return "Spore Carrier clouds heal you";
+            case "cinderTrail": return "Leaves burning ground behind you (6 dps)";
+            case "echoBell": return String.format(Locale.ROOT, "After 10 gems in a row the next hit deals +%.0f%%", a * 100);
+            case "lumenWard": return String.format(Locale.ROOT, "Absorbs one hit every %.0f s", a);
             case "healMul": return pct("Healing from all sources", sign, a);
             case "heartVacuum": return String.format(Locale.ROOT, "Bloom Hearts drop a Vacuum %.0f%% of the time", a * 100);
             default: return key + " " + sign + a;

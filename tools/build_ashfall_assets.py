@@ -148,6 +148,22 @@ ICONS = {
 }
 # ---- v1.4 chunk C: the Ironheart Core (a molten tint of the Governor's Crucible) and the portraits of the three Refinery bosses
 ICONS["unique_ironheart_core"] = ("flux/items/unique_governors_crucible", (255, 120, 40))
+# ---- v1.5 B5: new weapons, passives and uniques: tinted reuses of existing icons (source, (r, g, b))
+ICONS.update({
+    "ARC_LANCE": ("meshy/icons/skill_piercing_shot", (90, 200, 255)),
+    "STORM_LANCE": ("meshy/icons/skill_piercing_shot", (190, 140, 255)),
+    "SLAG_MORTAR": ("meshy/icons/skill_cluster_grenade", (255, 140, 40)),
+    "MAGMA_HOWITZER": ("meshy/icons/skill_cluster_grenade", (255, 70, 40)),
+    "TETHER_DRONE": ("meshy/icons/skill_parasite_link", (90, 230, 200)),
+    "LEASH_ARRAY": ("meshy/icons/skill_parasite_link", (255, 215, 90)),
+    "OVERCHARGE": ("flux/stats/resourceGen", (90, 200, 255)),
+    "SCRAP_MAGNET": ("meshy/icons/signal_pendant", (255, 140, 40)),
+    "GLASS_CORE": ("meshy/icons/crystal_lumen", (255, 90, 120)),
+    "unique_cinder_band": ("flux/items/conduit_ring_3", (255, 110, 40)),
+    "unique_echo_bell": ("meshy/icons/echo_relic", (255, 215, 90)),
+    "unique_lumen_ward": ("meshy/icons/riot_shield", (90, 220, 255)),
+})
+# ---- end v1.5 B5
 # ---- end chunk C
 # rarity frames (transparent middle, drawn over an item icon): Common, Uncommon = magic, Rare, Unique (design section 6)
 FRAMES = {"frame_common": "common", "frame_magic": "magic", "frame_rare": "rare", "frame_unique": "unique"}

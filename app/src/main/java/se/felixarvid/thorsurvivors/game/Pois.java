@@ -77,6 +77,149 @@ public final class Pois {
     public double buffUntil;
     public float enemySpeedMul = 1f, spawnMul = 1f;
 
+
+    // ------------------------------------------------------------------ v1.5 B5: Shrine of Haste and Cursed Cache
+
+    /** One spot per 2200 u cell in 55% of the cells, never within 1300 u of the start; half are shrines, half caches. */
+    public static final float SPOT_CELL = 2200f, SPOT_P = 0.55f, SPOT_R = 40f, SPOT_CLEAR = 1300f;
+    public static final int MAX_SPOT = 12, SP_SHRINE = 0, SP_CACHE = 1, AMBUSH = 12, POI_AMBUSH = -3;
+    /** Shrine of Haste: +20% move speed for 60 s. Cursed Cache: a ring of 12 enemies, then double gold ({@link #CACHE_GOLD}). */
+    public static final float HASTE_TIME = 60f, HASTE_MUL = 1.2f, AMBUSH_RING = 150f;
+    public static final int CACHE_GOLD = 40;
+    public int spotN;
+    public final float[] spotX = new float[MAX_SPOT], spotY = new float[MAX_SPOT];
+    public final int[] spotKind = new int[MAX_SPOT];
+    final long[] spotKey = new long[MAX_SPOT];
+    private final long[] spotUsed = new long[64];
+    private int spotUsedN, spotUsedHead, spotCx = Integer.MIN_VALUE, spotCy;
+    /** Run time until which the shrine's haste lasts (0 = none), and the cache ambush now running (its position; -1 x = none). */
+    public double hasteUntil;
+    public boolean ambushOn;
+    public float ambushX, ambushY;
+    private float ambushScan;
+
+    /** Spot of 2200 u cell (cx, cy) into placeX / placeY; the kind (shrine or cache) is a hash of the cell. */
+    private int spotAt(int cx, int cy) {
+        if (WorldGen.unit(WorldGen.hash(cx, cy, 881)) >= SPOT_P) return -1;
+        for (int a = 0; a < 5; a++) {
+            float x = cx * SPOT_CELL + 250f + WorldGen.unit(WorldGen.hash(cx, cy, 882 + a * 2)) * (SPOT_CELL - 500f);
+            float y = cy * SPOT_CELL + 250f + WorldGen.unit(WorldGen.hash(cx, cy, 883 + a * 2)) * (SPOT_CELL - 500f);
+            if (x * x + y * y < SPOT_CLEAR * SPOT_CLEAR || !ringFree(x, y, 40f)) continue;
+            placeX = x;
+            placeY = y;
+            return WorldGen.unit(WorldGen.hash(cx, cy, 895)) < 0.5f ? SP_SHRINE : SP_CACHE;
+        }
+        return -1;
+    }
+
+    public boolean spotUsed(int i) {
+        long k = spotKey[i];
+        for (int j = 0; j < spotUsedN; j++) if (spotUsed[j] == k) return true;
+        return false;
+    }
+
+    private void markSpot(int i) {
+        spotUsed[spotUsedHead] = spotKey[i];
+        spotUsedHead = (spotUsedHead + 1) % spotUsed.length;
+        spotUsedN = Math.min(spotUsed.length, spotUsedN + 1);
+    }
+
+    private void refreshSpots() {
+        int cx = Math.floorDiv((int) Math.floor(s.px), (int) SPOT_CELL), cy = Math.floorDiv((int) Math.floor(s.py), (int) SPOT_CELL);
+        if (cx == spotCx && cy == spotCy) return;
+        spotCx = cx;
+        spotCy = cy;
+        spotN = 0;
+        for (int j = cy - 1; j <= cy + 1; j++) {
+            for (int i = cx - 1; i <= cx + 1; i++) {
+                int kind = spotAt(i, j);
+                if (kind < 0 || spotN >= MAX_SPOT) continue;
+                spotX[spotN] = placeX;
+                spotY[spotN] = placeY;
+                spotKind[spotN] = kind;
+                spotKey[spotN++] = cellKey(i, j, 0x5A00000000000000L);
+            }
+        }
+    }
+
+    private void updateSpots(float dt) {
+        if (hasteUntil > 0.0 && s.time >= hasteUntil) {
+            hasteUntil = 0.0;
+            s.recomputeAll();
+            s.toast("SHRINE OF HASTE ENDED", 0xFF9AA8B0);
+        }
+        refreshSpots();
+        for (int i = 0; i < spotN; i++) {
+            if (spotUsed(i)) continue;
+            float dx = s.px - spotX[i], dy = s.py - spotY[i];
+            if (dx * dx + dy * dy >= SPOT_R * SPOT_R) continue;
+            if (spotKind[i] == SP_SHRINE) {
+                markSpot(i);
+                startHaste();
+            } else if (!ambushOn && startAmbush(i)) {
+                markSpot(i);
+            }
+        }
+        if (ambushOn && (ambushScan -= dt) <= 0f) {
+            ambushScan = 0.25f;
+            int live = 0;
+            for (int k = 0; k < s.enemyN; k++) if (s.enemies[k].poi == POI_AMBUSH && !s.enemies[k].dead) live++;
+            if (live == 0) cacheReward();
+        }
+    }
+
+    /** The shrine: +20% move speed for 60 s (a second shrine renews it). Tests call it directly. */
+    public void startHaste() {
+        hasteUntil = s.time + HASTE_TIME;
+        s.recomputeAll();
+        s.sound.emit(SoundEvents.EVOLUTION);
+        s.addFx(Entities.FX_FLASH, s.px, s.py - 20f, 120f, 0f, 0.3f, 0, false);
+        s.toast("SHRINE OF HASTE  -  +20% SPEED (60 S)", 0xFFFFD84A);
+    }
+
+    public float hasteLeft() {
+        return hasteUntil <= 0.0 ? 0f : (float) Math.max(0.0, hasteUntil - s.time);
+    }
+
+    /** The cache: twelve enemies appear in a ring round it. False (try again next step) when the pool has no room. */
+    private boolean startAmbush(int i) {
+        if (s.enemyN + AMBUSH > Sim.MAX_ENEMIES - 6) return false;
+        EnemyType a = s.type("SERGEANT"), b = s.type("WELDER"), c = s.type("COLONIST");
+        ambushX = spotX[i];
+        ambushY = spotY[i];
+        ambushOn = true;
+        ambushScan = 0.5f;
+        if (a == null || b == null || c == null) return true; // data without them: the reward comes at once
+        gr.setSeed(seed ^ SALT_GUARD ^ spotKey[i]);
+        float a0 = gr.nextFloat() * 6.2831855f;
+        for (int k = 0; k < AMBUSH; k++) {
+            float ang = a0 + k * 6.2831855f / AMBUSH;
+            float x = ambushX + (float) Math.cos(ang) * AMBUSH_RING, y = ambushY + (float) Math.sin(ang) * AMBUSH_RING;
+            if (s.map.blocked(x, y)) {
+                x = ambushX + (float) Math.cos(ang) * AMBUSH_RING * 0.5f;
+                y = ambushY + (float) Math.sin(ang) * AMBUSH_RING * 0.5f;
+            }
+            s.poiSpawn(k % 3 == 0 ? a : k % 3 == 1 ? c : b, x, y, POI_AMBUSH, false, 0);
+        }
+        s.sound.emit(SoundEvents.ELITE_SPAWN);
+        s.toast("IT WAS A TRAP  -  CURSED CACHE", 0xFFB060FF);
+        return true;
+    }
+
+    private void cacheReward() {
+        ambushOn = false;
+        s.sound.emit(SoundEvents.CHEST_OPEN);
+        s.toast("CURSED CACHE OPENED  -  DOUBLE GOLD", 0xFFFFD84A);
+        s.addPickup(Entities.K_COINBAG, ambushX, ambushY, CACHE_GOLD);
+        s.addPickup(Entities.K_COINBAG, ambushX + 14f, ambushY + 6f, CACHE_GOLD / 2);
+        s.addPickup(Entities.K_COIN, ambushX - 12f, ambushY + 8f, 2f);
+        float each = s.xpNeed * 0.6f / 5f;
+        for (int k = 0; k < 5; k++) {
+            float a = k * 1.2566371f;
+            s.addPickup(Entities.K_GEM, ambushX + (float) Math.cos(a) * 18f, ambushY + (float) Math.sin(a) * 12f, each);
+        }
+    }
+
     // ------------------------------------------------------------------ hazard fields
     public static final float HAZ_CELL = 700f, HAZ_P = 0.12f, HAZ_CLEAR = 1000f;
     public static final int MAX_VENT = 24;
@@ -127,6 +270,10 @@ public final class Pois {
         hasVault = false;
         vaultFound = false;
         vaultState = V_SEALED;
+        hasteUntil = 0.0; // v1.5 B5
+        ambushOn = false;
+        spotN = spotUsedN = spotUsedHead = 0;
+        spotCx = Integer.MIN_VALUE;
         ar.setSeed(runSeed ^ SALT_ANIM);
         if (!enable) return;
         Random fr = new Random(runSeed ^ SALT);
@@ -206,6 +353,7 @@ public final class Pois {
         updateVault();
         updateTerminals(dt);
         if (!calm) {
+            updateSpots(dt);
             updateHazards(dt);
             updateNests(dt);
         } else {
@@ -551,6 +699,7 @@ public final class Pois {
                 break;
             default:
         }
+        if (hasteUntil > s.time) st.moveSpeedMul *= HASTE_MUL; // v1.5 B5: Shrine of Haste
     }
 
     // ------------------------------------------------------------------ hazard fields

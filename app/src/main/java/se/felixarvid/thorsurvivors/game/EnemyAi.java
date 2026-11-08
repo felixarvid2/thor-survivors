@@ -605,7 +605,10 @@ final class EnemyAi {
                     for (int k = 0; k < n; k++) {
                         Enemy e = s.enemies[s.qbuf[k]];
                         float ex = e.x - h.x, ey = e.y - h.y, er = h.r + e.radius * 0.5f;
-                        if (ex * ex + ey * ey < er * er) e.ashLeft = 0.3f;
+                        if (ex * ex + ey * ey < er * er) {
+                            e.ashLeft = 0.3f;
+                            if (h.dps > 0f && !e.dead) s.statusDamage(e, h.dps * Status.PASS, Status.C_BURN, true); // v1.5 B5 Cinder Band: burning ground
+                        }
                     }
                 }
                 continue;

@@ -757,7 +757,7 @@ public final class WorldRenderer {
 
     // ------------------------------------------------------------------ places (Pois): outposts, terminals, vault, nests, vents
 
-    private static final int POI_OUTPOST = 1, POI_TERMINAL = 2, POI_VAULT = 3;
+    private static final int POI_OUTPOST = 1, POI_TERMINAL = 2, POI_VAULT = 3, POI_SPOT = 4; // POI_SPOT: v1.5 B5 shrine / cursed cache
 
     private void addPoiProps(Sim s, int m) {
         Pois p = s.pois;
@@ -769,6 +769,10 @@ public final class WorldRenderer {
         for (int i = 0; i < p.termN && propN < MAX_PROPS; i++) {
             int px = sx(p.termX[i]), py = sy(p.termY[i]);
             if (px >= -m && px <= scrW + m && py >= -m - 200 && py <= scrH + m) addProp(POI_PROP, POI_TERMINAL * 100 + i, px, py);
+        }
+        for (int i = 0; i < p.spotN && propN < MAX_PROPS; i++) { // v1.5 B5
+            int px = sx(p.spotX[i]), py = sy(p.spotY[i]);
+            if (px >= -m && px <= scrW + m && py >= -m - 200 && py <= scrH + m) addProp(POI_PROP, POI_SPOT * 100 + i, px, py);
         }
         if (p.hasVault && propN < MAX_PROPS) {
             int px = sx(p.vaultX), py = sy(p.vaultY);
@@ -929,6 +933,29 @@ public final class WorldRenderer {
                 text.setColor(0xFF40D8FF);
                 int top = im == null ? 70 : Math.round(im.h() * ks * 1.05f);
                 c.drawText("RELAY", px, py - top - 10f * ks + (float) Math.sin(now * 2.2) * 3f * ks, text);
+                text.clearShadowLayer();
+            }
+            return;
+        }
+        if (type == POI_SPOT) { // v1.5 B5: Shrine of Haste (a gold lamp) and Cursed Cache (a crate with a violet glow)
+            boolean shrine = p.spotKind[idx] == Pois.SP_SHRINE, used = p.spotUsed(idx);
+            float gl = used ? 0.15f : 0.5f + 0.5f * (float) Math.sin(now * 3.0 + idx);
+            if (!used) glow(c, atlas.img("vfx.energy_glow_0"), px, py - 30f * ks, 150f * ks, 0f, shrine ? fGold : fViolet, (int) (70 + 70 * gl));
+            drawShadow(c, px, py - 2, Math.round(24 * ks));
+            Img im = atlas.img(shrine ? "prop.emergency_light" : "prop.cargo_crate");
+            if (im != null) {
+                bmp.setColorFilter(used ? shadeAt(px, py, 0.1f) : null);
+                bmp.setAlpha(255);
+                blit(c, im, px, py, ks * 1.05f, bmp);
+                bmp.setColorFilter(null);
+            }
+            if (!used) {
+                text.setTextAlign(Paint.Align.CENTER);
+                text.setTextSize(18f * ks);
+                text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+                text.setColor(shrine ? 0xFFFFD84A : 0xFFB060FF);
+                int top = im == null ? 70 : Math.round(im.h() * ks * 1.05f);
+                c.drawText(shrine ? "HASTE" : "CURSED", px, py - top - 10f * ks + (float) Math.sin(now * 2.2) * 3f * ks, text);
                 text.clearShadowLayer();
             }
             return;
