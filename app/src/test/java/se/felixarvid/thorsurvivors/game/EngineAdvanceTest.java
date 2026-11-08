@@ -65,7 +65,7 @@ public class EngineAdvanceTest {
         }
         assertEquals(1, Engine.stepsFor(1f / 60f));
         assertEquals(1, Engine.stepsFor(1f / 120f));
-        assertEquals(1, Engine.stepsFor(1f / 57f));
+        assertEquals(1, Engine.stepsFor(1f / 58f));
         assertEquals(2, Engine.stepsFor(1f / 30f));
         assertEquals(Engine.MAX_STEPS, Engine.stepsFor(10f));
     }

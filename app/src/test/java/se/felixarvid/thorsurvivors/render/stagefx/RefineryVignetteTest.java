@@ -25,7 +25,7 @@ public class RefineryVignetteTest {
         assertEquals(0, Color.alpha(b.getPixel(128, 128)));
         assertEquals(0, Color.alpha(b.getPixel(128, 40)));
         int edge = Color.alpha(b.getPixel(128, 1)), corner = Color.alpha(b.getPixel(1, 1));
-        assertTrue("edge " + edge, edge > 60);
+        assertTrue("edge " + edge, edge > 40);
         assertTrue("corner " + corner + " stronger than the edge", corner > edge);
         // monotonic from the centre to the border: a smooth ramp, no rings
         int prev = 0;

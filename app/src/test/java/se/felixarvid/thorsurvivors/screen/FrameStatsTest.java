@@ -21,7 +21,7 @@ public class FrameStatsTest {
     public void windowSlides() {
         FrameStats s = new FrameStats();
         for (int i = 0; i < 240; i++) s.add(50f);
-        for (int i = 0; i < 240; i++) s.add(8f);
+        for (int i = 0; i < 300; i++) s.add(8f); // the p95 refreshes every 30 frames
         assertEquals(8f, s.p95(), 0.01f);
         assertEquals(240, s.count());
     }
