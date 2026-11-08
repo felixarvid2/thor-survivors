@@ -77,6 +77,14 @@ public final class PanelRenderer {
         stroke.setStyle(Paint.Style.STROKE);
     }
 
+    /** v1.5 B2: what a registered {@link PanelScreen} may use (made once). */
+    private final PanelScreen.Host host = new PanelScreen.Host() {
+        @Override public Skin skin() { return k; }
+        @Override public boolean compact() { return compact; }
+        @Override public void dim(Canvas c, int w, int h, int color) { if (compact) dimOverlay(c, w, h, color); }
+        @Override public void hit(float l, float t, float rr, float b, int idx, int sub) { PanelRenderer.this.hit(l, t, rr, b, idx, sub); }
+    };
+
     // ------------------------------------------------------------------ touch
 
     public boolean onTouch(MotionEvent ev) {
@@ -203,6 +211,11 @@ public final class PanelRenderer {
         layout(w, h, u);
         if (!compact) k.background(c, w, h);
         dl = dr = al = ar = 0f; // the HUD sets the touch areas again when it is drawn
+        PanelScreen plug = PanelScreens.forPhase(ph); // v1.5 B2: a screen registered by another batch wins over the built-in one
+        if (plug != null) {
+            plug.draw(c, w, h, host);
+            return;
+        }
         switch (ph) {
             case Engine.PH_PLAYING:
                 if (compact) hudStrip(c, w, h);
