@@ -162,4 +162,53 @@ public class PanelCostTest {
         h.eng.phase = Engine.PH_RESULT;
         measure("result", p, c, 1240, 1080, null);
     }
+
+    /** v1.5 B2: the cooldown sweeps, status strip, boss panel with a windup, elite chips, evolve stars, the XP bar, the pause screen, the offer tooltip and the large-text mode allocate nothing per frame. */
+    @Test
+    public void batch2HudAndPauseDoNotAllocate() throws Exception {
+        probe();
+        Shots h = new Shots();
+        PanelRenderer p = new PanelRenderer(false);
+        Bitmap b = Bitmap.createBitmap(1240, 1080, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        h.eng.phase = Engine.PH_MENU;
+        Sim s = h.startRun("FLATS", "WHIP", 9, "MAGIC_MISSILE", "KNIFE", "AXE", "GARLIC", "HOLYBOOK", "POWER", "ARMOR", "COOLDOWN", "AREA",
+                "MAXHEALTH", "MAGNET");
+        s.noSpawnsForTest();
+        s.enemyN = 0;
+        s.time = 600;
+        s.inv.weapons[0].level = s.inv.weapons[0].def.maxLevel();
+        s.recomputeAll();
+        s.spawnEliteForTest("SERGEANT", Elites.M_FIRE | Elites.M_ARMORED).speed = 0;
+        s.spawnEliteForTest("SERGEANT", Elites.M_FROST).speed = 0;
+        Enemy boss = s.spawnAt("THE_FIRST", s.px + 300, s.py, true);
+        boss.speed = 0;
+        final Sim sim = s;
+        final Enemy bs = boss;
+        Runnable hold = () -> {
+            sim.hp = sim.maxHp * 0.5f;
+            sim.heroBurnT = 2f;
+            sim.heroSlowT = 0.8f;
+            sim.guardT = 2f;
+            sim.heroStunT = 0.5f;
+            sim.xp = sim.xpNeed * 0.4f; // a steady value: the strings change only when their numbers do, as in play
+            bs.ai = se.felixarvid.thorsurvivors.game.BossAi.BA_WINDUP;
+            bs.tele = 0.7f;
+            bs.hp = bs.maxHp * 0.6f;
+            for (int i = 0; i < sim.inv.weaponCount; i++) sim.weapons[i].cd = 0.5f;
+            h.eng.advance(1f / 60f);
+        };
+        hold.run();
+        measure("v1.5 hud (arcs, strip, boss windup, elites, xp)", p, c, 1240, 1080, hold);
+        PanelRenderer.forceLargeText = true;
+        try {
+            measure("v1.5 hud large text", p, c, 1240, 1080, hold);
+            h.eng.phase = Engine.PH_PAUSED;
+            measure("v1.5 pause large text", p, c, 1240, 1080, null);
+        } finally {
+            PanelRenderer.forceLargeText = false;
+        }
+        measure("v1.5 pause", p, c, 1240, 1080, null);
+        h.eng.phase = Engine.PH_PLAYING;
+    }
 }

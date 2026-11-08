@@ -19,6 +19,7 @@ import se.felixarvid.thorsurvivors.game.Engine;
 import se.felixarvid.thorsurvivors.game.Entities;
 import se.felixarvid.thorsurvivors.game.Equipment;
 import se.felixarvid.thorsurvivors.game.Events;
+import se.felixarvid.thorsurvivors.game.HudInfo;
 import se.felixarvid.thorsurvivors.game.Input;
 import se.felixarvid.thorsurvivors.game.Inventory;
 import se.felixarvid.thorsurvivors.game.MainWeapon;
@@ -71,6 +72,17 @@ public final class PanelRenderer {
     private float dl, dt, dr, db; // DODGE button (empty when dr <= dl)
     private int lastPhase = -1;
     private int width, height;
+    private long lastNs;
+    private float frameDt = 1f / 60f;
+    /** Tests: a fixed frame time (seconds) instead of the clock, so smooth bars and pulses are the same on every run; negative = the clock. */
+    public float dtOverride = -1f;
+    /** Tests only: stands in for the large-text setting until batch 3's Settings exists (see {@link #largeTextSetting}). */
+    public static boolean forceLargeText;
+
+    /** v1.5 B2 STUB (the setting is owned by batch 3): replace the body with {@code Settings.largeText()} when it lands. Off by default. */
+    private static boolean largeTextSetting() {
+        return forceLargeText;
+    }
 
     public PanelRenderer(boolean compact) {
         this.compact = compact;
@@ -203,10 +215,15 @@ public final class PanelRenderer {
                 eng.input.aimTouchX = eng.input.aimTouchY = 0;
             }
             if (ph == Engine.PH_PLAYING) art.release(UiArt.G_MENU); // the paintings of the menus are not needed during a run
+            if (ph == Engine.PH_PAUSED) pauseDirty = true; // v1.5 B2: the pause screen builds its texts when it opens
             lastPhase = ph;
         }
         float u = h / 1080f;
         k.u = u;
+        k.large = largeTextSetting();
+        long nowNs = System.nanoTime(); // v1.5 B2: the frame time for the smooth bars (the first frame and long gaps count as 1/60 s)
+        frameDt = dtOverride >= 0f ? dtOverride : lastNs == 0 || nowNs - lastNs > 250_000_000L ? 1f / 60f : (nowNs - lastNs) / 1e9f;
+        lastNs = nowNs;
         joyR = 110f * u;
         layout(w, h, u);
         if (!compact) k.background(c, w, h);
@@ -483,9 +500,7 @@ public final class PanelRenderer {
         boolean low = s.hp < s.maxHp * 0.25f && ((int) (s.time * 4f) & 1) == 0;
         k.bar(c, bl, 118f * u, w - m, 166f * u, s.hp / s.maxHp, low ? 0xFFFF8068 : 0xFFFF5A3C, 0xFFB02818, 10);
         k.shadowed(c, cs(4, "", Sim.shownHp(s.hp, s.maxHp), " / ", Sim.shownMaxHp(s.maxHp), ""), (bl + w - m) / 2f, 153f * u, 30f * u, 0xFFFFF4EC, Paint.Align.CENTER);
-        k.text(c, "XP", m, 198f * u, 30f * u, Skin.LUMEN, Paint.Align.LEFT);
-        k.bar(c, bl, 174f * u, w - m, 206f * u, s.xp / s.xpNeed, 0xFF7CFFB4, 0xFF1FB85E, 0);
-        k.shadowed(c, cs(5, "", (int) s.xp, " / ", s.xpNeed, ""), (bl + w - m) / 2f, 199f * u, 22f * u, 0xFFEFFFF6, Paint.Align.CENTER);
+        xpBar(c, s, m, bl, w - m, u);
         StageFx.forKey(s.stage.key).hud(c, s, m + 250f * u, 214f * u, w - m - 290f * u, 240f * u, u); // v1.4: a stage's own meter in the hero row (Refinery heat)
         // status line: the hero, and what is burning, slowing or rotting it
         statusLine(c, s, m, 212f * u, w - m, u);
@@ -497,6 +512,8 @@ public final class PanelRenderer {
         float sl = Math.min(88f * u, (colW - 5 * gap) / 6f);
         float px = m + colW + colGap;
         k.text(c, "WEAPONS", m, 366f * u, 24f * u, DIM, Paint.Align.LEFT);
+        evoSync(s);
+        if (evoCompactText != null) k.fit(c, evoCompactText, m + colW, 366f * u, 21f * u, colW - 150f * u, evoCompactReady ? GOLD : DIM, Paint.Align.RIGHT); // v1.5 B2 item 18
         k.text(c, "PASSIVES", px, 366f * u, 24f * u, DIM, Paint.Align.LEFT);
         slotRow(c, s, true, m, 376f * u, sl, gap, u);
         slotRow(c, s, false, px, 376f * u, sl, gap, u);
@@ -505,7 +522,7 @@ public final class PanelRenderer {
         k.text(c, "EQUIPMENT", m, 508f * u, 24f * u, DIM, Paint.Align.LEFT);
         equipStrip(c, s, m, ey, es, gap, u);
         k.text(c, "THREAT", px, 508f * u, 24f * u, DIM, Paint.Align.LEFT);
-        alertZone(c, s, px, 516f * u, w - m, 616f * u, u);
+        alertZone(c, s, px, 516f * u, w - m, 616f * u, u, m, w - m, 607f * u, 625f * u); // v1.5 B2: the boss bar spans the whole panel
         k.divider(c, m, 628f * u, w - m);
         // minimap bottom-left; pause, dodge and the touch areas bottom-right
         float top = 644f * u;
@@ -528,33 +545,95 @@ public final class PanelRenderer {
         bossBanner(c, s, w, h, u);
     }
 
-    /** Hero name and level on the left; Burn, Slow and Decay icons with their seconds on the right. */
+    // ---- v1.5 B2 item 20: the XP bar. The fill eases to the real value in about 0.2 s, "LV n" pulses on a level-up, "CHEST" marks a chest that is due.
+    private float shownXp = -1f, levelPulse;
+    private int xpLevel = -1;
+
+    private void xpBar(Canvas c, Sim s, float m, float bl, float br, float u) {
+        float target = Math.max(0f, Math.min(1f, s.xp / s.xpNeed));
+        if (xpLevel != s.level) { // a level-up (or a new run): the bar restarts at once, the label pulses
+            if (xpLevel >= 0 && s.level > xpLevel) levelPulse = LEVEL_PULSE;
+            xpLevel = s.level;
+            shownXp = target;
+        } else if (shownXp < 0f || Math.abs(target - shownXp) < 0.002f) {
+            shownXp = target;
+        } else {
+            shownXp += (target - shownXp) * Math.min(1f, frameDt / 0.07f); // ~0.2 s to settle
+        }
+        if (levelPulse > 0f) levelPulse = Math.max(0f, levelPulse - frameDt);
+        float t = 174f * u, b = 206f * u;
+        k.text(c, "XP", m, 198f * u, 30f * u, Skin.LUMEN, Paint.Align.LEFT);
+        k.bar(c, bl, t, br, b, shownXp, 0xFF7CFFB4, 0xFF1FB85E, 0);
+        float pulse = levelPulse > 0f ? (float) Math.sin(levelPulse / LEVEL_PULSE * Math.PI) : 0f; // 0 -> 1 -> 0
+        k.shadowed(c, cs(116, "LV ", s.level, ""), bl + 14f * u, 199f * u, 22f * u * (1f + 0.5f * pulse), pulse > 0.02f ? GOLD : 0xFFEFFFF6, Paint.Align.LEFT);
+        k.shadowed(c, cs(5, "", (int) s.xp, " / ", s.xpNeed, ""), (bl + br) / 2f, 199f * u, 22f * u, 0xFFEFFFF6, Paint.Align.CENTER);
+        boolean chest = HudInfo.chestSoon(s);
+        k.shadowed(c, cs(117, "", Math.max(0, s.xpNeed - (int) s.xp), " TO GO"), br - (chest ? 124f * u : 14f * u), 199f * u, 18f * u, 0xFFCFE8D8, Paint.Align.RIGHT);
+        if (chest) {
+            float a = 0.8f + 0.2f * (float) Math.sin(s.time * 6.0);
+            fill.setColor(((int) (255 * a) << 24) | 0xFFD84A);
+            c.drawRect(br - 8f * u, t - 6f * u, br - 4f * u, b + 3f * u, fill);
+            k.shadowed(c, "CHEST", br - 16f * u, 199f * u, 18f * u, ((int) (255 * a) << 24) | 0xFFD84A, Paint.Align.RIGHT);
+        }
+    }
+
+    private static final float LEVEL_PULSE = 0.9f;
+
+    // ---- v1.5 B2 item 18: the evolution tracker texts, rebuilt only when the build changes
+    private int evoSig = Integer.MIN_VALUE;
+    private String evoCompactText;
+    private boolean evoCompactReady;
+    private final String[] evoName = new String[Inventory.MAX_WEAPONS], evoLineText = new String[Inventory.MAX_WEAPONS];
+    private final int[] evoStateOf = new int[Inventory.MAX_WEAPONS];
+
+    private void evoSync(Sim s) {
+        Inventory inv = s.inv;
+        int sig = inv.weaponCount * 31 + inv.passiveCount;
+        for (int i = 0; i < inv.weaponCount; i++) sig = sig * 31 + inv.weapons[i].level + 7 * inv.weapons[i].def.key.hashCode();
+        for (int i = 0; i < inv.passiveCount; i++) sig = sig * 31 + inv.passives[i].level + 7 * inv.passives[i].def.key.hashCode();
+        if (sig == evoSig && evoOwner == s) return;
+        evoSig = sig;
+        evoOwner = s;
+        evoCompactText = Describe.evoCompact(inv, eng.data.weapons);
+        evoCompactReady = false;
+        for (int i = 0; i < Inventory.MAX_WEAPONS; i++) {
+            evoStateOf[i] = Describe.evoState(inv, i, eng.data.weapons);
+            evoLineText[i] = evoStateOf[i] == Describe.EVO_NONE ? null : Describe.evoLine(inv, i, eng.data.weapons);
+            evoName[i] = i < inv.weaponCount ? inv.weapons[i].def.name : null;
+            if (evoStateOf[i] == Describe.EVO_READY) evoCompactReady = true;
+        }
+    }
+
+    private Sim evoOwner;
+
+    private final int[] stKinds = new int[HudInfo.HS_COUNT];
+    private static final int[] ST_COL = {Skin.ORANGE, Skin.COOL, 0xFF7CE04A, 0xFFFFF070, GOLD, Skin.LUMEN};
+    private static final int[] ST_GLYPH = {Skin.G_FIRE, Skin.G_FROST, Skin.G_DECAY, Skin.G_BOLT, Skin.G_ARMORED, Skin.G_DASH};
+
+    /**
+     * v1.5 B2 item 12: the hero's name on the left; on the right the status strip, one chip per active status (Burn, Slow, Decay,
+     * Stun, Guard, Dash; at most 6) with a bar of the time left. A status that ends within a second blinks.
+     */
     private void statusLine(Canvas c, Sim s, float x0, float y0, float x1, float u) {
         if (s.hero != null) k.text(c, up(s.hero.name), x0, y0 + 26f * u, 28f * u, TEXT, Paint.Align.LEFT);
-        float x = x1;
-        boolean any = false;
-        float gr = 15f * u;
-        if (s.heroDecayT > 0f) {
-            k.text(c, cs(60, "", (int) Math.ceil(s.heroDecayT), "s"), x, y0 + 28f * u, 24f * u, 0xFF9CF070, Paint.Align.RIGHT);
-            x -= 36f * u;
-            k.glyph(c, Skin.G_DECAY, x - gr + 8f * u, y0 + 17f * u, gr, 0xFF7CE04A);
-            x -= gr * 2 + 14f * u;
-            any = true;
+        int n = HudInfo.active(s, stKinds);
+        if (n == 0) {
+            k.body(c, "STATUS CLEAR", x1, y0 + 26f * u, 22f * u, 0xFF6F655A, Paint.Align.RIGHT);
+            return;
         }
-        if (s.heroSlowT > 0f) {
-            k.text(c, cs(61, "", (int) Math.ceil(s.heroSlowT), "s"), x, y0 + 28f * u, 24f * u, 0xFF8FE8FF, Paint.Align.RIGHT);
-            x -= 36f * u;
-            k.glyph(c, Skin.G_FROST, x - gr + 8f * u, y0 + 17f * u, gr, Skin.COOL);
-            x -= gr * 2 + 14f * u;
-            any = true;
+        float cw = 52f * u, gr = 13f * u;
+        for (int i = 0; i < n; i++) {
+            int kd = stKinds[i];
+            float cx = x1 - cw * 0.5f - i * cw;
+            boolean off = HudInfo.blinkOff(HudInfo.left(s, kd), s.time);
+            int col = ST_COL[kd];
+            if (!off) k.glyph(c, ST_GLYPH[kd], cx, y0 + 15f * u, gr, col);
+            float bl = cx - 20f * u, bw = 40f * u, by = y0 + 31f * u;
+            fill.setColor(0xFF0C0908);
+            c.drawRect(bl - u, by - u, bl + bw + u, by + 7f * u, fill);
+            fill.setColor(off ? 0xFF6A2A20 : col);
+            c.drawRect(bl, by, bl + bw * HudInfo.fraction(s, kd), by + 5f * u, fill);
         }
-        if (s.heroBurnT > 0f) {
-            k.text(c, cs(62, "", (int) Math.ceil(s.heroBurnT), "s"), x, y0 + 28f * u, 24f * u, 0xFFFFB070, Paint.Align.RIGHT);
-            x -= 36f * u;
-            k.glyph(c, Skin.G_FIRE, x - gr + 8f * u, y0 + 17f * u, gr, Skin.ORANGE);
-            any = true;
-        }
-        if (!any) k.body(c, "STATUS CLEAR", x1, y0 + 26f * u, 22f * u, 0xFF6F655A, Paint.Align.RIGHT);
     }
 
     // ---- equipment strip, boss and elite readout, boss banner
@@ -583,10 +662,25 @@ public final class PanelRenderer {
         }
     }
 
-    /** The boss (portrait, name, phase, health) and the live elite (modifier icons, tag, health) next to the equipment strip. */
+    private final int[] eliteMods = new int[Elites.COUNT];
+    private final float[] bossTick = new float[4];
+
     private void alertZone(Canvas c, Sim s, float x0, float y0, float x1, float y1, float u) {
+        alertZone(c, s, x0, y0, x1, y1, u, 0f, 0f, 0f, 0f);
+    }
+
+    /**
+     * The boss and the live elites next to the equipment strip. Boss (v1.5 B2 item 13): portrait, name, ENRAGED or PHASE, the
+     * attack it is winding up (a line or an area glyph with the seconds) and an HP bar with a tick at every phase threshold and the
+     * percent in it; the bar spans {@code bl..br} at {@code bt..bb} when those are given (the full panel width), else it sits under
+     * the portrait. Elites (item 14): one chip per modifier with the number of live elites that carry it (four shown, then "+N").
+     */
+    private void alertZone(Canvas c, Sim s, float x0, float y0, float x1, float y1, float u, float bl, float br, float bt, float bb) {
         Entities.Enemy b = s.bossNow, el = s.eliteNow;
-        boolean boss = b != null && !b.dead, elite = el != null && !el.dead && el.elite;
+        boolean boss = b != null && !b.dead;
+        int elites = HudInfo.eliteCounts(s, eliteMods);
+        boolean elite = elites > 0;
+        boolean elDetail = el != null && !el.dead && el.elite;
         if (!boss && !elite) {
             if (!compact) {
                 k.well(c, x0, y0 - 6f * u, x1, y0 + 82f * u, 6f * u);
@@ -596,7 +690,8 @@ public final class PanelRenderer {
         }
         float y = y0;
         if (boss) {
-            float ps = 66f * u;
+            boolean wide = br > bl;
+            float ps = 60f * u;
             k.slotWell(c, x0, y, ps);
             atlas.drawIcon(c, null, bossKey(b.type.def.key), x0 + ps / 2, y + ps / 2, ps * 0.9f);
             stroke.setColor(Skin.DANGER);
@@ -604,43 +699,72 @@ public final class PanelRenderer {
             r.set(x0, y, x0 + ps, y + ps);
             c.drawRoundRect(r, ps * 0.1f, ps * 0.1f, stroke);
             float tx = x0 + ps + 14f * u;
-            k.fit(c, b.type.nameUpper, tx, y + 28f * u, 30f * u, (x1 - tx) * 0.64f, 0xFFFFA58A, Paint.Align.LEFT);
-            if (b.type.pattern == 5) k.text(c, cs(50, "PHASE ", b.phase + 1, ""), x1, y + 28f * u, 26f * u, 0xFFFF9A7A, Paint.Align.RIGHT);
-            else k.text(c, cs(51, "", Math.round(100f * b.hp / b.maxHp), "%"), x1, y + 28f * u, 26f * u, DIM, Paint.Align.RIGHT);
-            float by0 = y + 36f * u, by1 = y + 62f * u;
-            boolean hot = b.phase >= 2 && b.type.pattern == 5;
-            k.bar(c, tx, by0, x1, by1, b.hp / b.maxHp, hot ? 0xFFFF6A3C : 0xFFFF5A3C, hot ? 0xFFD02810 : 0xFFA82418, 0);
-            if (b.type.pattern == 5) { // the phase marks of The First
-                fill.setColor(0xFF000000);
-                for (int i = 1; i <= 2; i++) {
-                    float mx = tx + (x1 - tx) * (i == 1 ? 0.33f : 0.66f);
-                    c.drawRect(mx - 1.5f * u, by0, mx + 1.5f * u, by1, fill);
-                }
+            int nt = HudInfo.bossTicks(b, bossTick);
+            boolean enr = HudInfo.enraged(b);
+            float pulse = 0.5f + 0.5f * (float) Math.sin(s.time * 8.0);
+            k.fit(c, b.type.nameUpper, tx, y + 26f * u, 28f * u, (x1 - tx) * 0.6f, 0xFFFFA58A, Paint.Align.LEFT);
+            if (enr) k.text(c, "ENRAGED", x1, y + 26f * u, 24f * u, pulse > 0.5f ? 0xFFFF4A2A : 0xFFD03018, Paint.Align.RIGHT);
+            else if (nt >= 2) k.text(c, cs(50, "PHASE ", b.phase + 1, ""), x1, y + 26f * u, 24f * u, 0xFFFF9A7A, Paint.Align.RIGHT);
+            // the attack it is winding up: a line (charge) or an area glyph with the seconds, else a dim "stalking"
+            int na = HudInfo.nextAttack(b);
+            float gy = y + 44f * u;
+            if (na == HudInfo.NA_NONE) {
+                k.glyph(c, Skin.G_RING, tx + 12f * u, gy, 12f * u, 0xFF5A5048);
+                k.body(c, "NO ATTACK QUEUED", tx + 34f * u, gy + 7f * u, 20f * u, 0xFF6F655A, Paint.Align.LEFT);
+            } else {
+                int tenths = (int) Math.ceil(b.tele * 10f);
+                k.glyph(c, na == HudInfo.NA_LINE ? Skin.G_LINE : Skin.G_RING, tx + 12f * u, gy, 12f * u, pulse > 0.5f ? 0xFFFF6A3C : Skin.DANGER);
+                k.text(c, na == HudInfo.NA_LINE ? cs(118, "CHARGE ", tenths / 10, ".", tenths % 10, "S") : cs(119, "AREA ", tenths / 10, ".", tenths % 10, "S"),
+                        tx + 34f * u, gy + 8f * u, 22f * u, 0xFFFFC4AA, Paint.Align.LEFT);
             }
-            y += ps + 6f * u;
+            float l = wide ? bl : x0, rr = wide ? br : x1, t = wide ? bt : y + ps + 6f * u, bo = wide ? bb : y + ps + 24f * u;
+            boolean hot = enr || (nt >= 2 && b.phase >= 2);
+            float frac = b.hp / b.maxHp;
+            k.bar(c, l, t, rr, bo, frac, hot ? 0xFFFF6A3C : 0xFFFF5A3C, hot ? 0xFFD02810 : 0xFFA82418, 0);
+            for (int i = 0; i < nt; i++) { // a tick at every phase threshold: white while ahead, cut black once passed
+                float mx = l + (rr - l) * bossTick[i];
+                boolean passed = frac <= bossTick[i];
+                fill.setColor(passed ? 0xFF000000 : 0xFFFFF4E6);
+                c.drawRect(mx - 1.5f * u, t, mx + 1.5f * u, bo, fill);
+                fill.setColor(passed ? 0xFF6A5E52 : Skin.ORANGE);
+                c.drawRect(mx - 3f * u, t - 5f * u, mx + 3f * u, t, fill);
+            }
+            if (bo - t >= 14f * u) k.shadowed(c, cs(51, "", Math.round(100f * frac), "%"), (l + rr) / 2f, bo - (bo - t) * 0.2f, Math.min(20f * u, (bo - t) * 0.85f), 0xFFFFF4EC, Paint.Align.CENTER);
+            y = wide ? y + 62f * u : bo + 8f * u;
         }
         if (elite) {
-            float gx = x0 + 14f * u, gr = boss ? 12f * u : 15f * u;
-            int nm = Elites.bits(el.mods);
-            for (int n = 0; n < nm; n++) { // an icon per modifier in its colour
-                k.glyph(c, Elites.indexOf(el.mods, n), gx, y + gr + 2f * u, gr, Elites.colorOf(el.mods, n));
-                gx += gr * 2 + 6f * u;
+            float gr = boss ? 11f * u : 15f * u, tsz = boss ? 18f * u : 22f * u;
+            float gx = x0 + gr;
+            int shown = 0, extra = 0;
+            for (int m = 0; m < Elites.COUNT; m++) { // a chip per modifier: its icon and how many live elites carry it
+                if (eliteMods[m] == 0) continue;
+                if (shown >= 4) { extra++; continue; }
+                k.glyph(c, m, gx, y + gr + 2f * u, gr, Elites.COLORS[m]);
+                k.text(c, cs(110 + shown, "x", eliteMods[m], ""), gx + gr + 3f * u, y + gr + 2f * u + tsz * 0.36f, tsz, TEXT, Paint.Align.LEFT);
+                gx += gr * 2 + tsz * 1.3f + 10f * u;
+                shown++;
             }
-            int mask = el.mods & 63;
-            if (eliteLabel[mask] == null) eliteLabel[mask] = "ELITE  " + Elites.label(mask);
-            k.fit(c, eliteLabel[mask], gx + 4f * u, y + gr + 10f * u, boss ? 24f * u : 28f * u, x1 - gx - 120f * u, TEXT, Paint.Align.LEFT);
-            // what is on the elite: burn, frost, electrify and decay stacks
-            float sx = x1;
-            for (int i = 3; i >= 0; i--) {
-                int st = i == 0 ? el.burn : i == 1 ? el.frost : i == 2 ? el.elec : el.decay;
-                if (st <= 0) continue;
-                k.text(c, cs(52 + i, "", st, ""), sx, y + gr + 10f * u, 22f * u, TEXT, Paint.Align.RIGHT);
-                sx -= 22f * u;
-                k.glyph(c, i == 0 ? Skin.G_FIRE : i == 1 ? Skin.G_FROST : i == 2 ? Skin.G_BOLT : Skin.G_DECAY, sx - 9f * u, y + gr + 3f * u, 11f * u,
-                        i == 0 ? Skin.ORANGE : i == 1 ? Skin.COOL : i == 2 ? 0xFFFFF070 : 0xFF7CE04A);
-                sx -= 26f * u;
+            if (extra > 0) {
+                k.text(c, cs(114, "+", extra, ""), gx, y + gr + 2f * u + tsz * 0.36f, tsz, GOLD, Paint.Align.LEFT);
+                gx += tsz * 1.6f;
             }
-            if (!boss) k.bar(c, x0, y + 40f * u, x1, y + 62f * u, el.hp / el.maxHp, Elites.colorOf(el.mods, 0), Elites.colorOf(el.mods, 0) & 0xFFB0B0B0, 0);
+            if (elDetail) {
+                int mask = el.mods & 63;
+                if (eliteLabel[mask] == null) eliteLabel[mask] = "ELITE  " + Elites.label(mask);
+                k.fit(c, eliteLabel[mask], gx + 4f * u, y + gr + 10f * u, boss ? 22f * u : 26f * u, x1 - gx - 120f * u, TEXT, Paint.Align.LEFT);
+                // what is on the elite: burn, frost, electrify and decay stacks
+                float sx = x1;
+                for (int i = 3; i >= 0; i--) {
+                    int st = i == 0 ? el.burn : i == 1 ? el.frost : i == 2 ? el.elec : el.decay;
+                    if (st <= 0) continue;
+                    k.text(c, cs(52 + i, "", st, ""), sx, y + gr + 10f * u, 22f * u, TEXT, Paint.Align.RIGHT);
+                    sx -= 22f * u;
+                    k.glyph(c, i == 0 ? Skin.G_FIRE : i == 1 ? Skin.G_FROST : i == 2 ? Skin.G_BOLT : Skin.G_DECAY, sx - 9f * u, y + gr + 3f * u, 11f * u,
+                            i == 0 ? Skin.ORANGE : i == 1 ? Skin.COOL : i == 2 ? 0xFFFFF070 : 0xFF7CE04A);
+                    sx -= 26f * u;
+                }
+                if (!boss) k.bar(c, x0, y + 40f * u, x1, y + 62f * u, el.hp / el.maxHp, Elites.colorOf(el.mods, 0), Elites.colorOf(el.mods, 0) & 0xFFB0B0B0, 0);
+            }
         }
     }
 
@@ -708,7 +832,7 @@ public final class PanelRenderer {
         float is = 68f * u;
         iconKey(c, mw.def.key, x0, y0, is, true, true);
         float tx = x0 + is + 16f * u;
-        k.text(c, mw.def.name, tx, y0 + 30f * u, 32f * u, TEXT, Paint.Align.LEFT);
+        k.fit(c, mw.def.name, tx, y0 + 30f * u, 32f * u, x0 + 330f * u - tx, TEXT, Paint.Align.LEFT); // v1.5 B2: fits beside the first branch in large-text mode too
         k.text(c, "MAIN WEAPON", tx, y0 + 60f * u, 22f * u, Skin.ORANGE, Paint.Align.LEFT);
         int nb = mw.def.branches.size();
         float cx0 = x0 + 340f * u, cw = (x1 - cx0) / Math.max(1, nb), bs = 56f * u;
@@ -748,9 +872,17 @@ public final class PanelRenderer {
         k.text(c, "PAUSE", cx + 36f * u, cy + 13f * u, 38f * u, TEXT, Paint.Align.LEFT);
     }
 
+    private final float[] evoPulse = new float[1];
+
+    /**
+     * Six weapon or passive slots. v1.5 B2: a weapon shows its cooldown as a sweep over the icon (item 11; a steady ring when it
+     * has no volley to wait for) and a gold star when it is ready to evolve (item 15; hollow when only the passive is missing). A
+     * passive that a maxed weapon is waiting for gets the same gold star.
+     */
     private void slotRow(Canvas c, Sim s, boolean weapons, float x, float y, float slot, float gap, float u) {
         Inventory inv = s.inv;
         int n = weapons ? inv.weaponCount : inv.passiveCount;
+        float pulse = 0.6f + 0.4f * (float) Math.sin(s.time * 5.0);
         for (int i = 0; i < 6; i++) {
             float sx = x + i * (slot + gap);
             if (i < n) {
@@ -758,14 +890,40 @@ public final class PanelRenderer {
                 int max = sl.def.maxLevel();
                 boolean full = sl.level >= max;
                 weaponTile(c, sl.def, sx, y, slot, sl.def.evolution || sl.def.fusion, full);
+                if (weapons) {
+                    Sim.WeaponState ws = i < s.weapons.length ? s.weapons[i] : null;
+                    if (ws != null && ws.def == sl.def) {
+                        if (HudInfo.continuous(ws)) k.steadyRing(c, sx, y, slot, 0xAA40D8FF);
+                        else k.sweep(c, sx, y, slot, HudInfo.ready(ws));
+                    }
+                }
                 cornerText(c, sl.def.evolution ? "EVO" : full ? "MAX" : cs((weapons ? 8 : 20) + i, "", sl.level, ""), sx, y, slot,
                         sl.def.evolution || full ? 22f * u : 26f * u, sl.def.evolution || full ? GOLD : TEXT);
                 if (!sl.def.evolution) levelPips(c, sx + 3f * u, y + slot + 5f * u, slot - 6f * u, sl.level, max, full ? GOLD : Skin.ORANGE);
                 if (sl.def.fusion) fusionPip(c, sx + 5f * u, y + 5f * u, slot * 0.3f);
+                int evo = weapons ? Describe.evoState(inv, i, eng.data.weapons) : passiveEvoState(inv, sl.def.key);
+                if (evo == Describe.EVO_READY) evoStar(c, sx + slot - 15f * u, y + 15f * u, 12f * u, true, pulse);
+                else if (evo == Describe.EVO_MISSING_PASSIVE && weapons) evoStar(c, sx + slot - 15f * u, y + 15f * u, 11f * u, false, pulse);
             } else {
                 k.slotWell(c, sx, y, slot);
             }
         }
+    }
+
+    /** READY when a maxed weapon that evolves with this passive is waiting for exactly this passive, else NONE. */
+    private int passiveEvoState(Inventory inv, String passiveKey) {
+        for (int i = 0; i < inv.weaponCount; i++) {
+            if (!inv.weapons[i].def.evoSynergy.contains(passiveKey)) continue;
+            if (Describe.evoState(inv, i, eng.data.weapons) == Describe.EVO_READY) return Describe.EVO_READY;
+        }
+        return Describe.EVO_NONE;
+    }
+
+    /** The gold evolve pip: a solid star, or a hollow one when the weapon is maxed but the passive is missing. */
+    private void evoStar(Canvas c, float cx, float cy, float rad, boolean lit, float pulse) {
+        fill.setColor(0xFF1A1208);
+        c.drawCircle(cx, cy, rad + 2f * k.u, fill);
+        star(c, cx, cy, rad * (lit ? 0.8f + 0.2f * pulse : 0.85f), lit ? GOLD : 0xFF7A6A3A);
     }
 
     private void minimap(Canvas c, Sim s, float x, float y, float side) {
@@ -1230,7 +1388,22 @@ public final class PanelRenderer {
             float dTop = y + 14f * u + titleSize + 14f * u + lineH * 0.7f;
             int maxLines = Math.max(1, Math.min(3, (int) ((ch - (dTop - y) - (o.partner ? 56f : 26f) * u) / lineH) + 1));
             if (o.partner) k.text(c, "FUSION PARTNER", tx, y + ch - 20f * u, Math.min(26f * u, ch * 0.13f), GOLD, Paint.Align.LEFT);
-            k.wrap(c, describe(i, o), tx, dTop, x + cw - tx - 30f * u, lineH, maxLines, Math.min(34f * u, ch * 0.17f), 0xFFC9BFB0);
+            String[] tip = f ? tooltip(i, o) : null;
+            if (tip != null) { // v1.5 B2 item 17: the focused card says what it gives now and at the next level
+                float tsz = Math.min(28f * u, ch * 0.14f), tl = tsz * 1.2f;
+                int per = ch >= 200f * u ? 2 : 1;
+                int used = k.wrap(c, tip[0], tx, dTop, x + cw - tx - 30f * u, tl, per, tsz, 0xFFC9BFB0);
+                k.wrap(c, tip[1], tx, dTop + used * tl + 4f * u, x + cw - tx - 30f * u, tl, per, tsz, 0xFFFFE2A8);
+            } else {
+                k.wrap(c, describe(i, o), tx, dTop, x + cw - tx - 30f * u, lineH, maxLines, Math.min(34f * u, ch * 0.17f), 0xFFC9BFB0);
+            }
+            if (evolvesFlag(i, o)) { // completes an evolution requirement: the chest will evolve it
+                k.tp.setTypeface(art.bold);
+                k.tp.setTextSize(titleSize * 0.8f * (k.large ? Skin.LARGE_SCALE : 1f));
+                float tagW = k.tp.measureText(tag), bw = 170f * u, bx = x + cw - 24f * u - tagW - 20f * u - bw, byy = y + 12f * u;
+                k.plate(c, bx, byy, bx + bw, byy + 40f * u, 0x66FFB020, GOLD, 2f * u);
+                k.text(c, "EVOLVES!", bx + bw / 2f, byy + 29f * u, 26f * u, GOLD, Paint.Align.CENTER);
+            }
         }
         k.body(c, "TAP A CARD    |    D-PAD / STICK + A", w / 2f, h - 30f * u, 24f * u, DIM, Paint.Align.CENTER);
     }
@@ -1246,6 +1419,30 @@ public final class PanelRenderer {
             descText[i] = Describe.offer(o);
         }
         return descText[i];
+    }
+
+    private final Offer[] tipOffer = new Offer[8];
+    private final String[][] tipText = new String[8][];
+    private final boolean[] tipEvo = new boolean[8];
+
+    private void tipSync(int i, Offer o) {
+        if (tipOffer[i] == o) return;
+        tipOffer[i] = o;
+        tipText[i] = Describe.tooltip(o, eng.data.weapons);
+        tipEvo[i] = eng.sim != null && Describe.completesEvolution(o, eng.sim.inv, eng.data.weapons);
+    }
+
+    /** The two tooltip lines of a card (made once per offer), or null. */
+    private String[] tooltip(int i, Offer o) {
+        if (i >= tipOffer.length) return null;
+        tipSync(i, o);
+        return tipText[i];
+    }
+
+    private boolean evolvesFlag(int i, Offer o) {
+        if (i >= tipOffer.length) return false;
+        tipSync(i, o);
+        return tipEvo[i];
     }
 
     private static final String[] TIER_TAG = {"MAIN BRANCH  I", "MAIN BRANCH  II", "MAIN BRANCH  III"};
@@ -1918,27 +2115,91 @@ public final class PanelRenderer {
 
     // ---- pause, chest, result
 
+    // ---- v1.5 B2 item 16: the pause screen. The run (time, level, kills, gold), the character stats, the build and the evolution
+    // tracker above RESUME / QUIT. Texts are built when the pause opens (pauseDirty), never per frame.
+    private boolean pauseDirty = true;
+    private String[] pauseStats = new String[Describe.STAT_LABELS.length];
+
     private void pauseMenu(Canvas c, int w, int h) {
         float u = k.u;
-        float cw = Math.min(w * 0.8f, 760f * u);
+        float cw = Math.min(w - 60f * u, 1120f * u);
         float x = (w - cw) / 2f;
-        k.plate(c, x - 30f * u, h * 0.1f, x + cw + 30f * u, h * 0.84f, 0x66000000, Skin.EDGE, 3f * u);
-        k.rivets(c, x - 30f * u, h * 0.1f, x + cw + 30f * u, h * 0.84f, 14f * u, 4f * u);
-        heading(c, w, "PAUSED", TEXT, null, h * 0.2f, 84f * u, u);
+        float top = 22f * u, bot = h - 22f * u;
+        k.plate(c, x - 20f * u, top, x + cw + 20f * u, bot, 0x66000000, Skin.EDGE, 3f * u);
+        k.rivets(c, x - 20f * u, top, x + cw + 20f * u, bot, 14f * u, 4f * u);
+        heading(c, w, "PAUSED", TEXT, null, top + 74f * u, 64f * u, u);
         Sim s = eng.sim;
-        if (s != null) { // where the run stands
-            float cell = cw / 3f, y = h * 0.2f + 96f * u;
-            for (int i = 0; i < 3; i++) {
+        if (s != null) {
+            if (pauseDirty) {
+                pauseStats = Describe.statValues(s.stats, s.stats.revivals - s.revivalsUsed);
+                pauseDirty = false;
+            }
+            evoSync(s);
+            // where the run stands
+            float cell = cw / 4f, y = top + 138f * u;
+            for (int i = 0; i < 4; i++) {
                 float cx = x + cell * i + cell / 2;
                 k.body(c, STAT_LABELS[i], cx, y, 22f * u, DIM, Paint.Align.CENTER);
-                k.text(c, i == 0 ? tcs(5, (int) s.time) : i == 1 ? cs(105, "", s.level, "") : cs(102, "", s.kills, ""), cx, y + 46f * u, 46f * u, STAT_COLS[i], Paint.Align.CENTER);
+                k.text(c, i == 0 ? tcs(5, (int) s.time) : i == 1 ? cs(105, "", s.level, "") : i == 2 ? cs(102, "", s.kills, "") : cs(106, "", s.gold, ""),
+                        cx, y + 44f * u, 44f * u, STAT_COLS[i], Paint.Align.CENTER);
             }
+            k.divider(c, x, y + 62f * u, x + cw);
+            // the character stats, three to a row
+            float sy = y + 98f * u;
+            k.text(c, "STATS", x, sy - 6f * u, 22f * u, Skin.ORANGE, Paint.Align.LEFT);
+            float sc = cw / 3f;
+            for (int i = 0; i < Describe.STAT_LABELS.length; i++) {
+                float cx = x + sc * (i % 3) + sc / 2, ry = sy + 34f * u + (i / 3) * 62f * u;
+                k.body(c, Describe.STAT_LABELS[i], cx, ry, 20f * u, DIM, Paint.Align.CENTER);
+                k.text(c, pauseStats[i], cx, ry + 30f * u, 32f * u, TEXT, Paint.Align.CENTER);
+            }
+            float by0 = sy + 34f * u + 3 * 62f * u - 22f * u;
+            k.divider(c, x, by0, x + cw);
+            // the build: weapons left, passives right, with their levels
+            float half = (cw - 40f * u) / 2f, gap = 8f * u, ts = Math.min(72f * u, (half - 5 * gap) / 6f), ty = by0 + 52f * u;
+            k.text(c, "WEAPONS", x, ty - 12f * u, 22f * u, Skin.ORANGE, Paint.Align.LEFT);
+            k.text(c, "PASSIVES", x + half + 40f * u, ty - 12f * u, 22f * u, Skin.ORANGE, Paint.Align.LEFT);
+            pauseBuild(c, s, true, x, ty, ts, gap, u);
+            pauseBuild(c, s, false, x + half + 40f * u, ty, ts, gap, u);
+            // the evolution tracker, a line per weapon that can evolve
+            float ey = ty + ts + 62f * u;
+            k.text(c, "EVOLUTION", x, ey - 20f * u, 22f * u, Skin.ORANGE, Paint.Align.LEFT);
+            int rows = 0;
+            for (int i = 0; i < Inventory.MAX_WEAPONS; i++) {
+                if (evoLineText[i] == null) continue;
+                boolean ready = evoStateOf[i] == Describe.EVO_READY;
+                k.text(c, evoName[i], x, ey + rows * 36f * u + 14f * u, 26f * u, ready ? GOLD : TEXT, Paint.Align.LEFT);
+                k.fit(c, evoLineText[i], x + 250f * u, ey + rows * 36f * u + 14f * u, 24f * u, cw - 250f * u, ready ? GOLD : DIM, Paint.Align.LEFT);
+                rows++;
+            }
+            if (rows == 0) k.body(c, "NO WEAPON HAS AN EVOLUTION YET", x, ey + 14f * u, 24f * u, 0xFF6F655A, Paint.Align.LEFT);
         }
         String[] l = {"RESUME", "QUIT TO MENU"};
+        float bw = (cw - 24f * u) / 2f, bt = bot - 130f * u;
         for (int i = 0; i < 2; i++) {
-            float by = h * 0.46f + i * 140f * u;
-            k.button(c, x, by, x + cw, by + 110f * u, l[i], eng.focus == i);
-            hit(x, by, x + cw, by + 110f * u, i, 0);
+            float bx = x + i * (bw + 24f * u);
+            k.button(c, bx, bt, bx + bw, bt + 100f * u, l[i], eng.focus == i);
+            hit(bx, bt, bx + bw, bt + 100f * u, i, 0);
+        }
+    }
+
+    /** One row of the build list on the pause screen: tile, level, and the evolve star. */
+    private void pauseBuild(Canvas c, Sim s, boolean weapons, float x, float y, float ts, float gap, float u) {
+        Inventory inv = s.inv;
+        int n = weapons ? inv.weaponCount : inv.passiveCount;
+        for (int i = 0; i < 6; i++) {
+            float sx = x + i * (ts + gap);
+            if (i >= n) {
+                k.slotWell(c, sx, y, ts);
+                continue;
+            }
+            Inventory.Slot sl = weapons ? inv.weapons[i] : inv.passives[i];
+            boolean full = sl.level >= sl.def.maxLevel();
+            weaponTile(c, sl.def, sx, y, ts, sl.def.evolution || sl.def.fusion, full);
+            cornerText(c, sl.def.evolution ? "EVO" : full ? "MAX" : cs((weapons ? 130 : 140) + i, "", sl.level, ""), sx, y, ts,
+                    sl.def.evolution || full ? 20f * u : 24f * u, sl.def.evolution || full ? GOLD : TEXT);
+            int evo = weapons ? evoStateOf[i] : passiveEvoState(inv, sl.def.key);
+            if (evo == Describe.EVO_READY) evoStar(c, sx + ts - 14f * u, y + 14f * u, 11f * u, true, 1f);
         }
     }
 
