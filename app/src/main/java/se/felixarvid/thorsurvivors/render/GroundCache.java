@@ -88,6 +88,7 @@ final class GroundCache {
     void setup(WorldGen g, String stage, int tilePx, int tintColor) {
         if (g == gen && tilePx == size && tintColor == tint && stage.equals(stageKey)) return;
         synchronized (lock) {
+            if (!stage.equals(stageKey) || tilePx != size) releaseBitmaps(); // v1.5 B8 (79): the old stage's chunks are not reused
             generation++; // a build in flight finishes into the old generation and is discarded
             gen = g;
             stageKey = stage;
@@ -106,6 +107,32 @@ final class GroundCache {
             }
             for (Chunk c : pool) if (c.state != BUILDING) c.state = FREE;
         }
+    }
+
+    /**
+     * v1.5 B8 (79): frees the bitmap memory of every chunk that is not being baked (a stage change or a new tile size
+     * makes them useless; reuse needs the same size). Returns the bytes freed. Caller holds {@link #lock}.
+     */
+    private long releaseBitmaps() {
+        long bytes = 0;
+        for (Chunk c : pool) {
+            if (c.state == BUILDING || c.bm == null) continue;
+            bytes += c.bm.getAllocationByteCount();
+            c.bm.recycle();
+            c.bm = null;
+            c.canvas = null;
+            c.state = FREE;
+        }
+        return bytes;
+    }
+
+    /** Bytes held by chunk bitmaps (tests, debug log). */
+    long bitmapBytes() {
+        long b = 0;
+        synchronized (lock) {
+            for (Chunk c : pool) if (c.bm != null) b += c.bm.getAllocationByteCount();
+        }
+        return b;
     }
 
     int tilePx() {

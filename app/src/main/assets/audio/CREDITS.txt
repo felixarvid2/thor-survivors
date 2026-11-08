@@ -6,6 +6,16 @@ tools/import_audio.py; the tables in that script say which source file feeds whi
 in ../assets/audio (local library) and art-src/audio/<pack>/ (downloaded, with SOURCE.md), see each
 pack's licence note.
 
+Music Loop Bundle (Abstraction)
+  Author:  Abstraction (Benjamin Burnes)
+  URL:     https://tallbeard.itch.io/music-loop-bundle
+  Licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), _LICENSE.txt in the pack
+  Files:
+    Week 18 - Distant Skyline NIGHT DRIVE.ogg
+    Week 19 - Dark Portents SHROUDED FUTURE.ogg
+    Week 22 - The Walking Dunes EVENING OASIS.ogg
+    Week 24 - Pull Me Down DEEP WELL.ogg
+
 Dark Cavern Ambient
   Author:  Paul Wortmann
   URL:     https://opengameart.org/content/dark-cavern-ambient
@@ -36,7 +46,10 @@ Kenney Digital Audio
   URL:     https://kenney.nl/assets/digital-audio
   Licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), License.txt in the pack
   Files:
+    lowDown.ogg
     lowThreeTone.ogg
+    phaserDown2.ogg
+    powerUp8.ogg
     zap1.ogg
     zap2.ogg
     zapThreeToneDown.ogg
@@ -81,6 +94,7 @@ Kenney Impact Sounds
   URL:     https://kenney.nl/assets/impact-sounds
   Licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), License.txt in the pack
   Files:
+    impactBell_heavy_000.ogg
     impactBell_heavy_001.ogg
     impactBell_heavy_002.ogg
     impactGlass_light_001.ogg
@@ -103,8 +117,11 @@ Kenney Interface Sounds
   Licence: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), License.txt in the pack
   Files:
     click_005.ogg
+    confirmation_003.ogg
     drop_002.ogg
     drop_003.ogg
+    glitch_002.ogg
+    pluck_002.ogg
     switch_006.ogg
 
 Sci-Fi Sounds (Kenney, OpenGameArt copy)

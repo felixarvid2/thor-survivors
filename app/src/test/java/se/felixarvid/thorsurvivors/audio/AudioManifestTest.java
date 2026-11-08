@@ -28,7 +28,8 @@ public class AudioManifestTest {
     private static final String[] IDS = {"whip", "gem", "coin"};
 
     /** Music tracks the manifest ships; {@code final} (The First) is silent until the code asks for it. */
-    private static final String[] TRACKS = {"menu", "forest", "library", "boss", "final", "gameover", "victory"};
+    private static final String[] TRACKS = {"menu", "forest", "library", "boss", "final", "gameover", "victory",
+            "hydro", "refinery", "wreck", "combat"};
 
     private static AudioManifest.FileCheck has(String... files) {
         final Set<String> s = new HashSet<>(Arrays.asList(files));

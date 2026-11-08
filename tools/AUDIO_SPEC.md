@@ -134,6 +134,11 @@ that can fire many times per second should be capped low and kept quiet).
 | `boss_intro` | Boss intro sting | 1.8-2.0 s | Swelling drone with a low choir and a boom | 1 |
 | `boss_slam` | Boss slam | 0.9-1.0 s | Huge impact with falling rock | 1 |
 | `the_first_roar` | The First (final boss) roars | 2.0-2.2 s | Very low roar over a choir and a drone: the loudest sound | 1 |
+| `elite_shield_block` | A shielded elite blocks a hit (v1.5) | 0.2-0.3 s | Metal clang with a glassy ring | 2 |
+| `volatile_pulse` | A volatile elite's warning pulse (v1.5) | 0.4-0.5 s | Low unstable thump falling in pitch | 1 |
+| `splitter_pop` | A splitter elite divides (v1.5) | 0.15-0.2 s | Small wet pop | 2 |
+| `shrine_activate` | A shrine is activated (v1.5) | 1.0-1.2 s | Rising hum with a bell | 1 |
+| `achievement` | An achievement unlocks (v1.5) | 1.0 s | Clean double chime, the one pleasant sound in the game | 1 |
 
 Not built: `light_flicker` (a very low loop) and `hero_hit_bastion`, `hero_hit_spectre`, `hero_hit_xenomant` (optional
 hero voice variants, out of scope in the design).
@@ -158,6 +163,10 @@ Mines (`mines`) and `final` is The First (`first`).
 | `library` | Deep Mines stage | 15-40 s | yes | 60 BPM bass pulse, dark sci-fi, steady and tense |
 | `boss` | While a boss is alive (optional; the stage track plays if it is missing) | 12-30 s | yes | Dark driving 140 BPM, a slow heartbeat and a low distorted choir |
 | `final` | The First (final boss): plays while it lives | 15-30 s | yes | Heavy detuned boss track, fast heartbeat, two choir voices |
+| `hydro` | Hydro stage (v1.5) | 15 s | yes | Slow floating loop, lowpassed so it sits under the effects |
+| `refinery` | Refinery stage (v1.5) | 24 s | yes | Steady night-drive pulse, lowpassed |
+| `wreck` | Wreck stage (v1.5) | 26 s | yes | Heavy slow loop, deep and sparse |
+| `combat` | Layer over any stage track (v1.5) | 33 s | yes | Dark atmospheric bed; fades in with the number of enemies (0 below 15, full at 300) and out for a boss |
 | `gameover` | Result screen after dying | 3-6 s | no (stinger) | Sinking drone with a low choir, no transient (the sfx has the impact) |
 | `victory` | Result screen after winning | 4-7 s | no (stinger) | Dark pulsing swell that decays, resolved not triumphant |
 
@@ -262,6 +271,11 @@ Rows for the new ids (`pending`):
 | `tentacle_emerge` | Meat `rippingintomeat_0` + Mud `mud_17` (x0.7 pitch, -1 dB) | comp 3:1 |
 | `boss_intro` | Kenney Sci-Fi `spaceEngineLow_004` (LP 800, -1 dB) + Chanting `chant12` (x0.6 pitch, LP 2500, -3 dB) + Kenney Sci-Fi `lowFrequency_explosion_000` | comp 3:1 |
 | `boss_slam` | Kenney Impact `impactMetal_heavy_002` (x0.8 pitch, LP 1000) + Kenney Sci-Fi `lowFrequency_explosion_000` (x0.8 pitch) + Breaking `rock_falling_03` (-4 dB) | sat 1.5, comp 4:1 |
+| `elite_shield_block` | Kenney Impact `impactMetal_heavy_001` (HP 200) + `impactGlass_light_002` (x0.8 pitch, HP 1500, -6 dB) | sat 1.3, comp 3:1 |
+| `volatile_pulse` | Kenney Digital `lowDown` (x0.8 pitch, LP 1200) + `phaserDown2` (x0.7 pitch, LP 2500, -5 dB) | sat 1.4, comp 3:1 |
+| `splitter_pop` | Kenney Interface `pluck_002` (x0.7 pitch) + `glitch_002` (LP 4000, -4 dB) | comp 2:1 |
+| `shrine_activate` | Kenney Digital `powerUp8` (x0.7 pitch, LP 3200) + Kenney Impact `impactBell_heavy_001` (x0.8 pitch, LP 2200, -5 dB) | comp 3:1, echo |
+| `achievement` | Kenney Interface `confirmation_003` + Kenney Impact `impactBell_heavy_000` (x1.1 pitch, LP 4000, -6 dB) | comp 2:1, echo |
 | `the_first_roar` | Monsters `monster-8` (x0.5 pitch, LP 2500) + Creature `roar_01` (x0.5 pitch, -2 dB) + Chanting `chant21` (x0.5 pitch, LP 2000, -4 dB) + Kenney Sci-Fi `spaceEngineLow_001` (LP 600, -5 dB) + Kenney Sci-Fi `lowFrequency_explosion_000` (-1 dB) | sat 1.3, comp 3:1 |
 
 | track | Source | Loop handling / processing |
@@ -271,6 +285,10 @@ Rows for the new ids (`pending`):
 | `library` | SRG774, Dark Sci-Fi Audio Pack `pulse_0` (60 BPM bass pulse) | 8 bars (32.07 s) from 11.13 s, 0.12 s cross-fade |
 | `boss` | Pro Sensory, Dark Forces (Loop) `dark_forces_loop_0` (about 140 BPM) | 16 bars (27.49 s) from 89.19 s, 0.1 s cross-fade; heartbeat (bart `heartbeat_slow_0`, 15 beats per loop, -6 dB, lowpass 300) and a distorted low choir (OwlishMedia `chant12`, pitch x0.7, -14 dB) laid on top, wrapping over the seam |
 | `final` | MintoDog, Heavy Boss Battle 2 (110 BPM) | 8 bars from 104.43 s, pitched down x0.9 (19.43 s), lowpass 5 kHz, tanh drive 1.6, 0.1 s cross-fade; fast heartbeat (17 beats per loop) and two choir voices (`chant21`, pitch x0.6) |
+| `hydro` | Abstraction, Music Loop Bundle: Week 22 The Walking Dunes `EVENING OASIS` (CC0, from the shared library) | native loop, no pitch change, lowpass 6.5 kHz, -16 LUFS |
+| `refinery` | Abstraction: Week 18 Distant Skyline `NIGHT DRIVE` | native loop, lowpass 7 kHz |
+| `wreck` | Abstraction: Week 24 Pull Me Down `DEEP WELL` | native loop, lowpass 7 kHz |
+| `combat` | Abstraction: Week 19 Dark Portents `SHROUDED FUTURE` | native loop, lowpass 6 kHz, volume 0.55 |
 | `gameover` | Paul Wortmann, Dark Cavern Ambient `dark_cavern_ambient_002` | 5.6 s from 40 s, pitch x0.85, 0.4 s fade-in, 2.2 s fade-out, one distorted choir voice (`chant3`, pitch x0.6) |
 | `victory` | SRG774, Dark Sci-Fi Audio Pack `victory_4` | 5.8 s, 1.0 s fade-out |
 

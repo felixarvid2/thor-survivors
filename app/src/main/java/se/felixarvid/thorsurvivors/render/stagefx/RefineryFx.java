@@ -1,7 +1,11 @@
 package se.felixarvid.thorsurvivors.render.stagefx;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.RadialGradient;
+import android.graphics.Rect;
+import android.graphics.Shader;
 
 import se.felixarvid.thorsurvivors.game.Events;
 import se.felixarvid.thorsurvivors.game.Sim;
@@ -28,6 +32,35 @@ final class RefineryFx implements StageFx {
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), line = new Paint(Paint.ANTI_ALIAS_FLAG), text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float[] v = new float[2], fp = new float[2];
+
+    private static final int VIG = 256;
+    private Bitmap vignette;
+    private final Paint vPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Rect vSrc = new Rect(), vDst = new Rect();
+
+    /** Alpha 0..255 of the vignette for a heat level: none up to 50 heat (the burn), full at the limit, pulsing while overheated. */
+    static int vignetteAlpha(float heat, float limit, boolean overheated, float now) {
+        if (heat <= 50f) return 0;
+        float f = Math.min(1f, (heat - 50f) / Math.max(1f, limit - 50f));
+        if (overheated) f = 0.8f + 0.2f * (float) Math.sin(now * 9.0);
+        return Math.max(0, Math.min(255, Math.round(255f * f)));
+    }
+
+    /**
+     * 256 x 256, drawn once: clear in the middle, then two alpha ramps toward the edges: a red-orange glow, and a darker
+     * red-brown rim that only starts near the border. Scaled to any screen it stays smooth (bilinear).
+     */
+    static Bitmap bakeVignette() {
+        Bitmap b = Bitmap.createBitmap(VIG, VIG, Bitmap.Config.ARGB_8888);
+        Canvas cv = new Canvas(b);
+        Paint p = new Paint();
+        float half = VIG / 2f;
+        p.setShader(new RadialGradient(half, half, half * 1.42f,
+                new int[]{0x00FF3A10, 0x00FF3A10, 0x40FF3A10, 0x80E02A0C, 0xB8801408},
+                new float[]{0f, 0.5f, 0.72f, 0.88f, 1f}, Shader.TileMode.CLAMP));
+        cv.drawRect(0, 0, VIG, VIG, p);
+        return b;
+    }
 
     RefineryFx() {
         line.setStyle(Paint.Style.STROKE);
@@ -268,18 +301,13 @@ final class RefineryFx implements StageFx {
             c.drawRect(0, 0, w, h, fill);
         }
         float lim = rl.heatLimit();
-        if (rl.heat > 50f) { // the heat vignette: red-orange edges, layered so they fade inward (from 50 heat, the burn)
-            float f = Math.min(1f, (rl.heat - 50f) / (lim - 50f));
-            if (rl.overheated) f = 0.8f + 0.2f * (float) Math.sin(now * 9.0);
-            int layers = 6, al = (int) (95 * f) / layers + 1;
-            for (int k = 0; k < layers; k++) {
-                float e = (30f + 45f * k) * k1 * (0.7f + 0.5f * f);
-                fill.setColor(argb(al, 0xFF3A10));
-                c.drawRect(0, 0, e, h, fill);
-                c.drawRect(w - e, 0, w, h, fill);
-                c.drawRect(e, 0, w - e, e, fill);
-                c.drawRect(e, h - e, w - e, h, fill);
-            }
+        int va = vignetteAlpha(rl.heat, lim, rl.overheated, now);
+        if (va > 0) { // v1.5 B8 (71): the heat vignette is one pre-baked radial gradient scaled to the screen
+            if (vignette == null) vignette = bakeVignette();
+            vSrc.set(0, 0, VIG, VIG);
+            vDst.set(0, 0, w, h);
+            vPaint.setAlpha(va);
+            c.drawBitmap(vignette, vSrc, vDst, vPaint);
         }
         if (rl.heat > 0.5f) { // a small heat bar under the hero
             float px = r.fxX(s.px), py = r.fxY(s.py) + 12f * k1, bw = 84f * k1, bh = 8f * k1, f = rl.heat / lim;

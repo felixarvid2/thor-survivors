@@ -30,7 +30,10 @@ public final class Engine {
     public final Object lock = new Object();
     /** Largest simulation step; a longer frame is split into equal substeps no bigger than this. */
     public static final float MAX_STEP = 1f / 60f;
-    public static final float MAX_FRAME = 0.1f;
+    /** v1.5 B8: at most this many simulation steps per rendered frame, so a stall can never spiral (see {@link #stepsFor}). */
+    public static final int MAX_STEPS = 5;
+    /** Longest frame the simulation follows (5 steps of just under 1/60 s); a longer one is cut, the game slows instead. */
+    public static final float MAX_FRAME = MAX_STEPS * MAX_STEP * 1.05f;
 
     public final Input input = new Input();
     /** Sound events for {@code audio.AudioEngine}; shared by every run (the Sim is given this instance). */
@@ -127,11 +130,16 @@ public final class Engine {
     public void advance(float frameDt) {
         if (frameDt <= 0f) return;
         if (frameDt > MAX_FRAME) frameDt = MAX_FRAME;
-        int n = Math.max(1, (int) Math.ceil(frameDt / (MAX_STEP * 1.05f)));
+        int n = stepsFor(frameDt);
         float h = frameDt / n;
         synchronized (lock) {
             for (int i = 0; i < n; i++) update(h);
         }
+    }
+
+    /** Substeps for a frame of {@code frameDt} s: every one is at most {@link #MAX_STEP}, never more than {@link #MAX_STEPS}. */
+    public static int stepsFor(float frameDt) {
+        return Math.max(1, Math.min(MAX_STEPS, (int) Math.ceil(Math.min(frameDt, MAX_FRAME) / (MAX_STEP * 1.05f))));
     }
 
     public void update(float dt) {

@@ -11,6 +11,8 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 
+import se.felixarvid.thorsurvivors.game.Engine;
+import se.felixarvid.thorsurvivors.game.Input;
 import se.felixarvid.thorsurvivors.ui.PanelView;
 
 /**
@@ -32,8 +34,10 @@ final class DualScreenManager implements DisplayManager.DisplayListener {
     private PanelPresentation presentation;
     private PanelView overlay;
     private boolean started;
+    private final PauseGuard guard;
 
-    DualScreenManager(Activity host, FrameLayout root, GameView gameView) {
+    DualScreenManager(Activity host, FrameLayout root, GameView gameView, PauseGuard guard) {
+        this.guard = guard;
         this.host = host;
         this.root = root;
         this.gameView = gameView;
@@ -78,6 +82,8 @@ final class DualScreenManager implements DisplayManager.DisplayListener {
     void refresh() {
         if (!started) return;
         Display d = findSecondary();
+        // v1.5 B8 (80): the second screen went away in the middle of a run: pause, and wait for the player
+        if (guard.screensChanged(d != null)) Engine.get().input.post(Input.CMD_AUTOPAUSE, 0, 0, 0);
         if (d == null) {
             teardownSecondary();
             showOverlay();
