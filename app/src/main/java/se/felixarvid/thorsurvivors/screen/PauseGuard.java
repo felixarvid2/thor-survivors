@@ -1,16 +1,24 @@
 package se.felixarvid.thorsurvivors.screen;
 
 /**
- * v1.5 B8 (item 80): when the run pauses by itself. Losing window focus (a system shade, another app) or the second
- * screen going away pauses the run; it stays paused until the player gives input (the game already waits in
- * {@code PH_PAUSED} for a button), so regaining focus never resumes it. Pure state, no android.*.
+ * v1.5 B8 (item 80): when the run pauses by itself. The Activity pausing (another app, the system shade over the app,
+ * the screen turning off) or the second screen going away pauses the run; it stays paused until the player gives input
+ * (the game already waits in {@code PH_PAUSED} for a button), so coming back never resumes it. Pure state, no android.*.
+ *
+ * <p>v1.5 integration: losing window focus alone does NOT pause. On the dual-screen AYN Thor a tap on the bottom screen
+ * moves focus to the panel window (Presentation or SecondaryActivity) while the game keeps running, so a focus-based
+ * pause would stop the run on every touch of the bottom screen.
  */
 final class PauseGuard {
     private boolean dual, dualKnown, held;
 
-    /** The main window gained or lost focus. True = post an auto-pause now. */
+    /** The main window gained or lost focus. Never pauses (see the class note); always false. */
     boolean focusChanged(boolean hasFocus) {
-        if (hasFocus) return false;
+        return false;
+    }
+
+    /** The Activity went to onPause. True = post an auto-pause now (held until the player presses something). */
+    boolean activityPaused() {
         held = true;
         return true;
     }

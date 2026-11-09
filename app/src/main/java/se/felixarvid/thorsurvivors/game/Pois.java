@@ -172,7 +172,7 @@ public final class Pois {
     public void startHaste() {
         hasteUntil = s.time + HASTE_TIME;
         s.recomputeAll();
-        s.sound.emit(SoundEvents.EVOLUTION);
+        s.sound.emit(SoundEvents.SHRINE_ACTIVATE); // v1.5 integration: B8 sound id 57 (was EVOLUTION)
         s.addFx(Entities.FX_FLASH, s.px, s.py - 20f, 120f, 0f, 0.3f, 0, false);
         s.toast("SHRINE OF HASTE  -  +20% SPEED (60 S)", 0xFFFFD84A);
     }

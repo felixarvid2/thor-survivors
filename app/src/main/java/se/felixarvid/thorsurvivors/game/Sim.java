@@ -2016,7 +2016,11 @@ public final class Sim {
         lastCrit = crit;
         if (crit) dmg *= critMul;
         if (e.armor > 0f) dmg = Math.max(dmg * 0.4f, dmg - e.armor); // the Armored elite: 3 off every hit
-        if (e.mods != 0) dmg = elites.shieldedDamage(e, dmg); // v1.5 B6: the Shielded elite's frontal arc
+        if (e.mods != 0) {
+            float before = dmg;
+            dmg = elites.shieldedDamage(e, dmg); // v1.5 B6: the Shielded elite's frontal arc
+            if (dmg < before) sound.emit(SoundEvents.ELITE_SHIELD_BLOCK); // v1.5 integration: B8 sound id 54
+        }
         if (e.shieldT > 0f) dmg = 0f; // v1.5 B6: a boss in its phase-change shield takes nothing
         dmg = rules.damageIn(e, dmg, StageRules.CAT_HIT); // stage hook (v1.4): e.g. Ironclad takes less from hits
         run.add(Math.min(dmg, e.hp)); // v1.5 B3: what the hit really took off, for the results screen

@@ -112,9 +112,18 @@ public final class HudInfo {
 
     /** True when the boss has enraged (Slagborn, Overseer Unit 7). */
     public static boolean enraged(Enemy b) {
-        // v1.5 B2: reads Enemy.enraged, which exists today. Batch 6 adds a boss enrage flag for the other bosses:
-        // OR it in here when it lands (MARKED STUB, nothing else to change in the panel).
-        return b.enraged;
+        // v1.5 integration: the pattern enrage (Slagborn, Overseer Unit 7) or B6's time enrage of every boss
+        return b.enraged || BossAi.enraged(b);
+    }
+
+    /** v1.5 integration: seconds until B6's time enrage (0 once enraged), for the countdown on the boss panel. */
+    public static float enrageIn(Enemy b) {
+        return BossAi.enrageIn(b);
+    }
+
+    /** v1.5 integration: seconds of B6's phase shield left (0 = none): the boss takes no damage meanwhile. */
+    public static float phaseShield(Enemy b) {
+        return BossAi.phaseShield(b);
     }
 
     public static final int NA_NONE = 0, NA_LINE = 1, NA_AREA = 2;
@@ -124,8 +133,8 @@ public final class HudInfo {
      * mat, a pulse). NONE between attacks.
      */
     public static int nextAttack(Enemy b) {
-        // v1.5 B2 STUB: batch 6 adds the real "next attack" info to the boss. Until then only the windup the boss is in can be
-        // read from the state that exists (EnemyAi.A_TELE with a telegraph time): this is the one place to swap.
+        // v1.5 integration: B6 added no separate "next attack" state, so the windup the boss is in (BossAi.BA_WINDUP with a
+        // telegraph time) stays the source; the phase shield and the enrage countdown come from enrageIn / phaseShield.
         if (b.ai != BossAi.BA_WINDUP || b.tele <= 0f) return NA_NONE;
         return b.teleLen > 0f ? NA_LINE : NA_AREA;
     }

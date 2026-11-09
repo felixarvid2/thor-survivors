@@ -86,12 +86,12 @@ public final class PanelRenderer {
     private float frameDt = 1f / 60f;
     /** Tests: a fixed frame time (seconds) instead of the clock, so smooth bars and pulses are the same on every run; negative = the clock. */
     public float dtOverride = -1f;
-    /** Tests only: stands in for the large-text setting until batch 3's Settings exists (see {@link #largeTextSetting}). */
+    /** Tests only: forces large text on without touching the saved setting (see {@link #largeTextSetting}). */
     public static boolean forceLargeText;
 
-    /** v1.5 B2 STUB (the setting is owned by batch 3): replace the body with {@code Settings.largeText()} when it lands. Off by default. */
+    /** v1.5 integration: B3's LARGE TEXT option (or the test override). */
     private static boolean largeTextSetting() {
-        return forceLargeText;
+        return forceLargeText || se.felixarvid.thorsurvivors.game.Settings.get().largeText();
     }
 
     public PanelRenderer(boolean compact) {
@@ -731,7 +731,15 @@ public final class PanelRenderer {
             // the attack it is winding up: a line (charge) or an area glyph with the seconds, else a dim "stalking"
             int na = HudInfo.nextAttack(b);
             float gy = y + 44f * u;
-            if (na == HudInfo.NA_NONE) {
+            float shT = HudInfo.phaseShield(b), enIn = HudInfo.enrageIn(b);
+            if (na == HudInfo.NA_NONE && shT > 0f) { // v1.5 integration: B6's phase shield (no damage meanwhile)
+                int tenths = (int) Math.ceil(shT * 10f);
+                k.glyph(c, Skin.G_SHIELD, tx + 12f * u, gy, 12f * u, Skin.LUMEN);
+                k.text(c, cs(120, "PHASE SHIELD ", tenths / 10, ".", tenths % 10, "S"), tx + 34f * u, gy + 8f * u, 22f * u, Skin.LUMEN, Paint.Align.LEFT);
+            } else if (na == HudInfo.NA_NONE && !enr && enIn > 0f && enIn <= 30f) { // v1.5 integration: B6's enrage countdown
+                k.glyph(c, Skin.G_FIRE, tx + 12f * u, gy, 12f * u, pulse > 0.5f ? 0xFFFF6A3C : 0xFFB04A2A);
+                k.text(c, cs(121, "ENRAGE IN ", (int) Math.ceil(enIn), "S"), tx + 34f * u, gy + 8f * u, 22f * u, 0xFFFF9A7A, Paint.Align.LEFT);
+            } else if (na == HudInfo.NA_NONE) {
                 k.glyph(c, Skin.G_RING, tx + 12f * u, gy, 12f * u, 0xFF5A5048);
                 k.body(c, "NO ATTACK QUEUED", tx + 34f * u, gy + 7f * u, 20f * u, 0xFF6F655A, Paint.Align.LEFT);
             } else {
@@ -1153,7 +1161,8 @@ public final class PanelRenderer {
         c.drawPath(path, fill);
     }
 
-    private static final int POI_ORANGE = 0xFFFF8A2A, POI_GREY = 0xFF6E7378, POI_GREEN = 0xFF39FF88, POI_BLUE = 0xFF40A8FF, POI_GOLD = 0xFFFFD84A;
+    private static final int POI_ORANGE = 0xFFFF8A2A, POI_GREY = 0xFF6E7378, POI_GREEN = 0xFF39FF88, POI_BLUE = 0xFF40A8FF, POI_GOLD = 0xFFFFD84A,
+            POI_SHRINE = 0xFFFFE680, POI_CACHE = 0xFFB050FF; // v1.5 integration: B5 places
 
     /** A diamond (or a square) marker of the places, black outlined; one path reused. */
     private void poiMark(Canvas c, float mx, float my, float z, int color, boolean square) {
@@ -1204,6 +1213,19 @@ public final class PanelRenderer {
             float dx = (p.termX[i] - s.px) * kk, dy = (p.termY[i] - s.py) * kk;
             if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
             poiMark(c, cx + dx, cy + dy, 10f * u, POI_BLUE, false);
+        }
+        for (int i = 0; i < p.spotN; i++) { // v1.5 integration: B5's Shrine of Haste (yellow-white dot in a ring) and Cursed Cache (violet square)
+            if (p.spotUsed(i)) continue;
+            float dx = (p.spotX[i] - s.px) * kk, dy = (p.spotY[i] - s.py) * kk;
+            if (Math.abs(dx) > lim || Math.abs(dy) > lim) continue;
+            if (p.spotKind[i] == Pois.SP_SHRINE) {
+                fill.setColor(0xFF05080A);
+                c.drawCircle(cx + dx, cy + dy, 11f * u, fill);
+                fill.setColor(POI_SHRINE);
+                c.drawCircle(cx + dx, cy + dy, 8f * u * pulse, fill);
+                fill.setColor(0xFFFFFFFF);
+                c.drawCircle(cx + dx, cy + dy, 3f * u, fill);
+            } else poiMark(c, cx + dx, cy + dy, 10f * u, POI_CACHE, true);
         }
         if (p.hasVault && p.vaultFound && p.vaultState != Pois.V_DONE) {
             float dx = (p.vaultX - s.px) * kk, dy = (p.vaultY - s.py) * kk;

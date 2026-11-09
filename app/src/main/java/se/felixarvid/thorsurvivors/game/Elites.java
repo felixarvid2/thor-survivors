@@ -23,7 +23,7 @@ public final class Elites {
     /** The marker colour of each modifier (the outline and the floor ring), ARGB. */
     public static final int[] COLORS = {0xFFFF8A2A, 0xFF40D8FF, 0xFFFF3B1F, 0xFFFFD030, 0xFF3DBE5A, 0xFFB0B8C0,
             0xFF5A9BFF, 0xFFC070FF, 0xFFFF6A00};
-    /** The skin glyph of each modifier (Skin.G_*: 0..5 are the old six, 8 shield, 9 split, 10 blast). */
+    /** The skin glyph of each modifier (Skin.G_*: 0..5 are the old six, 11 shield, 12 split, 13 blast). */
     private static final int[] GLYPH = {0, 1, 2, 3, 4, 5, 11, 12, 13}; // Skin.G_SHIELD, G_SPLIT, G_BLAST (8-10 are B2 glyphs)
     /** v1.5 B6: Shielded elites only come from this run time (8:00). */
     public static final float SHIELDED_FROM = 480f;
@@ -164,6 +164,7 @@ public final class Elites {
         float dmg = VOLATILE_PCT * s.maxHp + (float) s.stats.armor; // the blast subtracts armor: the hero loses a clean 20%
         Entities.Hazard h = s.ai.addHazard(Entities.HZ_BOMB, e.x, e.y, VOLATILE_R, 0.4f, dmg, VOLATILE_WARN);
         if (h != null) h.variant = Entities.BV_VOLCANO;
+        s.sound.emit(SoundEvents.VOLATILE_PULSE); // v1.5 integration: B8 sound id 55
     }
 
     // dead Splitters wait here until the reap pass is over (spawning inside it would swap the new enemies away)
@@ -175,6 +176,7 @@ public final class Elites {
     void onDeath(Enemy e) {
         if ((e.mods & M_VOLATILE) != 0) volatileBlast(e);
         if ((e.mods & M_SPLITTER) != 0 && splN < splX.length) {
+            s.sound.emit(SoundEvents.SPLITTER_POP); // v1.5 integration: B8 sound id 56
             splX[splN] = e.x;
             splY[splN] = e.y;
             splHp[splN] = e.maxHp * SPLIT_HP;

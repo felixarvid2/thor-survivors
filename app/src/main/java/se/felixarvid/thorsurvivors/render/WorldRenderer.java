@@ -37,7 +37,9 @@ import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.MetaProgress;
+import se.felixarvid.thorsurvivors.game.Settings;
 import se.felixarvid.thorsurvivors.game.Sim;
+import se.felixarvid.thorsurvivors.game.TelegraphPalette;
 import se.felixarvid.thorsurvivors.game.WorldGen;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Clip;
 import se.felixarvid.thorsurvivors.game.stage.RefineryRules;
@@ -121,7 +123,7 @@ public final class WorldRenderer {
             fRedAdd = new LightingColorFilter(0xFFFF5040, 0), fGold = new LightingColorFilter(0xFFFFE080, 0);
 
     // elites and equipment (design phases 9 and 10): the outline tint of each modifier, the rarity glow of a crate
-    private final ColorFilter[] fMod = new ColorFilter[Elites.COUNT];
+    private final ColorFilter[] fMod = new ColorFilter[Elites.COUNT], fModCb = new ColorFilter[Elites.COUNT]; // v1.5 integration: the colorblind set
     private final ColorFilter fLumen = new LightingColorFilter(0xFF39FF88, 0);
     private final ColorFilter[] fRar = {new LightingColorFilter(0xFFC8CCD4, 0), new LightingColorFilter(0xFF4FA8FF, 0),
             new LightingColorFilter(0xFFFFD84A, 0), new LightingColorFilter(0xFFFF8A2A, 0)};
@@ -198,9 +200,12 @@ public final class WorldRenderer {
         shade[SHADES] = null; // fully lit props and pickups need no filter
         // a ColorFilter creates its native object when a Paint carrying it is first used for drawing (Paint.getNativeInstance), not on
         // setColorFilter: draw one pixel with each of them now, so no filter is created mid-frame
-        for (int i = 0; i < Elites.COUNT; i++) fMod[i] = new PorterDuffColorFilter(Elites.COLORS[i], PorterDuff.Mode.SRC_ATOP);
+        for (int i = 0; i < Elites.COUNT; i++) {
+            fMod[i] = new PorterDuffColorFilter(Elites.COLORS[i], PorterDuff.Mode.SRC_ATOP);
+            fModCb[i] = new PorterDuffColorFilter(TelegraphPalette.TO_COLORS[i], PorterDuff.Mode.SRC_ATOP);
+        }
         ColorFilter[][] all = {shade, shadeLift, {fWhite, fBright, fRed, fIce, fCyan, fGreen, fViolet, fOrange, fRedAdd, fGold},
-                fMod, fRar};
+                fMod, fModCb, fRar};
         Canvas primer = new Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888));
         for (ColorFilter[] set : all) {
             for (ColorFilter f : set) {
@@ -893,7 +898,7 @@ public final class WorldRenderer {
             float prog = (ph - (Pois.VENT_PERIOD - Pois.VENT_WARN)) / Pois.VENT_WARN;
             warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 18f));
             float ir = r * prog;
-            fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (40 + 90 * prog) << 24) | teleRgb());
             c.drawOval(cx - ir, cy - ir * 0.8f, cx + ir, cy + ir * 0.8f, fill);
             glow(c, atlas.img("vfx.embers_0"), cx, cy - r * 0.2f, r * 1.2f * prog, t * 40f, null, (int) (120 * prog));
         }
@@ -1394,6 +1399,7 @@ public final class WorldRenderer {
 
         drawTelegraphs(c, s, t);
         drawEliteRings(c, s, t);
+        drawShields(c, s, t); // v1.5 integration: B6 Shielded arcs and boss phase shields
 
         // 3. enemies + player (visible only), strictly ordered by (feet y, id)
         int n = 0, nb = 0;
@@ -1593,7 +1599,7 @@ public final class WorldRenderer {
             if (mi >= 0) {
                 float pulse = 0.5f + 0.5f * (float) Math.sin(now * 5.5);
                 int o = Math.max(2, Math.round(3.5f * ks));
-                bmp.setColorFilter(fMod[mi]);
+                bmp.setColorFilter(TelegraphPalette.mode == TelegraphPalette.MODE_SHAPES ? fModCb[mi] : fMod[mi]); // v1.5 integration
                 bmp.setAlpha((int) (120 + 135 * pulse));
                 for (int k = 0; k < 4; k++) {
                     int ox2 = (k & 1) == 0 ? o : -o, oy2 = (k & 2) == 0 ? o : -o;
@@ -1749,7 +1755,7 @@ public final class WorldRenderer {
         int dir = dirOf(dvx, dvy);
         if (dvx != 0f || dvy != 0f) playerDir = dir;
         else dir = playerDir;
-        ColorFilter cf = vfx.heroFlash > 0f ? fWhite : shadeAt(px, py - 30f * ks, FLOOR_PLAYER); // v1.5 B1: a 0.1 s white flash
+        ColorFilter cf = vfx.heroFlash > 0f ? fWhite : heroShade(s, px, py - 30f * ks); // v1.5 B1: a 0.1 s white flash; v1.5 integration: B4 tint
         bmp.setColorFilter(cf);
         bmp.setAlpha(255);
         float atk = s.hero != null ? s.lastMainAttack : s.lastAttack;
@@ -1784,6 +1790,29 @@ public final class WorldRenderer {
             drawFrameAt(c, m, SpriteAtlas.C_IDLE, dir, SpriteAtlas.frameAt(m.clip(SpriteAtlas.C_IDLE), (float) now, 1.5f), px, py, ks, 1f, 1f, 0, bmp);
         }
         bmp.setColorFilter(null);
+    }
+
+    // ---- v1.5 integration: the hero's worn cosmetic tint (B4, MetaProgress.tint) multiplied into the light step
+    private static final float HERO_TINT_MIX = 0.45f;
+    private final ColorFilter[] tintShade = new ColorFilter[SHADES + 1];
+    private int tintShadeCol;
+
+    /** The light filter of the hero at a point, with the worn tint mixed in (filters rebuilt only when the tint changes). */
+    private ColorFilter heroShade(Sim s, float x, float y) {
+        se.felixarvid.thorsurvivors.game.MetaProgress meta = Engine.get().meta;
+        int tc = s.hero == null || meta == null ? 0 : meta.tint(s.hero.key);
+        if (tc == 0) return shadeAt(x, y, FLOOR_PLAYER);
+        if (tc != tintShadeCol) {
+            tintShadeCol = tc;
+            float r = 1f - HERO_TINT_MIX + HERO_TINT_MIX * ((tc >> 16) & 255) / 255f, g = 1f - HERO_TINT_MIX + HERO_TINT_MIX * ((tc >> 8) & 255) / 255f,
+                    b = 1f - HERO_TINT_MIX + HERO_TINT_MIX * (tc & 255) / 255f;
+            for (int i = 0; i <= SHADES; i++) {
+                float v = 255f * i / SHADES;
+                tintShade[i] = new LightingColorFilter(0xFF000000 | Math.round(v * r) << 16 | Math.round(v * g) << 8 | Math.round(v * b), 0);
+            }
+        }
+        int i = shadeIndex(x, y, FLOOR_PLAYER);
+        return tintShade[i < 0 ? SHADES : i];
     }
 
     /** Aim indicator at the player's feet: a short tick and a chevron pointing where the main weapon fires. */
@@ -2137,13 +2166,40 @@ public final class WorldRenderer {
 
     /** Warn ring: red-orange with a black outline, full brightness (telegraphs are never dimmed). */
     private void warnRing(Canvas c, float cx, float cy, float r, float pulse) {
-        stroke.setStrokeWidth(5f * ks);
+        Settings st = Settings.get(); // v1.5 integration: B3 "Telegraphs: Shapes" (blue hatched fill, bold orange edge)
+        float em = st.telegraphEdgeMul();
+        stroke.setStrokeWidth(5f * ks * em);
         stroke.setColor(0xDD000000);
         c.drawOval(cx - r, cy - r * 0.8f, cx + r, cy + r * 0.8f, stroke);
-        stroke.setStrokeWidth(2.5f * ks);
-        stroke.setColor(0xFFFF3B1F);
+        if (st.hatched()) hatchOval(c, cx, cy, r);
+        stroke.setStrokeWidth(2.5f * ks * em);
+        stroke.setColor(st.telegraphEdge(0xFFFF3B1F));
         c.drawOval(cx - r, cy - r * 0.8f, cx + r, cy + r * 0.8f, stroke);
-        glow(c, atlas.img("vfx.warn_ring_0"), cx, cy, r * 2.05f, 0f, null, (int) (150 + 90 * pulse));
+        if (!st.hatched()) glow(c, atlas.img("vfx.warn_ring_0"), cx, cy, r * 2.05f, 0f, null, (int) (150 + 90 * pulse));
+    }
+
+    /** v1.5 integration: the RGB of a danger fill (the stage red, or B3's Shapes blue), to OR under an alpha. */
+    private static int teleRgb() {
+        return Settings.get().telegraphFill(0xFFFF3B1F) & 0xFFFFFF;
+    }
+
+    private final android.graphics.Path hatchPath = new android.graphics.Path();
+    private final RectF hatchRect = new RectF();
+
+    /** v1.5 integration: diagonal hatching inside a ground ellipse (Shapes mode), the same look as the options preview. */
+    private void hatchOval(Canvas c, float cx, float cy, float r) {
+        c.save();
+        hatchPath.reset();
+        hatchRect.set(cx - r, cy - r * 0.8f, cx + r, cy + r * 0.8f);
+        hatchPath.addOval(hatchRect, android.graphics.Path.Direction.CW);
+        c.clipPath(hatchPath);
+        fill.setColor(Settings.SHAPES_FILL);
+        c.drawOval(hatchRect, fill);
+        stroke.setColor(0xCC9CC4FF);
+        stroke.setStrokeWidth(3f * ks);
+        float step = 16f * ks;
+        for (float o = -2f * r; o <= 2f * r; o += step) c.drawLine(cx + o - r, cy + r, cx + o + r, cy - r, stroke);
+        c.restore();
     }
 
     /** Slag pools, spore clouds and frost patches lie on the ground; a pool that is still warning shows only its ring. */
@@ -2236,7 +2292,7 @@ public final class WorldRenderer {
             float prog = 1f - h.warn / Math.max(0.01f, h.warnMax);
             warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 16f));
             float ir = r * prog;
-            fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (40 + 90 * prog) << 24) | teleRgb());
             c.drawOval(cx - ir, cy - ir * 0.8f, cx + ir, cy + ir * 0.8f, fill);
             float fall = (1f - prog) * (1f - prog) * 340f * ks; // lobbed: it comes down from above the ring
             if (h.variant == Entities.BV_STOMP) return;
@@ -2287,7 +2343,7 @@ public final class WorldRenderer {
         c.rotate(deg, cx, cy);
         if (h.warn > 0f) {
             float prog = 1f - h.warn / Math.max(0.01f, h.warnMax);
-            fill.setColor(((int) (30 + 50 * prog) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (30 + 50 * prog) << 24) | teleRgb());
             c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
             stroke.setStrokeWidth(2.5f * ks);
             stroke.setColor(0xFF000000);
@@ -2300,7 +2356,7 @@ public final class WorldRenderer {
             float k = Math.min(1f, h.life * 2.5f);
             fill.setColor(0xFF000000);
             c.drawRect(cx, cy - wd / 2f - 3f * ks, cx + len, cy + wd / 2f + 3f * ks, fill);
-            fill.setColor(((int) (200 * k) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (200 * k) << 24) | teleRgb());
             c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
             Img beam = atlas.img("vfx.lumen_beam");
             if (beam != null) {
@@ -2335,7 +2391,7 @@ public final class WorldRenderer {
                     float r = e.type.def.param("hitR", 34f) * sc;
                     int tx = sx(e.ax), ty = sy(e.ay);
                     warnRing(c, tx, ty, r, 0.5f + 0.5f * (float) Math.sin(t * 20f));
-                    fill.setColor(((int) (40 + 100 * prog) << 24) | 0xFF3B1F);
+                    fill.setColor(((int) (40 + 100 * prog) << 24) | teleRgb());
                     c.drawOval(tx - r * prog, ty - r * prog * 0.8f, tx + r * prog, ty + r * prog * 0.8f, fill);
                     glow(c, atlas.img("vfx.spores_0"), tx, ty, r * 1.6f, t * 40f, fGreen, (int) (60 + 120 * prog));
                     break;
@@ -2347,20 +2403,14 @@ public final class WorldRenderer {
                     c.rotate(deg, cx, cy);
                     fill.setColor(0xFF000000);
                     c.drawRect(-3f * ks + cx, cy - wd / 2f - 3f * ks, cx + len + 3f * ks, cy + wd / 2f + 3f * ks, fill);
-                    fill.setColor(0xFF4A1208);
-                    c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
-                    fill.setColor(0xFFFF3B1F);
-                    c.drawRect(cx, cy - wd / 2f, cx + len * prog, cy + wd / 2f, fill);
-                    stroke.setStrokeWidth(2.5f * ks);
-                    stroke.setColor(0xFFFF7A3A);
-                    c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, stroke);
+                    chargeBody(c, cx, cy, len, wd, prog); // v1.5 integration: Shapes mode
                     c.restore();
                     break;
                 }
                 case EnemyDef.ARCH_EXPLODER: {
                     float r = e.type.def.param("cloudR", 90f) * sc;
                     warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 30f));
-                    fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+                    fill.setColor(((int) (40 + 90 * prog) << 24) | teleRgb());
                     c.drawOval(cx - r * prog, cy - r * prog * 0.8f, cx + r * prog, cy + r * prog * 0.8f, fill);
                     break;
                 }
@@ -2393,7 +2443,7 @@ public final class WorldRenderer {
                 if (e.ai == BossAi.BA_PULL_TELE && e.tele > 0f) {
                     float prog = 1f - e.tele / Math.max(0.01f, e.teleMax);
                     warnRing(c, cx, cy, range, 0.5f + 0.5f * (float) Math.sin(t * 18f));
-                    fill.setColor(((int) (20 + 60 * prog) << 24) | 0xFF3B1F);
+                    fill.setColor(((int) (20 + 60 * prog) << 24) | teleRgb());
                     c.drawOval(cx - range, cy - range * 0.8f, cx + range, cy + range * 0.8f, fill);
                     for (int k = 0; k < 8; k++) { // arrows pointing in: it is going to pull
                         float a = k * 0.7853982f + 0.2f, r0 = range * (0.95f - 0.4f * ((prog * 3f + k * 0.125f) % 1f)), r1 = r0 - 28f * ks;
@@ -2470,10 +2520,10 @@ public final class WorldRenderer {
                     c.drawOval(rx - wd * 0.42f, ly - wd * 0.34f, rx + wd * 0.42f, ly + wd * 0.34f, stroke);
                 }
             } else {
-                fill.setColor(((int) (36 + 100 * prog) << 24) | 0xFF3B1F);
+                fill.setColor(((int) (36 + 100 * prog) << 24) | teleRgb());
                 c.drawRect(lx - len / 2f, ly - wd / 2f, lx + len / 2f, ly + wd / 2f, fill);
                 stroke.setStrokeWidth(5f * ks);
-                stroke.setColor(((int) (70 + 90 * prog) << 24) | 0xFF3B1F);
+                stroke.setColor(((int) (70 + 90 * prog) << 24) | teleRgb());
                 for (float h = -len / 2f; h < len / 2f; h += 90f * ks) c.drawLine(lx + h, ly - wd / 2f, lx + h + wd * 0.6f, ly + wd / 2f, stroke);
                 stroke.setStrokeWidth(5.5f * ks);
                 stroke.setColor(0xFF000000);
@@ -2492,14 +2542,29 @@ public final class WorldRenderer {
         c.rotate(deg, cx, cy);
         fill.setColor(0xFF000000);
         c.drawRect(-3f * ks + cx, cy - wd / 2f - 3f * ks, cx + len + 3f * ks, cy + wd / 2f + 3f * ks, fill);
-        fill.setColor(0xFF4A1208);
-        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
-        fill.setColor(0xFFFF3B1F);
-        c.drawRect(cx, cy - wd / 2f, cx + len * prog, cy + wd / 2f, fill);
-        stroke.setStrokeWidth(2.5f * ks);
-        stroke.setColor(0xFFFF7A3A);
-        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, stroke);
+        chargeBody(c, cx, cy, len, wd, prog);
         c.restore();
+    }
+
+    /** v1.5 integration: the lane of a charge in the rotated frame, in the standard red or B3's Shapes blue with hatching. */
+    private void chargeBody(Canvas c, int cx, int cy, float len, float wd, float prog) {
+        Settings st = Settings.get();
+        boolean sh = st.hatched();
+        fill.setColor(sh ? 0xFF10243C : 0xFF4A1208);
+        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
+        fill.setColor(sh ? 0xFF3C8CFF : 0xFFFF3B1F);
+        c.drawRect(cx, cy - wd / 2f, cx + len * prog, cy + wd / 2f, fill);
+        if (sh) {
+            c.save();
+            c.clipRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f);
+            stroke.setColor(0xCC9CC4FF);
+            stroke.setStrokeWidth(3f * ks);
+            for (float o = 0f; o <= len + wd; o += 16f * ks) c.drawLine(cx + o - wd, cy + wd / 2f, cx + o, cy - wd / 2f, stroke);
+            c.restore();
+        }
+        stroke.setStrokeWidth(2.5f * ks * st.telegraphEdgeMul());
+        stroke.setColor(st.telegraphEdge(0xFFFF7A3A));
+        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, stroke);
     }
 
     /**
@@ -2513,10 +2578,10 @@ public final class WorldRenderer {
         c.save();
         c.translate(ox, oy);
         c.rotate(deg);
-        fill.setColor(((int) (46 + 80 * prog) << 24) | 0xFF3B1F); // the unsafe half: x < 0
+        fill.setColor(((int) (46 + 80 * prog) << 24) | teleRgb()); // the unsafe half: x < 0
         c.drawRect(-far, -far, 0f, far, fill);
         stroke.setStrokeWidth(5f * ks);
-        stroke.setColor(((int) (70 + 90 * prog) << 24) | 0xFF3B1F);
+        stroke.setColor(((int) (70 + 90 * prog) << 24) | teleRgb());
         for (float k = -far; k < far; k += 110f * ks) c.drawLine(0f, k, -far, k + far, stroke); // hazard hatching
         stroke.setStrokeWidth(8f * ks);
         stroke.setColor(0xFF000000);
@@ -2542,6 +2607,51 @@ public final class WorldRenderer {
         c.restore();
     }
 
+    // ------------------------------------------------------------------ v1.5 integration: B6 shields on the floor
+
+    /**
+     * The frontal 120 degree arc of every Shielded elite while its shield is up (Elites.faceA, eshT; the arc blocks 70 % of
+     * hits from inside it), and a lumen ring with the hex shield glow round a boss in its phase-change shield
+     * (BossAi.phaseShield). One pass over the live enemies, no allocation.
+     */
+    private void drawShields(Canvas c, Sim s, float t) {
+        for (int i = 0; i < s.enemyN; i++) {
+            Enemy e = s.enemies[i];
+            if (e.dead || e.dormant) continue;
+            boolean arc = (e.mods & Elites.M_SHIELDED) != 0 && e.eshT > 0f;
+            float ps = BossAi.phaseShield(e);
+            if (!arc && ps <= 0f) continue;
+            int cx = sx(e.x), cy = sy(e.y);
+            if (cx < -300 || cx > scrW + 300 || cy < -300 || cy > scrH + 300) continue;
+            if (arc) {
+                float r = e.radius * sc * 1.55f + 6f * ks, deg = e.faceA * 57.29578f;
+                float k = Math.min(1f, e.eshT / 0.25f); // fades in the last quarter second before it drops
+                int col = TelegraphPalette.map(Elites.COLORS[6]) & 0xFFFFFF;
+                rect.set(cx - r, cy - 14f * ks - r * 0.8f, cx + r, cy - 14f * ks + r * 0.8f);
+                stroke.setStrokeWidth(9f * ks);
+                stroke.setColor(((int) (170 * k)) << 24);
+                c.drawArc(rect, deg - 60f, 120f, false, stroke);
+                stroke.setStrokeWidth(5f * ks);
+                stroke.setColor(((int) (235 * k)) << 24 | col);
+                c.drawArc(rect, deg - 60f, 120f, false, stroke);
+                stroke.setStrokeWidth(2f * ks);
+                stroke.setColor(((int) (200 * k)) << 24 | 0xE8F4FF);
+                c.drawArc(rect, deg - 52f, 104f, false, stroke);
+            }
+            if (ps > 0f) {
+                float pu = 0.5f + 0.5f * (float) Math.sin(t * 14f), k = Math.min(1f, ps / 0.2f);
+                float r = e.radius * sc * 1.35f + 10f * ks;
+                glow(c, atlas.img("vfx.hex_shield_0"), cx, cy - 20f * ks, r * 2.3f, t * 20f, fCyan, (int) ((120 + 80 * pu) * k));
+                stroke.setStrokeWidth(6f * ks);
+                stroke.setColor(((int) (150 * k)) << 24);
+                c.drawOval(cx - r, cy - 20f * ks - r * 0.85f, cx + r, cy - 20f * ks + r * 0.85f, stroke);
+                stroke.setStrokeWidth(3f * ks);
+                stroke.setColor(((int) ((180 + 70 * pu) * k)) << 24 | 0x39FF88);
+                c.drawOval(cx - r, cy - 20f * ks - r * 0.85f, cx + r, cy - 20f * ks + r * 0.85f, stroke);
+            }
+        }
+    }
+
     /** An elite's floor ring: 2 px, in the colour of one of its modifiers, pulsing (the outline on the sprite is drawn with the creature). */
     private void drawEliteRings(Canvas c, Sim s, float t) {
         Enemy e = s.eliteNow;
@@ -2552,7 +2662,7 @@ public final class WorldRenderer {
         if (mi < 0) return;
         float pu = 0.5f + 0.5f * (float) Math.sin(t * 5.5f), r = e.radius * sc * (1.25f + 0.1f * pu);
         stroke.setStrokeWidth(2f * ks);
-        stroke.setColor((((int) (150 + 100 * pu)) << 24) | (Elites.COLORS[mi] & 0xFFFFFF));
+        stroke.setColor((((int) (150 + 100 * pu)) << 24) | (TelegraphPalette.map(Elites.COLORS[mi]) & 0xFFFFFF)); // v1.5 integration: colorblind palette
         c.drawOval(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.55f, stroke);
         stroke.setStrokeWidth(1f * ks);
         stroke.setColor(0x99000000);
@@ -2561,7 +2671,7 @@ public final class WorldRenderer {
 
     /** The live elite's bar and the names of its modifiers over its head. */
     private void drawEliteBar(Canvas c, Enemy e, int px, int py, int headPx) {
-        bar(c, px, py - headPx - 22, Math.max(110, headPx), 8, e.hp / e.maxHp, 0xFF2A1508, Elites.COLORS[Math.max(0, Elites.indexOf(e.mods, 0))]);
+        bar(c, px, py - headPx - 22, Math.max(110, headPx), 8, e.hp / e.maxHp, 0xFF2A1508, TelegraphPalette.map(Elites.COLORS[Math.max(0, Elites.indexOf(e.mods, 0))]));
         int m = e.mods & 63;
         if (modLabel[m] == null) modLabel[m] = "ELITE  " + Elites.label(m);
         text.setTextAlign(Paint.Align.CENTER);
@@ -2898,6 +3008,15 @@ public final class WorldRenderer {
                 ensureVignette(w, h);
                 vig.setAlpha((int) (255 * edge));
                 c.drawRect(0, 0, w, h, vig);
+            }
+            if (s.standStillActive() && s.ended == 0) { // v1.5 integration: B7's stand-still drift, an ashen pulsing frame
+                float pu = 0.5f + 0.5f * (float) Math.sin(now * 4.0), bw = 46f * ks;
+                stroke.setStrokeWidth(bw);
+                stroke.setColor(((int) (40 + 50 * pu)) << 24 | 0x8A6A4A);
+                c.drawRect(bw / 2f, bw / 2f, w - bw / 2f, h - bw / 2f, stroke);
+                stroke.setStrokeWidth(bw * 0.3f);
+                stroke.setColor(((int) (60 + 70 * pu)) << 24 | 0xC89A5A);
+                c.drawRect(bw * 0.15f, bw * 0.15f, w - bw * 0.15f, h - bw * 0.15f, stroke);
             }
             if (vfx.flash > 0f) { // level-up: a 6 % white flash
                 fill.setColor(((int) (255 * Vfx.FLASH_ALPHA * vfx.flash / Vfx.FLASH_TIME) << 24) | 0xFFFFFF);

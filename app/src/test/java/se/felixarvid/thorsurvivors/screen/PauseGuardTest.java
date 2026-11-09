@@ -8,12 +8,21 @@ import org.junit.Test;
 /** v1.5 B8 (80): when the run pauses by itself and what lets it go. */
 public class PauseGuardTest {
     @Test
-    public void focusLossPausesAndRegainingFocusDoesNotResume() {
+    public void focusLossNeverPauses() {
+        // v1.5 integration: on the dual-screen Thor a tap on the bottom screen takes the focus from the game window
         PauseGuard g = new PauseGuard();
-        assertFalse(g.held());
-        assertTrue(g.focusChanged(false));
-        assertTrue(g.held());
+        assertFalse(g.focusChanged(false));
+        assertFalse("a bottom-screen tap must not hold the run", g.held());
         assertFalse(g.focusChanged(true));
+        assertFalse(g.held());
+    }
+
+    @Test
+    public void activityPausePausesAndOnlyInputReleasesIt() {
+        PauseGuard g = new PauseGuard();
+        assertTrue(g.activityPaused());
+        assertTrue(g.held());
+        assertFalse("focus coming back does not resume", g.focusChanged(true));
         assertTrue("still waiting for the player", g.held());
         g.userInput();
         assertFalse(g.held());

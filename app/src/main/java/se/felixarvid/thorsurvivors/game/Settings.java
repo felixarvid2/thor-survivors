@@ -40,6 +40,7 @@ public final class Settings {
         numbers = clamp(get("numbers", NUM_ALL), 2);
         aim = clamp(get("aim", AIM_OFF), 2);
         shapes = get("shapes", 0) != 0;
+        TelegraphPalette.mode = shapes ? TelegraphPalette.MODE_SHAPES : TelegraphPalette.MODE_STANDARD; // v1.5 integration
         large = get("large", 0) != 0;
         haptics = get("haptics", 1) != 0;
         buttons.load(st);
@@ -164,6 +165,7 @@ public final class Settings {
 
     public void setShapes(boolean v) {
         shapes = v;
+        TelegraphPalette.mode = v ? TelegraphPalette.MODE_SHAPES : TelegraphPalette.MODE_STANDARD; // v1.5 integration
         put("shapes", v ? 1 : 0);
     }
 

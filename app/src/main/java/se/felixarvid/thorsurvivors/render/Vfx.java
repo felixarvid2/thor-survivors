@@ -21,12 +21,12 @@ import se.felixarvid.thorsurvivors.game.SoundEvents;
  * cards pause the Sim, and hit-stop freezes the world but not the effects.
  */
 final class Vfx {
-    // ---- v1.5 B1: replace with Settings when B3 lands. Until then both read as the current behaviour.
-    /** Screen-shake strength 0..1 (Settings.shake() once B3 lands). */
-    static float settingShake() { return 1f; }
+    // ---- v1.5 integration: the B1 stubs read B3's Settings
+    /** Screen-shake strength 0, 0.5 or 1 (options: SCREEN SHAKE). */
+    static float settingShake() { return se.felixarvid.thorsurvivors.game.Settings.get().shake(); }
 
-    /** Whether damage numbers are drawn (Settings.damageNumbers() once B3 lands). */
-    static boolean settingDamageNumbers() { return true; }
+    /** Whether damage numbers are drawn at all (options: DAMAGE NUMBERS; CRITS ONLY is filtered where Sim makes the text). */
+    static boolean settingDamageNumbers() { return se.felixarvid.thorsurvivors.game.Settings.get().damageNumbers() != se.felixarvid.thorsurvivors.game.Settings.NUM_OFF; }
     // ---- end stub
 
     // ---- hit-stop (1)

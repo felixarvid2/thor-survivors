@@ -430,6 +430,7 @@ public final class Engine {
         f.passives = s.inv.passiveCount;
         for (int i = 0; i < s.inv.weaponCount; i++) if (s.inv.weapons[i].def.evolution || s.inv.weapons[i].def.fusion) f.evolutions++;
         resultAch = achLines(Achievements.check(meta, f));
+        if (resultAch.length > 0) sound.emit(SoundEvents.ACHIEVEMENT); // v1.5 integration: B8 sound id 58
     }
 
     private static String[] achLines(int[] ids) {

@@ -126,7 +126,8 @@ public final class MainActivity extends Activity {
     @Override
     protected void onPause() {
         // pause an in-progress run; the game thread stops with the surface
-        Engine.get().input.post(Input.CMD_AUTOPAUSE, 0, 0, 0);
+        if (guard.activityPaused()) Engine.get().input.post(Input.CMD_AUTOPAUSE, 0, 0, 0); // v1.5 integration: the one focus-free pause
+        gameView.held = true;
         Engine.get().input.clearMovement();
         audio.pause();
         if (prefs != null) prefs.flush(); // v1.5 B8: queued saves reach the disk before the process can be killed
@@ -152,10 +153,10 @@ public final class MainActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (!hasFocus) {
-            Engine.get().input.clearMovement();
-            // v1.5 B8 (80): a system shade or another window took the focus: pause, and stay paused until the player presses
+            Engine.get().input.clearMovement(); // key-up events are lost with focus
+            // v1.5 integration: no auto-pause here. On the Thor a tap on the bottom screen takes the focus from this window
+            // while the run goes on; a real interruption reaches onPause (or the display listener) and pauses there.
             if (guard.focusChanged(false)) Engine.get().input.post(Input.CMD_AUTOPAUSE, 0, 0, 0);
-            gameView.held = true;
         } else Immersive.apply(getWindow());
     }
 

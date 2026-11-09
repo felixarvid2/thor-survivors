@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import se.felixarvid.thorsurvivors.game.Engine;
+import se.felixarvid.thorsurvivors.game.Settings;
 import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.SoundEvents;
@@ -172,7 +173,7 @@ public final class AudioEngine {
             flush = false;
             q.clear();
         }
-        float gain = SoundEvents.stepGain(meta.sfxVol);
+        float gain = Settings.get().sfxVol(); // v1.5 integration: B3 Settings (same step as the menu row)
         for (int e; (e = q.poll()) >= 0; ) {
             if (gain > 0f) play(SoundEvents.idOf(e), SoundEvents.argOf(e), gain);
         }
@@ -301,7 +302,7 @@ public final class AudioEngine {
         } else if (want == null ? curTrack != null : !want.equals(curTrack)) {
             switchTo(want);
         }
-        float gain = SoundEvents.stepGain(musicVol) * (ducked ? DUCK : 1f);
+        float gain = Settings.get().musicVol() * (ducked ? DUCK : 1f); // v1.5 integration: B3 Settings
         updateLayer(dt, want, musicVol > 0);
         float combat = mix.combat();
         for (int i = playing.size() - 1; i >= 0; i--) {
@@ -342,7 +343,7 @@ public final class AudioEngine {
             layer = null;
         }
         if (layer != null) {
-            float gain = SoundEvents.stepGain(meta.musicVol) * (ducked ? DUCK : 1f);
+            float gain = Settings.get().musicVol() * (ducked ? DUCK : 1f); // v1.5 integration: B3 Settings
             layer.level = Math.min(1f, layer.level + dt / Math.max(0.01f, layer.fadeSec));
             float vol = layer.level * layer.base * gain * c;
             final MediaPlayer mp = layer.mp;

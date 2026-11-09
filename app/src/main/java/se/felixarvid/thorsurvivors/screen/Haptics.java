@@ -46,9 +46,9 @@ public final class Haptics {
         return 20 + Math.round(70f * Math.min(1f, intensity));
     }
 
-    /** v1.5 B8 STUB: batch 3 replaces this with {@code Settings.haptics()}; until then rumble is on. */
+    /** v1.5 integration: B3's HAPTICS option. */
     static boolean enabled() {
-        return true;
+        return se.felixarvid.thorsurvivors.game.Settings.get().haptics();
     }
 
     /** Looks for a gamepad with a vibrator (API 31+). Safe to call again; does nothing below Android 12. */
