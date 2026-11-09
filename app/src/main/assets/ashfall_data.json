@@ -5918,7 +5918,7 @@
     "OVERCHARGE",
     "SPEED"
    ],
-   "rarity": 70,
+   "rarity": 60,
    "description": "A straight lance of charged plasma at the nearest enemy. Pierces 3, one more every second level.",
    "rows": [
     {
@@ -5982,7 +5982,7 @@
     "SCRAP_MAGNET",
     "AREA"
    ],
-   "rarity": 70,
+   "rarity": 60,
    "description": "Lobs a shell that leaves a burning slag puddle. Strong on a crowd that stands still, useless against one you kite.",
    "rows": [
     {
@@ -6044,7 +6044,7 @@
     "GLASS_CORE",
     "COOLDOWN"
    ],
-   "rarity": 70,
+   "rarity": 60,
    "description": "A drone circles you and tethers the weakest enemy within reach every 0.6 s. Short range: it cannot cover everything.",
    "rows": [
     {
@@ -6106,7 +6106,7 @@
   "OVERCHARGE": {
    "name": "Overcharge",
    "powerUp": true,
-   "rarity": 80,
+   "rarity": 60,
    "description": "+6% projectile speed and +4% effect duration per level.",
    "rows": [
     {
@@ -6134,7 +6134,7 @@
   "SCRAP_MAGNET": {
    "name": "Scrap Magnet",
    "powerUp": true,
-   "rarity": 70,
+   "rarity": 60,
    "description": "+25% pickup range and +3% gold per level. Not a combat stat: it pays for the kiter.",
    "rows": [
     {
@@ -6158,7 +6158,7 @@
   "GLASS_CORE": {
    "name": "Glass Core",
    "powerUp": true,
-   "rarity": 45,
+   "rarity": 40,
    "description": "+20% might per level, but -15% max HP per level. For those who do not get hit.",
    "rows": [
     {

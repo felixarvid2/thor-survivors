@@ -48,6 +48,7 @@ public class StageFrameworkTest {
         GameData d = StageSoak.data();
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), "BASTION", seed);
         s.rules.addonsEnabled = addons;
+        s.vacNext = Double.MAX_VALUE; // v1.5 B5: the Vacuum Gem is a new feature; this test pins everything else
         s.time = from;
         Random rng = new Random(seed * 31 + 5);
         Input in = new Input();
@@ -80,7 +81,7 @@ public class StageFrameworkTest {
                 s.hp = s.maxHp;
             }
             while (s.pendingLevelUps > 0) {
-                List<Offer> o = OfferGenerator.generate(s.inv, d.weapons.values(), s.stats.luck, rng,
+                List<Offer> o = OfferGenerator.generate(s.inv, Batch5ContentTest.withoutB5(d), s.stats.luck, rng,
                         s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, s.level);
                 s.applyOffer(o.get(0));
                 s.pendingLevelUps--;

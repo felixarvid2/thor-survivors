@@ -19,6 +19,15 @@ import java.util.List;
 /** v1.5 batch 5: the new weapons, passives, uniques, Overdrive, the Vacuum Gem and the two new places. */
 public class Batch5ContentTest {
     private static final float DT = 1f / 60f;
+    private static final java.util.Set<String> B5_KEYS = new java.util.HashSet<>(java.util.Arrays.asList("ARC_LANCE", "STORM_LANCE",
+            "SLAG_MORTAR", "MAGMA_HOWITZER", "TETHER_DRONE", "LEASH_ARRAY", "OVERCHARGE", "SCRAP_MAGNET", "GLASS_CORE"));
+
+    /** The weapons of the game before v1.5 batch 5: for older seeded tests whose scenario is about something else than the offers. */
+    static java.util.List<WeaponDef> withoutB5(GameData d) {
+        java.util.List<WeaponDef> out = new java.util.ArrayList<>();
+        for (WeaponDef w : d.weapons.values()) if (!B5_KEYS.contains(w.key)) out.add(w);
+        return out;
+    }
 
     private static Sim sim(String starter, long seed) throws Exception {
         GameData d = TestData.load();

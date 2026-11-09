@@ -281,7 +281,7 @@ def _rows(first, *deltas):
 
 V15_WEAPONS = {
     "ARC_LANCE": dict(
-        name="Arc Lance", evoInto="STORM_LANCE", evoSynergy=["OVERCHARGE", "SPEED"], rarity=70,
+        name="Arc Lance", evoInto="STORM_LANCE", evoSynergy=["OVERCHARGE", "SPEED"], rarity=60,
         description="A straight lance of charged plasma at the nearest enemy. Pierces 3, one more every second level.",
         rows=_rows(dict(interval=1400, repeatInterval=120, power=4.0, area=1, speed=1, amount=1, penetrating=3, knockback=0.3,
                         critChance=0.1, critMul=2),
@@ -293,7 +293,7 @@ V15_WEAPONS = {
         rows=[dict(interval=1200, repeatInterval=140, power=6.0, area=1.3, speed=1.2, amount=2, penetrating=6, knockback=0.3,
                    critChance=0.2, critMul=2)]),
     "SLAG_MORTAR": dict(
-        name="Slag Mortar", evoInto="MAGMA_HOWITZER", evoSynergy=["SCRAP_MAGNET", "AREA"], rarity=70,
+        name="Slag Mortar", evoInto="MAGMA_HOWITZER", evoSynergy=["SCRAP_MAGNET", "AREA"], rarity=60,
         description="Lobs a shell that leaves a burning slag puddle. Strong on a crowd that stands still, useless against one you kite.",
         rows=_rows(dict(interval=2200, repeatInterval=260, power=0.3, area=1, speed=1, amount=1, duration=3000, hitBoxDelay=500,
                         knockback=0),
@@ -305,7 +305,7 @@ V15_WEAPONS = {
         rows=[dict(interval=2200, repeatInterval=300, power=0.8, area=1.35, speed=1, amount=2, duration=4500, hitBoxDelay=450,
                    knockback=0)]),
     "TETHER_DRONE": dict(
-        name="Tether Drone", evoInto="LEASH_ARRAY", evoSynergy=["GLASS_CORE", "COOLDOWN"], rarity=70,
+        name="Tether Drone", evoInto="LEASH_ARRAY", evoSynergy=["GLASS_CORE", "COOLDOWN"], rarity=60,
         description="A drone circles you and tethers the weakest enemy within reach every 0.6 s. Short range: it cannot cover everything.",
         rows=_rows(dict(interval=1000, repeatInterval=0, power=1.4, area=1, speed=1, amount=1, beamEvery=600, range=150,
                         knockback=0.1, critChance=0.05, critMul=2),
@@ -318,15 +318,15 @@ V15_WEAPONS = {
                    knockback=0.1, critChance=0.1, critMul=2)]),
     # passives (powerUp): the keys are the stat keys PlayerStats already sums
     "OVERCHARGE": dict(
-        name="Overcharge", powerUp=True, rarity=80,
+        name="Overcharge", powerUp=True, rarity=60,
         description="+6% projectile speed and +4% effect duration per level.",
         rows=_rows(dict(speed=0.06, duration=0.04), *[dict(speed=0.06, duration=0.04)] * 4)),
     "SCRAP_MAGNET": dict(
-        name="Scrap Magnet", powerUp=True, rarity=70,
+        name="Scrap Magnet", powerUp=True, rarity=60,
         description="+25% pickup range and +3% gold per level. Not a combat stat: it pays for the kiter.",
         rows=_rows(dict(magnet=0.25, greed=0.03), *[dict(magnet=0.25, greed=0.03)] * 3)),
     "GLASS_CORE": dict(
-        name="Glass Core", powerUp=True, rarity=45,
+        name="Glass Core", powerUp=True, rarity=40,
         description="+20% might per level, but -15% max HP per level. For those who do not get hit.",
         rows=_rows(dict(power=0.20, maxHp=-0.15), *[dict(power=0.20, maxHp=-0.15)] * 2)),
 }

@@ -72,7 +72,7 @@ public class PickupPoolSaturationTest {
             s.hp = s.maxHp;
             s.update(DT, in);
             while (s.pendingLevelUps > 0) {
-                s.applyOffer(OfferGenerator.generate(s.inv, d.weapons.values(), s.stats.luck, rng).get(0));
+                s.applyOffer(OfferGenerator.generate(s.inv, Batch5ContentTest.withoutB5(d), s.stats.luck, rng).get(0)); // v1.5 B5: the scenario is about the pickup pool, so it keeps the old offer pool
                 s.pendingLevelUps--;
             }
             while (s.pendingChests > 0) s.openChest();

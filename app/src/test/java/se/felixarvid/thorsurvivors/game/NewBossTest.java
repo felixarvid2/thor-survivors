@@ -705,9 +705,10 @@ public class NewBossTest {
                         chests++;
                         chestValue = p.value;
                     } else if (p.kind == Entities.K_EQUIP) {
-                        crates++;
                         int code = Math.round(p.value);
                         EquipDef e = d.equipList.get(code >> 2);
+                        if (e.unique) continue; // v1.5 B5: a few timed bosses now also drop a unique (its slot is the unique's)
+                        crates++;
                         assertEquals(KEYS[i] + " gear slot", slot[i], e.slot);
                         assertFalse("a base item", e.unique);
                         assertEquals("Rare", Equipment.RARE, code & 3);

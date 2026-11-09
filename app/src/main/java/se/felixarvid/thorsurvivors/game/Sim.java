@@ -2194,6 +2194,10 @@ public final class Sim {
 
     private void updateVacuumGem() {
         if (!pois.enabled || time < vacNext || vacuumGemLive()) return;
+        if (time > vacNext + 30.0) { // the clock jumped (a test or tool set the time): schedule from here instead of dropping a gem at once
+            vacNext = time + 180.0 + vacRng.nextDouble() * 120.0;
+            return;
+        }
         for (int attempt = 0; attempt < 8; attempt++) {
             float a = vacRng.nextFloat() * 6.2831855f, d = 280f + vacRng.nextFloat() * 200f;
             float x = px + (float) Math.cos(a) * d, y = py + (float) Math.sin(a) * d;
