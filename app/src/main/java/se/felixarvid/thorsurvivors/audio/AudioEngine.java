@@ -183,8 +183,7 @@ public final class AudioEngine {
             finalAlive = false;
             int alive = 0;
             Sim bs = eng.sim;
-            if (bs != null && eng.phase != Engine.PH_RESULT && eng.phase != Engine.PH_MENU
-                    && eng.phase != Engine.PH_SHOP) {
+            if (bs != null && eng.phase != Engine.PH_RESULT && !Engine.isMenuPhase(eng.phase)) { // v1.5 B3
                 for (int i = 0; i < bs.enemyN; i++) {
                     if (!bs.enemies[i].dead) alive++;
                     if (bs.enemies[i].boss && !bs.enemies[i].dead) {

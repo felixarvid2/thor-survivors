@@ -259,7 +259,7 @@ public final class WorldRenderer {
         gd = e.data;
         ensureTints();
         int ph = e.phase;
-        boolean menu = s == null || ph == Engine.PH_MENU || ph == Engine.PH_SHOP;
+        boolean menu = s == null || Engine.isMenuPhase(ph); // v1.5 B3: also options, codex, remap
         if (menu && topUi.menuReady()) { // the title screen: painting, embers and title instead of the world
             ks = h / 1080f;
             topUi.drawMenu(c, w, h, e, dualScreen, e.menuTime);

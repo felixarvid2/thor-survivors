@@ -58,6 +58,15 @@ public final class PanelRenderer {
     private final float[] ptsA = new float[Sim.MAX_ENEMIES * 2];
     private final float[] ptsB = new float[Sim.MAX_PICK * 2];
     private final Paint fade = new Paint();
+    // v1.5 B3: the menu screens of ui/menu (options, codex, remap, results extras, hero strip, first-run hints)
+    private final se.felixarvid.thorsurvivors.ui.menu.MenuHits menuHits = this::hit;
+    private final se.felixarvid.thorsurvivors.ui.menu.OptionsScreen optionsScreen = new se.felixarvid.thorsurvivors.ui.menu.OptionsScreen();
+    private final se.felixarvid.thorsurvivors.ui.menu.CodexScreen codexScreen = new se.felixarvid.thorsurvivors.ui.menu.CodexScreen();
+    private final se.felixarvid.thorsurvivors.ui.menu.RemapScreen remapScreen = new se.felixarvid.thorsurvivors.ui.menu.RemapScreen();
+    private final se.felixarvid.thorsurvivors.ui.menu.ResultsScreen resultsScreen = new se.felixarvid.thorsurvivors.ui.menu.ResultsScreen();
+    private final se.felixarvid.thorsurvivors.ui.menu.HeroSelect heroSelect = new se.felixarvid.thorsurvivors.ui.menu.HeroSelect();
+    private final se.felixarvid.thorsurvivors.ui.menu.TutorialOverlay tutorialOverlay = new se.felixarvid.thorsurvivors.ui.menu.TutorialOverlay();
+    private String tipSrc, tipLine = "";
 
     // hit regions rebuilt every draw
     private final float[] hl = new float[MAX_HITS], ht = new float[MAX_HITS], hr = new float[MAX_HITS], hb = new float[MAX_HITS];
@@ -272,11 +281,24 @@ public final class PanelRenderer {
                 if (compact) dimOverlay(c, w, h, 0xDD000000);
                 shop(c, w, h);
                 break;
+            case Engine.PH_OPTIONS: // v1.5 B3
+                if (compact) dimOverlay(c, w, h, 0xDD000000);
+                optionsScreen.draw(c, w, h, k, eng, menuHits);
+                break;
+            case Engine.PH_CODEX:
+                if (compact) dimOverlay(c, w, h, 0xDD000000);
+                codexScreen.draw(c, w, h, k, eng, menuHits);
+                break;
+            case Engine.PH_REMAP:
+                if (compact) dimOverlay(c, w, h, 0xDD000000);
+                remapScreen.draw(c, w, h, k, eng, menuHits);
+                break;
             default:
                 if (compact) dimOverlay(c, w, h, 0x55000000);
                 mainMenu(c, w, h);
         }
-        if (eng.toastTimer > 0 && (ph == Engine.PH_SHOP || ph == Engine.PH_MENU)) {
+        tutorialOverlay.draw(c, w, h, k, eng); // v1.5 B3: first-run hints
+        if (eng.toastTimer > 0 && Engine.isMenuPhase(ph)) { // v1.5 B3: also on the options, codex and remap screens
             float tw = w * 0.6f, ty = h * 0.9f, th = 58f * u;
             k.plate(c, w / 2f - tw / 2f, ty, w / 2f + tw / 2f, ty + th, 0x55000000, Skin.ORANGE, 3f * u);
             k.text(c, eng.toast, w / 2f, ty + th * 0.66f, 34f * u, GOLD, Paint.Align.CENTER);
@@ -1663,6 +1685,8 @@ public final class PanelRenderer {
                 "HERO   <  " + heroName() + "  >",
                 "WEAPON   <  " + eng.data.weapons.get(eng.starters.get(eng.weaponIdx)).name + "  >",
                 "POWER-UPS",
+                "CODEX",
+                "OPTIONS",
                 "MUSIC   <  " + VOLUME[eng.meta.musicVol] + "  >",
                 "SOUND EFFECTS   <  " + VOLUME[eng.meta.sfxVol] + "  >",
                 "LIGHTING   <  " + LIGHTING[eng.meta.lighting] + "  >",
@@ -1733,7 +1757,7 @@ public final class PanelRenderer {
         if (fs) k.focusMarks(c, m, 272f * u, w - m, 352f * u);
         hit(m, 272f * u, w - m, 352f * u, Engine.MENU_START, 0);
         // stage and hero cards (the stage card carries the strip of all stages, so the row is taller than before)
-        float cy = 368f * u, ch = 316f * u, half = (cw - 16f * u) / 2f;
+        float cy = 368f * u, ch = 292f * u, half = (cw - 16f * u) / 2f; // v1.5 integration: 316 -> 292 so ASCENSION and the tip fit
         stageCard(c, m, cy, m + half, cy + ch, u, stageKey);
         heroCard(c, m + half + 16f * u, cy, w - m, cy + ch, u);
         // weapon row
@@ -1741,18 +1765,29 @@ public final class PanelRenderer {
         weaponCard(c, m, wy, w - m, wy + 96f * u, u);
         // salvage terminal
         float sy = wy + 96f * u + 12f * u;
-        boolean fp = eng.focus == Engine.MENU_SHOP;
-        k.plate(c, m, sy, w - m, sy + 78f * u, fp ? 0x40FF8A2A : 0, fp ? Skin.ORANGE : Skin.EDGE, fp ? 4f * u : 2f * u);
-        if (fp) k.focusMarks(c, m, sy, w - m, sy + 78f * u);
-        k.text(c, "POWER-UPS", m + 28f * u, sy + 52f * u, 44f * u, TEXT, Paint.Align.LEFT);
-        k.body(c, "SALVAGE TERMINAL", w - m - 28f * u, sy + 50f * u, 28f * u, Skin.ORANGE, Paint.Align.RIGHT);
-        hit(m, sy, w - m, sy + 78f * u, Engine.MENU_SHOP, 0);
+        float tg = 10f * u, tw3 = (cw - 2 * tg) / 3f; // v1.5 B3: POWER-UPS, CODEX and OPTIONS share the row
+        for (int i = 0; i < 3; i++) {
+            int row = Engine.MENU_SHOP + i;
+            float tl = m + i * (tw3 + tg);
+            boolean fp = eng.focus == row;
+            k.plate(c, tl, sy, tl + tw3, sy + 78f * u, fp ? 0x40FF8A2A : 0, fp ? Skin.ORANGE : Skin.EDGE, fp ? 4f * u : 2f * u);
+            if (fp) k.focusMarks(c, tl, sy, tl + tw3, sy + 78f * u);
+            k.fit(c, menuLabels[row], tl + tw3 / 2f, sy + 52f * u, 44f * u, tw3 - 24f * u, fp ? 0xFFFFF1DC : TEXT, Paint.Align.CENTER);
+            hit(tl, sy, tl + tw3, sy + 78f * u, row, 0);
+        }
         // settings
         float ry = sy + 78f * u + 10f * u;
         settingRow(c, m, w - m, ry, Engine.MENU_MUSIC, "MUSIC", VOLUME[eng.meta.musicVol], eng.meta.musicVol, 3, u);
-        settingRow(c, m, w - m, ry + 54f * u, Engine.MENU_SFX, "SOUND EFFECTS", VOLUME[eng.meta.sfxVol], eng.meta.sfxVol, 3, u);
-        settingRow(c, m, w - m, ry + 108f * u, Engine.MENU_LIGHT, "LIGHTING", LIGHTING[eng.meta.lighting], eng.meta.lighting, 2, u);
-        ascRow(c, m, w - m, ry + 162f * u, u); // v1.5 B4
+        settingRow(c, m, w - m, ry + ROW_P * u, Engine.MENU_SFX, "SOUND EFFECTS", VOLUME[eng.meta.sfxVol], eng.meta.sfxVol, 3, u);
+        settingRow(c, m, w - m, ry + 2 * ROW_P * u, Engine.MENU_LIGHT, "LIGHTING", LIGHTING[eng.meta.lighting], eng.meta.lighting, 2, u);
+        // v1.5 integration: B4's ASCENSION row and B3's tip line both fit below the three setting rows (rows are 42 high, 46 apart)
+        ascRow(c, m, w - m, ry + 3 * ROW_P * u, u); // v1.5 B4
+        String tip = eng.tip(); // v1.5 B3: a tip for the selected stage in place of the controls hint
+        if (tip != tipSrc) {
+            tipSrc = tip;
+            tipLine = "TIP: " + tip;
+        }
+        k.body(c, tipLine, w / 2f, ry + 4 * ROW_P * u + 20f * u, 22f * u, DIM, Paint.Align.CENTER);
     }
 
     // ---- stage select: the card of the selected stage and the strip of all of them
@@ -1966,6 +2001,7 @@ public final class PanelRenderer {
             k.tp.clearShadowLayer();
             k.shadowed(c, ht.stats, l + 22f * u, b - 18f * u, 24f * u, DIM, Paint.Align.LEFT);
         }
+        if (d != null) heroSelect.draw(c, k, eng, d, l, t, rr, b, u); // v1.5 B3: main weapon and best time
         cycleArrows(c, l, t, rr, f, u);
         hit(l, t, l + (rr - l) * 0.22f, b, Engine.MENU_HERO, -1);
         hit(l + (rr - l) * 0.22f, t, rr, b, Engine.MENU_HERO, 1);
@@ -2006,15 +2042,18 @@ public final class PanelRenderer {
         arrow(c, rr - 36f * u, t + 36f * u, 14f * u, true, col);
     }
 
+    /** v1.5 integration: height and pitch of the main menu setting rows (four rows now: MUSIC, SFX, LIGHTING, ASCENSION). */
+    private static final float ROW_H = 42f, ROW_P = 46f;
+
     private void settingRow(Canvas c, float l, float rr, float t, int row, String label, String value, int level, int max, float u) {
         boolean f = eng.focus == row;
-        float b = t + 48f * u;
+        float b = t + ROW_H * u;
         k.plate(c, l, t, rr, b, f ? 0x40FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
         if (f) k.focusMarks(c, l, t, rr, b);
-        k.text(c, label, l + 28f * u, t + 34f * u, 30f * u, TEXT, Paint.Align.LEFT);
-        for (int i = 0; i < max; i++) k.pip(c, rr - 330f * u + i * 36f * u, t + 12f * u, 0f, i < level, Skin.ORANGE, 28f * u, 24f * u);
-        k.text(c, value, rr - 28f * u, t + 34f * u, 30f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
-        arrow(c, rr - 360f * u, t + 24f * u, 11f * u, false, f ? Skin.ORANGE : 0xFF6F655A);
+        k.text(c, label, l + 28f * u, t + 31f * u, 28f * u, TEXT, Paint.Align.LEFT);
+        for (int i = 0; i < max; i++) k.pip(c, rr - 330f * u + i * 36f * u, t + 10f * u, 0f, i < level, Skin.ORANGE, 26f * u, 22f * u);
+        k.text(c, value, rr - 28f * u, t + 31f * u, 28f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
+        arrow(c, rr - 360f * u, t + 21f * u, 11f * u, false, f ? Skin.ORANGE : 0xFF6F655A);
         hit(l, t, l + (rr - l) * 0.3f, b, row, -1);
         hit(l + (rr - l) * 0.3f, t, rr, b, row, 1);
     }
@@ -2022,13 +2061,13 @@ public final class PanelRenderer {
     /** v1.5 B4: the ascension / daily row: pips for the open tiers, the text of the choice on the right. */
     private void ascRow(Canvas c, float l, float rr, float t, float u) {
         boolean f = eng.focus == Engine.MENU_ASC;
-        float b = t + 48f * u;
+        float b = t + ROW_H * u;
         k.plate(c, l, t, rr, b, f ? 0x40FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
         if (f) k.focusMarks(c, l, t, rr, b);
-        k.text(c, "ASCENSION", l + 28f * u, t + 34f * u, 30f * u, TEXT, Paint.Align.LEFT);
+        k.text(c, "ASCENSION", l + 28f * u, t + 31f * u, 28f * u, TEXT, Paint.Align.LEFT);
         int open = eng.meta.ascMax(eng.stage().key), cur = eng.dailyPick ? -1 : Math.min(eng.ascTier, open);
-        for (int i = 0; i < RunMods.MAX_TIER; i++) k.pip(c, l + 260f * u + i * 36f * u, t + 12f * u, 0f, i < cur, i < open ? Skin.ORANGE : 0xFF4A423C, 28f * u, 24f * u);
-        k.fit(c, ascValue(), rr - 28f * u, t + 34f * u, 28f * u, rr - l - 560f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
+        for (int i = 0; i < RunMods.MAX_TIER; i++) k.pip(c, l + 260f * u + i * 36f * u, t + 10f * u, 0f, i < cur, i < open ? Skin.ORANGE : 0xFF4A423C, 26f * u, 22f * u);
+        k.fit(c, ascValue(), rr - 28f * u, t + 31f * u, 26f * u, rr - l - 560f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
         hit(l, t, l + (rr - l) * 0.3f, b, Engine.MENU_ASC, -1);
         hit(l + (rr - l) * 0.3f, t, rr, b, Engine.MENU_ASC, 1);
     }
@@ -2240,7 +2279,7 @@ public final class PanelRenderer {
             k.text(c, "THE FIRST IS DEAD  -  GOLD x2", (tx + vx) / 2f, nt + 28f * u, 26f * u, Skin.LUMEN, Paint.Align.CENTER);
         }
         // final equipment and the branches picked
-        float ly = 496f * u, lb = 760f * u;
+        float ly = 486f * u, lb = 650f * u; // v1.5 B3: shorter, the damage and build block follows
         k.plate(c, x, ly, x + cw, lb);
         if (s != null) {
             k.text(c, "FINAL EQUIPMENT", x + 28f * u, ly + 40f * u, 24f * u, DIM, Paint.Align.LEFT);
@@ -2262,14 +2301,22 @@ public final class PanelRenderer {
             }
         }
         String[] ach = eng.resultAch; // v1.5 B4: achievements unlocked by this run, one line each (the first three)
+        float by = h - 120f * u;
+        float achTop = by - 14f * u - ach.length * 46f * u; // v1.5 integration: below B3's results block, above CONTINUE
         for (int i = 0; i < ach.length; i++) {
-            float ay = lb + 14f * u + i * 46f * u;
+            float ay = achTop + i * 46f * u;
             k.plate(c, x, ay, x + cw, ay + 40f * u, 0x30FFD84A, GOLD, 2f * u);
             k.fit(c, ach[i], w / 2f, ay + 30f * u, 28f * u, cw - 40f * u, GOLD, Paint.Align.CENTER);
         }
-        float by = h - 190f * u;
         float bw2 = Math.min(w * 0.85f, 900f * u);
-        k.button(c, (w - bw2) / 2f, by, (w + bw2) / 2f, by + 110f * u, "CONTINUE", true);
-        hit((w - bw2) / 2f, by, (w + bw2) / 2f, by + 110f * u, 0, 0);
+        resultsScreen.draw(c, w, h, k, eng, lb + 16f * u, achTop - 6f * u); // v1.5 B3: cause of death, build, damage per weapon
+        k.button(c, (w - bw2) / 2f, by, (w + bw2) / 2f, by + 80f * u, "CONTINUE", true);
+        hit((w - bw2) / 2f, by, (w + bw2) / 2f, by + 80f * u, 0, 0);
+        String tip = eng.tip();
+        if (tip != tipSrc) {
+            tipSrc = tip;
+            tipLine = "TIP: " + tip;
+        }
+        k.body(c, tipLine, w / 2f, h - 12f * u, 22f * u, DIM, Paint.Align.CENTER);
     }
 }
