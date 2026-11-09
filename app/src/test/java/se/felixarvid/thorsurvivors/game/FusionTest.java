@@ -491,7 +491,7 @@ public class FusionTest {
         run(s, 0.5);
         assertNull("the first elite has no Arms Crate", armsCrate(s));
         assertEquals(1, s.eliteKilled);
-        s.time = 400;
+        s.time = WaveDirector.armsCrateFrom + 40; // v1.5 B7 item 62: Arms Crates start at 11:00 (was 5:00)
         Enemy e2 = s.spawnEliteForTest("COLONIST", 0);
         s.killForTest(e2);
         run(s, 0.5);
@@ -506,7 +506,7 @@ public class FusionTest {
     public void theArmsCrateIsBeforeFiveMinutesOnlyAfterTheSecondElite() throws Exception {
         Sim s = sim(21);
         s.eliteKilled = 1;
-        s.time = 250; // second elite but before 5:00
+        s.time = WaveDirector.armsCrateFrom - 50; // second elite but before the first Arms Crate time (v1.5 B7: 11:00)
         Enemy e = s.spawnEliteForTest("COLONIST", 0);
         s.killForTest(e);
         run(s, 0.5);

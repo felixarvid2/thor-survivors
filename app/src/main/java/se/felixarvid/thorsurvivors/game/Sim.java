@@ -322,6 +322,32 @@ public final class Sim {
 
     private int lastRow = -1;
     private float spawnTimer;
+    // ---- v1.5 B7: run curse (item 68), stand-still penalty (66), spawn-ahead bias (67)
+    /** Curse chosen for this run (snapshot of {@link CurseMod#get()}), the ascension tier's HP multiplier, and the derived multipliers. */
+    public double runCurse, runTierHp = 1.0, curseSpeedMul = 1.0, curseSpawnMul = 1.0, curseGoldMul = 1.0;
+    /** Item 66: the stand-still penalty (spawns +15 %, a small drift) can be switched off for tests and A/B runs. */
+    public boolean standStillPenalty = true;
+    public final WaveDirector.StandStill stand = new WaveDirector.StandStill();
+    /** Item 66: damage the stand-still drift has dealt this run (for the soak and tests). */
+    public float stillDamage;
+    /** Item 67: share of normal spawns placed in a cone ahead of the movement heading (0 = off). */
+    public float spawnAheadBias;
+    private float headX = 1f, headY = 0f;
+
+    /** Applies the run curse; call before the first step (the constructor does it from {@link CurseMod}). */
+    public void setRunCurse(double curse, double tierHp) {
+        runCurse = Math.max(0.0, curse);
+        runTierHp = Math.max(1.0, tierHp);
+        curseSpeedMul = CurseMod.factor(runCurse);
+        curseSpawnMul = CurseMod.factor(runCurse);
+        curseGoldMul = CurseMod.goldMul(runCurse);
+    }
+
+    /** Extra enemy HP multiplier of the run curse and ascension tier on top of the shop's (1 + stats.curse); the three together stay under {@link CurseMod#HP_CAP}. */
+    double curseHpExtra() {
+        double shop = stats == null ? 0.0 : stats.curse;
+        return CurseMod.hpMul(runCurse, runTierHp, shop) / (1.0 + shop);
+    }
     /** Fractional gold not yet paid out (Greed on 1-gold coins). */
     private double goldFrac;
     private float regenAcc;
@@ -341,6 +367,7 @@ public final class Sim {
     /** v1.5 B4: gives the run its modifiers (the first elite comes earlier with the Elites modifier). */
     public void applyMods(RunMods m) {
         mods = m == null ? RunMods.NONE : m;
+        setRunCurse(runCurse, mods.hpMult()); // v1.5 integration: the ascension HP goes through CurseMod's capped HP (B7), applied once
         if (mods.eliteEarlySec() > 0f) nextEliteAt = Math.max(30f, nextEliteAt - mods.eliteEarlySec());
     }
 
@@ -351,8 +378,10 @@ public final class Sim {
 
     private Sim(GameData data, StageDef stage, String starterKey, Map<String, Double> meta, String heroKey, Long seed) {
         rng.setSeed(seed);
+        setRunCurse(CurseMod.get(), CurseMod.tierHpMul()); // v1.5 B7
         this.data = data;
         this.stage = stage;
+        this.spawnAheadBias = stage.spawnAhead; // v1.5 B7 item 67
         this.meta = meta;
         this.hero = heroKey == null ? null : data.heroes.get(heroKey);
         MainWeaponDef mwd = hero == null ? null : data.mainWeapons.get(hero.main);
@@ -655,6 +684,7 @@ public final class Sim {
             pvx = (px - pox) / dt;
             pvy = (py - poy) / dt;
         }
+        updateStandStill(dt); // v1.5 B7 item 66
         refreshDestructibles();
         events.update(dt);
         rules.update(dt);
@@ -1210,6 +1240,27 @@ public final class Sim {
         return rules.lightMul() * events.lightMul();
     }
 
+    /** Item 66 and the heading for item 67: after 6 s inside a 40 unit radius a drift hurts the hero and spawns come 15 % faster; moving resets it. */
+    private void updateStandStill(float dt) {
+        stand.update(px, py, dt);
+        float hx = mv[0], hy = mv[1], hl = hx * hx + hy * hy;
+        if (hl > 0.0025f) {
+            float inv = 1f / (float) Math.sqrt(hl);
+            headX = hx * inv;
+            headY = hy * inv;
+        }
+        if (standStillPenalty && stand.active() && !noSpawns && ended == 0) {
+            float d = WaveDirector.stillDps(time) * dt;
+            stillDamage += d;
+            areaDamage(d);
+        }
+    }
+
+    /** True while the stand-still penalty (item 66) is on: the renderer can tint the drift in the stage's colour. */
+    public boolean standStillActive() {
+        return standStillPenalty && stand.active();
+    }
+
     private void updateWaves(float dt) {
         if (noSpawns) return;
         int idx = se.felixarvid.thorsurvivors.data.WaveSelector.indexAt(stage.rows, time);
@@ -1232,12 +1283,13 @@ public final class Sim {
             if (horde >= 0) toast("SWARM INCOMING", 0xFFFF6A3D);
         }
         int minimum = row.minimum;
+        if (curseSpawnMul != 1.0) minimum = Math.min(WaveDirector.ENEMY_CAP, (int) Math.ceil(minimum * curseSpawnMul)); // v1.5 B7 item 68
         float freq = row.frequencyMs;
         if (horde >= 0) {
             minimum = Math.max(minimum, (int) stage.hordes[horde][2]);
             freq = Math.min(freq, (float) stage.hordes[horde][3]);
         }
-        spawnTimer += dt * 1000f * rules.spawnMul() * events.spawnMul() * pois.spawnMul;
+        spawnTimer += dt * 1000f * rules.spawnMul() * events.spawnMul() * pois.spawnMul * (float) curseSpawnMul * (standStillPenalty ? stand.spawnMul() : 1f);
         if (spawnTimer >= freq) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
@@ -1332,6 +1384,12 @@ public final class Sim {
         }
         Enemy e = enemies[enemyN++];
         place(e);
+        if (dist == 0 && spawnAheadBias > 0f && !boss && rng.nextFloat() < spawnAheadBias) { // item 67: ahead of the heading
+            float a = (float) Math.atan2(headY, headX) + (rng.nextFloat() * 2f - 1f) * WaveDirector.AHEAD_SPREAD;
+            float d = HALF_W + 100f + rng.nextFloat() * 100f;
+            e.x = px + (float) Math.cos(a) * d;
+            e.y = py + (float) Math.sin(a) * d * 0.75f;
+        }
         if (dist > 0) {
             float a = rng.nextFloat() * 6.2831853f;
             e.x = px + (float) Math.cos(a) * dist;
@@ -1461,12 +1519,13 @@ public final class Sim {
         e.toBeacon = !boss && t.arch == EnemyDef.ARCH_CHASER && events.flagBeacon();
         // Ashfall bosses carry their final HP in the data; the Vampire Survivors ones get the old x3
         double hp = t.def.maxHp * 10.0 * (t.def.hpTimesLevel ? t.def.level : 1) * stage.enemyHealth
-                * (1 + stats.curse) * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
+                * (1 + stats.curse) * curseHpExtra() * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
         if (boss && t.def.ashfallBoss) hp *= bossHpRamp(t.def.param("hpRamp", 0f), time);
-        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time); // phase 13: the HP of wave enemies grows with the run time
-        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= mods.hpMult(); // v1.5 B4: ascension
+        // phase 13: the HP of wave enemies grows with the run time; v1.5 B7 item 70: +3 %/min past 25:00.
+        // v1.5 B4 ascension HP is no longer multiplied here: it reaches curseHpExtra() through runTierHp (CurseMod tier HP, capped with the curse)
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time) * WaveDirector.lateHpMul(time);
         e.hp = e.maxHp = (float) Math.max(1, hp);
-        e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * stats.enemySpeed);
+        e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * curseSpeedMul * stats.enemySpeed);
         e.power = (float) t.def.power;
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
@@ -2326,7 +2385,7 @@ public final class Sim {
             case Entities.K_COINBAG:
                 sound.emit(SoundEvents.COIN);
                 // Greed gives fractions (1 gold x 1.2): carry the remainder so single coins still add up
-                goldFrac += p.value * stage.goldMultiplier * stats.greedMul;
+                goldFrac += p.value * stage.goldMultiplier * stats.greedMul * curseGoldMul;
                 int whole = (int) (goldFrac + 1e-6);
                 goldFrac -= whole;
                 gold += whole;
@@ -2439,7 +2498,7 @@ public final class Sim {
     private void eliteRewards(Enemy e) {
         sound.emit(SoundEvents.ELITE_DIE);
         eliteKilled++;
-        if (eliteKilled >= 2 && time >= 300.0) addPickup(Entities.K_CHEST, e.x + 36f, e.y + 8f, ARMS_CRATE); // Arms Crate, next to the gear crate
+        if (eliteKilled >= 2 && time >= WaveDirector.armsCrateFrom) addPickup(Entities.K_CHEST, e.x + 36f, e.y + 8f, ARMS_CRATE); // Arms Crate, next to the gear crate
         if (!data.baseItems.isEmpty()) {
             dropEquipment(e.x, e.y, data.baseItems.get(rng.nextInt(data.baseItems.size())), rollRarity());
         }
@@ -2857,7 +2916,7 @@ public final class Sim {
             inv.levelUp(s.def.key);
             lines.add(s.def.name + " -> Lv " + s.level);
         }
-        int coins = Math.round((30 + rng.nextInt(60)) * (float) stage.goldMultiplier * (float) stats.greedMul);
+        int coins = Math.round((30 + rng.nextInt(60)) * (float) stage.goldMultiplier * (float) stats.greedMul * (float) curseGoldMul);
         gold += coins;
         lines.add("+" + coins + " gold");
         recomputeAll();

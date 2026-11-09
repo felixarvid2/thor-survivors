@@ -374,9 +374,11 @@ public final class Engine {
                 if (nextRunSeed == null) seed = daily.seed;
             }
         }
-        sim = new Sim(data, stage(), starters.get(weaponIdx), meta.bonuses(), heroKey, seed);
         if (daily != null) runMods = RunMods.daily(daily.mod, meta.dailyBonusOpen(today()), meta.rerollCharges(), meta.banishCharges());
         else runMods = RunMods.ascension(Math.min(ascTier, meta.ascMax(stage().key)), meta.rerollCharges(), meta.banishCharges());
+        CurseMod.setTierHpMul(runMods.hpMult()); // v1.5 integration: B4's tier HP feeds B7's capped curse HP; Sim snapshots it
+        sim = new Sim(data, stage(), starters.get(weaponIdx), meta.bonuses(), heroKey, seed);
+        CurseMod.setTierHpMul(1.0); // the static stays neutral for anything that builds a Sim outside a run start
         sim.applyMods(runMods);
         rerollsLeft = runMods.extraRerolls();
         banishesLeft = runMods.extraBanishes();

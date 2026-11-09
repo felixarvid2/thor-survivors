@@ -150,20 +150,23 @@ ELITES = dict(first=120, interval=90, min=45, shrinkPerMin=0.02, hpMul=6, damage
 # Applied on top of the heroes / mainWeapons already in ashfall_data.json: dotted path -> value. Measured with StageSoak (see the
 # thor-survivors-balance skill): a main weapon is strong but no longer replaces the VS build, Spectre survives like the others.
 HERO_TUNE = {
+    # v1.5 B7 item 61 hero parity (skilled bot, 30 seeds x 5 stages; spread per stage up to 43 points before): HP Bastion 140 -> 154, Spectre 115 -> 126, Xenomant 115 -> 105 (+-10 %)
     # glass cannon, but not made of glass: HP 80 -> 105, armor 1, regen 0.5, and every level takes 0.7% less damage (-35% at level 50)
-    "SPECTRE.hp": 115, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
+    "SPECTRE.hp": 126, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
     "SPECTRE.perLevel.damageTaken": -0.009,
     "BASTION.regen": 0.7,   # v1.4 (was 0.3): chronic attrition from bolts and slag is what kills the slow tank, see "Svårighet (v1.4)"
     # v1.3.1 hero parity (mid bot, 32 seeds): Spectre and Xenomant died of contact late (the damage curve makes a Colonist hit 96 at 30:00, Xenomant
     # had 95 HP and no armor), Bastion survived 3 in 4. Defence now grows with the level for all three.
-    "BASTION.hp": 140, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
+    "BASTION.hp": 154, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
     "SPECTRE.perLevel.power": 0.006, "SPECTRE.perLevel.maxHp": 0.005,              # new / was 0.004 (damageTaken stays -0.007)
-    "XENOMANT.hp": 115, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
+    "XENOMANT.hp": 105, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
     "XENOMANT.perLevel.maxHp": 0.004, "XENOMANT.perLevel.damageTaken": -0.0015,    # new
 }
 MAIN_TUNE = {
-    "HAMMER.power": 1.5, "HAMMER.params.slamPower": 2.2, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
-    "CASTER.power": 0.5, "CASTER.params.burstPower": 0.3,                              # was 1.2 / 0.5
+    "HAMMER.power": 1.65, "HAMMER.params.slamPower": 2.42, "HAMMER.interval": 1200,   # v1.4: 1.5 / 2.2 (was 1.6 / 2.4 / 1100)
+    "CASTER.power": 0.45, "CASTER.params.burstPower": 0.27,                            # v1.4: 0.5 / 0.3 (was 1.2 / 0.5)
+    # v1.5 B7 item 61: Hammer +10 % (1.5 -> 1.65, slam 2.2 -> 2.42), Pistols +10 % (0.6 -> 0.66), Caster -10 % (0.5 -> 0.45, burst 0.3 -> 0.27)
+    "PISTOLS.power": 0.66,
     # PISTOLS stay as they were (0.6, no pierce): pierce 1 made Spectre the strongest main weapon (111% of the Whip) without helping his survival
 }
 HERO_TEXT = {
@@ -413,6 +416,8 @@ TUNE_DEFAULT = dict(
     boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
     wave_mul=[[0, 1.0]],   # v1.4 (Hydro / Refinery / Wreck only): [minute, factor] on the finished rows' minimum, linear between points
     rules={},              # v1.4 (Hydro / Refinery / Wreck only): overrides of the stage's rules params (StageDef.rules)
+    spawn_ahead=0.0,       # v1.5 B7 item 67: share of normal spawns placed in a 50 degree cone ahead of the hero's heading (anti line-kite)
+    first_boss_shift=0,    # v1.5 B7 item 62: seconds the first timed boss (7:30) and its chest are delayed
 )
 STAGE_TUNE = {
     # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
@@ -431,6 +436,16 @@ STAGE_TUNE = {
     "MINES": dict(hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1430, 290], [1600, 290]], extra_types=[[1, "SGT"], [3, "DRN"]],
                   dmg_curve=[[0, 1.4], [3, 1.45], [6, 1.45], [10, 1.72], [13, 2.0], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]]),
 }
+# v1.5 B7 (items 62, 63, 67): measured with StageSoak (skilled bot, 40 seeds x 3 heroes per stage, ARMS_FROM 660 s, see TEKNIK "v1.5 batch 7").
+#  - spawn_ahead: share of normal spawns placed in a 50 degree cone ahead of the hero's heading. The line-kite bot survived 120-180 % as often as the skilled
+#    bot (Flats 42 vs 23 %, Hydro 47 vs 34, Refinery 28 vs 23, Wreck 17 vs 12), so 0.2 on those four; on Deep Mines it cost 17 points (36 -> 19) and the line-kite
+#    bot was already below 85 %, so Mines has none.
+#  - speed_curve: the first evolution moved from 9-12 to 11-14 min (Arms Crates from 11:00, WaveDirector.armsCrateFrom), which cost 10-25 survival
+#    points; the excess speed over 1.0 from minute 10 is cut by 50 % (Flats), 20 % (Hydro), 40 % (Refinery) and 55 % (Wreck) to win part of it back.
+STAGE_TUNE["FLATS"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.125], [15, 1.2], [20, 1.325], [25, 1.46], [30, 1.625]])
+STAGE_TUNE["HYDRO"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.2], [15, 1.348], [20, 1.586], [25, 1.851], [30, 2.18]])
+STAGE_TUNE["REFINERY"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.15], [15, 1.24], [20, 1.439], [25, 1.667], [30, 1.952]])
+STAGE_TUNE["WRECK"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.113], [15, 1.18], [20, 1.329], [25, 1.5], [30, 1.714]])
 # Hordes sit between the bosses and events: nominal starts 675, 825, ..., 1575 (every 150 s) shifted off every timed boss (7:30, 12:30,
 # 17:30, 22:30, Kade 27:30 Flats / 26:30 Mines) and event start (Signal Tower 1260, Lumen Surge 1440, Beacon Flats 1560, Collapse Mines 1405-1430).
 
@@ -928,6 +943,14 @@ def main():
         st["rules"] = dict(st.get("rules", {}), **tn["rules"])
     for hero, text in HERO_TEXT.items():
         data["heroes"][hero]["description"] = text
+    # v1.5 B7 item 62: the first timed boss (and so the first boss chest and the first evolution) comes first_boss_shift seconds later; the later ones stay
+    for key in ("FLATS", "MINES", "HYDRO", "REFINERY", "WRECK"):
+        shift = tune_of(key)["first_boss_shift"]
+        tb = data["stages"][key].get("timedBosses")
+        if shift and tb:
+            tb[0]["t"] += shift
+        if tune_of(key)["spawn_ahead"]:
+            data["stages"][key]["spawnAhead"] = tune_of(key)["spawn_ahead"]
     lighting = data.setdefault("lighting", {})
     lighting["FLATS"] = dict(ambient=0.65, radius=240)
     lighting["MINES"] = dict(ambient=0.78, radius=200)

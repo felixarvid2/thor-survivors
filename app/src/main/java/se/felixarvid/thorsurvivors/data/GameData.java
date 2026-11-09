@@ -240,6 +240,7 @@ public final class GameData {
         JSONObject eo = o.optJSONObject("elites");
         if (eo != null) sd.eliteOv.putAll(numbers(eo));
         sd.rangedCap = o.optInt("rangedCap", 0);
+        sd.spawnAhead = (float) o.optDouble("spawnAhead", 0.0); // v1.5 B7
         JSONObject hd = o.optJSONObject("hordes");
         if (hd != null) {
             sd.hordeTypes = strings(hd.optJSONArray("types")).toArray(new String[0]);

@@ -111,7 +111,7 @@ public class StageFrameworkTest {
     }
 
     /**
-     * State hashes of seeded runs (recorded on main v1.3.1 before the framework; re-recorded at the v1.4 merge, when the harder data
+     * State hashes of seeded runs (recorded on main v1.3.1 before the framework; re-recorded at the v1.4 merge and again for v1.5 batch 7 (hero HP, Arms Crate time, late HP ramp, offer weights), when the harder data
      * (curves, hordes, heroes) replaced the v1.3.1 numbers; the framework itself had matched the old hashes bit for bit): five minutes of each old stage, and a window
      * over the Flats ash storm (12:00) so the moved storm code is covered. Any change to Flats or Mines behaviour moves them.
      * Chunk E: these are recorded with the add-ons OFF ({@code StageRules.addonsEnabled = false}), which is how they still prove that
@@ -121,10 +121,10 @@ public class StageFrameworkTest {
      */
     @Test
     public void flatsAndMinesRunsAreBitIdenticalToBefore() throws Exception {
-        assertEquals("FLATS 5 min", 2557693173208608407L, stateHash("FLATS", 12345L, 0, 300));
-        assertEquals("MINES 5 min", -3190897404612269926L, stateHash("MINES", 12345L, 0, 300));
-        assertEquals("FLATS storm window", -4008795852715061867L, stateHash("FLATS", 777L, 705, 60));
-        assertEquals("MINES same window", -1992787712634495628L, stateHash("MINES", 777L, 705, 60));
+        assertEquals("FLATS 5 min", 6630961025098548194L, stateHash("FLATS", 12345L, 0, 300));
+        assertEquals("MINES 5 min", -1837219883725204128L, stateHash("MINES", 12345L, 0, 300));
+        assertEquals("FLATS storm window", -1926568561625232073L, stateHash("FLATS", 777L, 705, 60));
+        assertEquals("MINES same window", 8415772960463507640L, stateHash("MINES", 777L, 705, 60));
     }
 
     @Test

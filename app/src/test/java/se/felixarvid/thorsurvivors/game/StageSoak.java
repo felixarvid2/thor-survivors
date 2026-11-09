@@ -17,6 +17,7 @@ import java.util.Random;
  * <li><b>immortal</b>: hp is refilled every step and a lethal hit is undone; checks NaN, pool limits, the 300 cap and counts everything.</li>
  * <li><b>mid</b>: mortal, takes level-ups and chests like a player who prefers weapons and branches.</li>
  * <li><b>naked</b>: mortal, takes no level-up card at all (the main weapon alone).</li>
+ * <li><b>linekite</b> (v1.5): the skilled bot's builds, aim and dodges, but it holds one heading and only turns when the skilled bot's heading is more than 90 degrees off it.</li>
  * <li><b>still</b>: mortal, takes cards like <b>mid</b> but never moves (it only dodges).</li>
  * <li><b>plan</b>: mortal, like <b>mid</b> but goes for evolutions like a player does: the passive that a held weapon evolves with
  * (Offer def of a passive in the {@code evoSynergy} of an owned weapon) is taken before anything but a branch card.</li>
@@ -53,6 +54,8 @@ public final class StageSoak {
         public final float[][] srcBand = new float[6][4];
         public final long[] xpAt = new long[6];
         public double firstEvo = -1, firstFuse = -1;
+        /** v1.5 B7: damage the stand-still drift dealt, and seconds the penalty was active. */
+        public float stillDamage, stillSeconds;
         public String weaponsEnd = "", mainEnd = "", slotsEnd = "";
         public float gearPoints;
         /** Mean pickups and gems on the field over minutes 25 to 30 (sampled twice a second). */
@@ -125,7 +128,8 @@ public final class StageSoak {
         r.seed = seed;
         boolean immortal = policy.equals("immortal"), naked = policy.equals("naked");
         boolean plan = policy.equals("plan");
-        boolean skilled = policy.equals("skilled");
+        boolean lineKite = policy.equals("linekite"); // v1.5 B7 item 67: the skilled bot builds and aims, but walks a straight line, turning only when the skilled bot's own heading points more than 90 degrees away
+        boolean skilled = policy.equals("skilled") || lineKite;
         SkilledBot bot = skilled ? new SkilledBot() : null;
         SkilledBot.fusions = d.fusions;
         float lastDmg = 0f;
@@ -138,12 +142,32 @@ public final class StageSoak {
         if (!humanLike) s.merchant.enabled = false; // nor the Salvager: the headless Sim never pauses for a shop, and a purchase would change the balance numbers
         if (!withEvents) s.events.enabled = false; // schedule tests (EliteTest) measure the plain elite timer without the Tide's extra elites
         s.pois.enabled = false; // nor the places: a relay terminal screen never closes headless, and vents/nests depend on where the bot wanders
+        // v1.5 B7 experiments: PENALTY=0 (no stand-still penalty), AHEAD=0.2 (spawn-ahead bias), EARLY_PASSIVE=1.0 (offer weight), CURSE=0.3
+        if (System.getenv("ARMS_FROM") != null) WaveDirector.armsCrateFrom = Double.parseDouble(System.getenv("ARMS_FROM"));
+        if ("0".equals(System.getenv("PENALTY"))) s.standStillPenalty = false;
+        if (System.getenv("AHEAD") != null) s.spawnAheadBias = Float.parseFloat(System.getenv("AHEAD"));
+        if (System.getenv("EARLY_PASSIVE") != null) OfferGenerator.earlyPassiveMul = Double.parseDouble(System.getenv("EARLY_PASSIVE"));
+        if (System.getenv("CURSE") != null) s.setRunCurse(Double.parseDouble(System.getenv("CURSE")), 1.0);
         Random rng = new Random(seed * 7919 + 1);
         Input in = new Input();
         float dt = 1f / 60f;
         long step = 0;
+        float lineHx = 1f, lineHy = 0f;
         while (s.time < limit && s.ended == 0) {
-            if (bot != null) bot.steer(s, in);
+            if (bot != null) {
+                bot.steer(s, in);
+                if (lineKite) { // keeps one straight heading and only turns when the skilled bot's own heading is more than 90 degrees off it
+                    float dx = in.stickX, dy = in.stickY, dl = (float) Math.sqrt(dx * dx + dy * dy);
+                    if (dl > 0.1f) {
+                        if (lineHx * dx + lineHy * dy < 0f) {
+                            lineHx = dx / dl;
+                            lineHy = dy / dl;
+                        }
+                    }
+                    in.stickX = lineHx;
+                    in.stickY = lineHy;
+                }
+            }
             else {
             // the bot: flee the melee crowd, chase the nearest shooter, sidestep bolts, otherwise circle; aim at the nearest enemy
             float fx = 0, fy = 0, cx = 0, cy = 0, bx = 0, by = 0;
@@ -434,6 +458,7 @@ public final class StageSoak {
         r.gold = s.gold;
         r.banked = s.endGold();
         r.heroHits = s.heroHits;
+        r.stillDamage = s.stillDamage;
         r.bought = bot == null ? 0 : bot.bought;
         r.weapons = s.inv.weaponCount;
         r.dmg = s.dmgBy.clone();
@@ -510,6 +535,7 @@ public final class StageSoak {
             for (float v : r.dmgBand) sb.append(String.format(" %.0f", v));
             sb.append(String.format(" %d %d %d %d", (int) r.firstEvo, (int) r.firstFuse, r.eliteKilled, r.nan + r.overflow + r.capBreak));
             for (int b = 0; b < 6; b++) for (int q = 0; q < 3; q++) sb.append(String.format(" %.0f", r.srcBand[b][q] + (q == 2 ? r.srcBand[b][3] : 0)));
+            sb.append(String.format(" %.0f", r.stillDamage)); // v1.5 B7: last column
             System.out.println(sb);
             System.out.println("V " + r.stage + " " + r.hero + " " + seed + " " + r.bought + " " + r.visitGold);
         }
