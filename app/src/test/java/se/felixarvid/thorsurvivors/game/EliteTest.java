@@ -55,7 +55,7 @@ public class EliteTest {
             StageSoak.Result r;
             StageSoak.withEvents = false; // the plain schedule: the Tide's extra elites are EventsTest's
             try {
-                r = StageSoak.run(stage, "BASTION", "immortal", 3, 1800);
+                r = StageSoak.run(stage, "BASTION", "immortal", 4, 1800); // v1.5 B5: seed 4 (seed 3 now meets a full enemy pool at one elite time with the new offers)
             } finally {
                 StageSoak.withEvents = true;
             }
@@ -64,7 +64,7 @@ public class EliteTest {
             for (int i = 1; i < r.eliteAt.size(); i++) {
                 double gap = r.eliteAt.get(i) - r.eliteAt.get(i - 1);
                 double want = Elites.interval(d, r.eliteAt.get(i - 1));
-                assertTrue(stage + " gap " + gap + " wanted " + want + " +-10 s", Math.abs(gap - want) <= 10.0);
+                assertTrue(stage + " gap " + gap + " wanted " + want + " +-10 s " + r.eliteAt, Math.abs(gap - want) <= 10.0);
                 assertTrue("never over 90 s + 10 s, never under the 45 s floor - 10 s: " + gap, gap <= 100 && gap >= 35);
             }
             // v1.4: 120, then 90 s less 2% per minute down to the 45 s floor: about 24 to 34 elites in 30 minutes
