@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 
+import org.junit.After;
 import org.junit.Test;
 
 import se.felixarvid.thorsurvivors.TestData;
@@ -13,6 +14,19 @@ import se.felixarvid.thorsurvivors.data.GameData;
 
 /** v1.5 B4 through the real Engine: run start with modifiers, reroll and banish on the level-up screen, run end (records, tiers, daily, achievements), shop. */
 public class EngineB4Test {
+    /** The Engine is a JVM-wide singleton: leave it as the other tests expect it. */
+    @After
+    public void restore() {
+        Engine e = Engine.get();
+        e.dailyPick = false;
+        e.ascTier = 0;
+        e.dateOverride = 0;
+        e.shopRefund = false;
+        e.runMods = RunMods.NONE;
+        e.phase = Engine.PH_MENU;
+        e.selectStage("FLATS");
+    }
+
     private Engine menu() throws Exception {
         Engine e = Engine.get();
         GameData d = TestData.load();

@@ -725,7 +725,7 @@ public class BossTest {
         assertTrue(e.resultWin);
         assertTrue(e.resultFirst);
         assertEquals("double gold", s.gold * 2, e.resultGold);
-        assertEquals("and it is paid out", before + e.resultGold, fresh.gold);
+        assertTrue("and it is paid out (v1.5 B4: the achievements of the win pay on top)", fresh.gold >= before + e.resultGold);
         // victory by time
         e.input.clearMovement();
         e.phase = Engine.PH_MENU;
