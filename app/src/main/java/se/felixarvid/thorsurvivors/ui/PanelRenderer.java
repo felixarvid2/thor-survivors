@@ -27,6 +27,7 @@ import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.Offer;
 import se.felixarvid.thorsurvivors.game.Sim;
+import se.felixarvid.thorsurvivors.game.TelegraphPalette;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas;
 import se.felixarvid.thorsurvivors.render.WorldRenderer;
 import se.felixarvid.thorsurvivors.render.stagefx.StageFx;
@@ -473,7 +474,7 @@ public final class PanelRenderer {
     private static final int[] STAT_COLS = {TEXT, Skin.ORANGE, Skin.BAD, GOLD};
     private static final String[] SLOT_LETTER = {"HEAD", "BODY", "GLOVE", "FEET", "RING", "NECK"};
     private static final String[] FRAME_KEYS = {"frame_common", "frame_magic", "frame_rare", "frame_unique"};
-    private final String[] eliteLabel = new String[64];
+    private final String[] eliteLabel = new String[512]; // v1.5 B6: nine modifiers
 
     private void hudPanel(Canvas c, int w, int h) {
         Sim s = eng.sim;
@@ -739,7 +740,7 @@ public final class PanelRenderer {
             for (int m = 0; m < Elites.COUNT; m++) { // a chip per modifier: its icon and how many live elites carry it
                 if (eliteMods[m] == 0) continue;
                 if (shown >= 4) { extra++; continue; }
-                k.glyph(c, m, gx, y + gr + 2f * u, gr, Elites.COLORS[m]);
+                k.glyph(c, Elites.glyphOf(m), gx, y + gr + 2f * u, gr, TelegraphPalette.map(Elites.COLORS[m]));
                 k.text(c, cs(110 + shown, "x", eliteMods[m], ""), gx + gr + 3f * u, y + gr + 2f * u + tsz * 0.36f, tsz, TEXT, Paint.Align.LEFT);
                 gx += gr * 2 + tsz * 1.3f + 10f * u;
                 shown++;
@@ -749,7 +750,7 @@ public final class PanelRenderer {
                 gx += tsz * 1.6f;
             }
             if (elDetail) {
-                int mask = el.mods & 63;
+                int mask = el.mods & 511;
                 if (eliteLabel[mask] == null) eliteLabel[mask] = "ELITE  " + Elites.label(mask);
                 k.fit(c, eliteLabel[mask], gx + 4f * u, y + gr + 10f * u, boss ? 22f * u : 26f * u, x1 - gx - 120f * u, TEXT, Paint.Align.LEFT);
                 // what is on the elite: burn, frost, electrify and decay stacks

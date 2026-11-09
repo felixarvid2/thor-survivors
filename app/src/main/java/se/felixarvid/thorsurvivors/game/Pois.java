@@ -261,7 +261,7 @@ public final class Pois {
                 y = outY[i] + (float) Math.sin(a) * r * 0.55f;
             }
             boolean elite = k == eliteAt;
-            Enemy e = s.poiSpawn((k & 1) == 0 ? sgt : wld, x, y, i, elite, elite ? Elites.roll(gr, Elites.modCount(s.data, s.time)) : 0);
+            Enemy e = s.poiSpawn((k & 1) == 0 ? sgt : wld, x, y, i, elite, elite ? Elites.roll(gr, Elites.modCount(s.data, s.time), s.time) : 0);
             if (e == null) break;
             e.sleeping = true;
             outGuards[i]++;

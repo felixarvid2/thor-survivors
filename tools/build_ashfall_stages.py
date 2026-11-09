@@ -583,7 +583,7 @@ HYDRO_ENEMIES = {
 }
 ENEMIES.update(HYDRO_ENEMIES)
 HYDRO_UNIQUES = {
-    "ROOTMINDS_HEARTWOOD": ("NECK", "Rootmind's Heartwood", "unique_ashen_heartwood",
+    "ROOTMINDS_HEARTWOOD": ("NECK", "Rootmind's Heartwood", "unique_rootminds_heartwood",  # v1.5 B6: own icon
                             {"healMul": 0.25, "heartVacuum": 0.25}, "ROOTMIND"),
 }
 UNIQUES.update(HYDRO_UNIQUES)
@@ -731,7 +731,7 @@ WRECK_RULES = dict(padR=70, padChannel=0.5, padCooldown=12, padShockR=140, padSh
                    wellFlicker=1, wellPullHero=40, wellPullEnemy=70, wellPullPickup=120, coreR=24, coreEnemyDps=40,
                    coreEliteDps=15, coreHeroDps=15, breachLen=25, breachTele=2, breachR0=260, breachR1=140, breachDrift=40,
                    breachHeroDps=4, breachRamp=0.5, breachEnemyPct=0.03, gateAt=1650, gateUntil=1770)
-ECHO_OF_THE_PILLAR = dict(name="Echo of the Pillar", slot="NECK", icon="unique_heart_of_lumen",
+ECHO_OF_THE_PILLAR = dict(name="Echo of the Pillar", slot="NECK", icon="unique_echo_of_the_pillar",  # v1.5 B6: own icon
                           values={"padRecharge": 6, "padShock": 0.5}, unique=True, source="THE_PILLAR")
 
 

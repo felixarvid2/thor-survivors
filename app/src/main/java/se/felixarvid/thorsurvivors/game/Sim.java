@@ -90,6 +90,8 @@ public final class Sim {
 
     // player
     public float px, py, hp, maxHp, faceX = 1, faceY = 0, invuln, walk;
+    /** v1.5 B6: the hero's velocity in units per second over the last step (walk, dodge and push all count). */
+    public float pvx, pvy;
     public boolean facingRight = true;
     public static final float PLAYER_R = 12f;
     public double time;
@@ -601,7 +603,12 @@ public final class Sim {
         input.move(mv);
         updateAim(input);
         updateDodge(input, dt);
+        float pox = px, poy = py; // v1.5 B6: the hero's velocity, read by the ranged enemies' lead-shot
         movePlayer(dt);
+        if (dt > 0f) {
+            pvx = (px - pox) / dt;
+            pvy = (py - poy) / dt;
+        }
         refreshDestructibles();
         events.update(dt);
         rules.update(dt);
@@ -1330,6 +1337,7 @@ public final class Sim {
             e.mt0 = 1.5f;
             e.mt1 = 2.5f;
             e.mt2 = Elites.RAISE_EVERY * 0.5f;
+            elites.arm(e); // v1.5 B6
         }
         return e;
     }
@@ -1409,6 +1417,7 @@ public final class Sim {
         boolean frozen = freezeTimer > 0;
         float decay = (float) Math.exp(-9f * dt);
         Enemy bossFound = null, eliteFound = null;
+        chasersNow = 0;
         for (int i = 0; i < enemyN; i++) {
             Enemy e = enemies[i];
             e.anim += dt;
@@ -1445,9 +1454,18 @@ public final class Sim {
                     float d = (float) Math.sqrt(d2t);
                     if (d > 1f && !(e.toBeacon && d < Events.BEACON_R * 0.8f)) {
                         float sp = ai.speedOf(e);
-                        e.x += tdx / d * sp * dt;
-                        e.y += tdy / d * sp * dt;
+                        float ux = tdx / d, uy = tdy / d;
+                        if (chasersLast > EnemyAi.FLANK_OVER && !e.toBeacon && !e.boss) { // v1.5 B6: a big pack fans out across +-40 degrees
+                            float f = EnemyAi.flankBlend(d), c = EnemyAi.FLANK_COS[e.id % 5], sn = EnemyAi.FLANK_SIN[e.id % 5] * f;
+                            c = 1f + (c - 1f) * f;
+                            float rx = ux * c - uy * sn, ry = uy * c + ux * sn;
+                            ux = rx;
+                            uy = ry;
+                        }
+                        e.x += ux * sp * dt;
+                        e.y += uy * sp * dt;
                     }
+                    chasersNow++;
                 }
             } else if (!frozen && !stunned) {
                 ai.update(e, dt, moving, dx, dy, d2);
@@ -1465,6 +1483,15 @@ public final class Sim {
         }
         bossNow = bossFound;
         eliteNow = eliteFound;
+        chasersLast = chasersNow;
+    }
+
+    /** v1.5 B6: chasers that walked this step and the step before (the flank spread starts above {@link EnemyAi#FLANK_OVER}). */
+    int chasersNow, chasersLast;
+
+    /** v1.5 B6: the next enemy id (the boss phase pulse only clears adds that already existed). */
+    int nextEnemyId() {
+        return nextId;
     }
 
     // ------------------------------------------------------------------ statuses (design section 7)
@@ -1550,7 +1577,7 @@ public final class Sim {
         if (e.dead || amount <= 0f) return;
         amount = rules.damageIn(e, amount, color == Status.C_BURN ? StageRules.CAT_BURN : color == Status.C_ELEC ? StageRules.CAT_ELECTRIFY
                 : color == Status.C_FROST ? StageRules.CAT_FROST : StageRules.CAT_DECAY); // stage hook (v1.4)
-        if (amount <= 0f) return;
+        if (amount <= 0f || e.shieldT > 0f) return; // v1.5 B6: no status damage through a boss's phase shield
         e.hp -= amount;
         e.dotAcc += amount;
         if (e.dotAcc >= 1f && show && statusTexts < MAX_STATUS_TEXTS) {
@@ -1636,7 +1663,7 @@ public final class Sim {
 
     /** Damage without a flash, number or sound (links); kills when it empties the enemy. */
     void dot(Enemy e, float amount) {
-        if (e.dead || e.dormant) return;
+        if (e.dead || e.dormant || e.shieldT > 0f) return;
         e.hp -= amount;
         if (e.hp <= 0) killNow(e);
     }
@@ -1840,6 +1867,8 @@ public final class Sim {
         lastCrit = crit;
         if (crit) dmg *= critMul;
         if (e.armor > 0f) dmg = Math.max(dmg * 0.4f, dmg - e.armor); // the Armored elite: 3 off every hit
+        if (e.mods != 0) dmg = elites.shieldedDamage(e, dmg); // v1.5 B6: the Shielded elite's frontal arc
+        if (e.shieldT > 0f) dmg = 0f; // v1.5 B6: a boss in its phase-change shield takes nothing
         dmg = rules.damageIn(e, dmg, StageRules.CAT_HIT); // stage hook (v1.4): e.g. Ironclad takes less from hits
         e.hp -= dmg;
         if (stats.statusChance[Entities.ST_BURN] > 0f || stats.statusChance[Entities.ST_FROST] > 0f
@@ -1883,6 +1912,7 @@ public final class Sim {
                 continue;
             }
             kills++;
+            if (e.elite) elites.onDeath(e); // v1.5 B6: Volatile blast, Splitter copies (queued)
             rules.onEnemyDeath(e);
             sound.emit(SoundEvents.ENEMY_DEATH);
             if (e.type.arch == EnemyDef.ARCH_EXPLODER) ai.carrierBurst(e); // a spore carrier bursts when it dies
@@ -1895,6 +1925,7 @@ public final class Sim {
             enemies[enemyN - 1] = e;
             enemyN--;
         }
+        elites.flushSplits(); // v1.5 B6: Splitter copies, spawned once the swap loop is done
     }
 
     private void addCorpse(Enemy e) {
@@ -2479,6 +2510,7 @@ public final class Sim {
         e.mt0 = 1.5f;
         e.mt1 = 2.5f;
         e.mt2 = Elites.RAISE_EVERY * 0.5f;
+        elites.arm(e); // v1.5 B6
         int adds = (int) elite("adds", 6);
         float a0 = rng.nextFloat() * 6.2831853f;
         for (int k = 0; k < adds; k++) {
@@ -2508,7 +2540,7 @@ public final class Sim {
         WaveRow row = stage.rows.get(WaveSelector.indexAt(stage.rows, time));
         if (row.enemies.length == 0) return;
         EnemyType t = type(row.enemies[rng.nextInt(row.enemies.length)]);
-        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, stage, time)));
+        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, stage, time), time));
         if (e != null) nextEliteAt = (float) time + Elites.interval(data, stage, time);
     }
 
