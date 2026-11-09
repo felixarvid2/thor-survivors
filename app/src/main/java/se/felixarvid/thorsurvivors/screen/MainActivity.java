@@ -32,7 +32,9 @@ public final class MainActivity extends Activity {
             try (InputStream in = getAssets().open("game_data.json");
                  InputStream over = getAssets().open("ashfall_data.json")) {
                 GameData data = GameData.load(in, over); // Ashfall names merged over the Vampire Survivors data
-                eng.init(data, new MetaProgress(data, new PrefsStore(this)));
+                PrefsStore prefs = new PrefsStore(this);
+                eng.init(data, new MetaProgress(data, prefs));
+                eng.attachStore(prefs); // v1.5 B3: options, button map, codex and tutorial flag
             } catch (Exception e) {
                 throw new RuntimeException("Cannot load game_data.json", e);
             }

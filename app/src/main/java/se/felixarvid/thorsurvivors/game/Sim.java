@@ -72,6 +72,8 @@ public final class Sim {
     public final MainWeapon main;
     /** Aim direction of the main weapon (unit vector): the aim input if any, else the facing direction. */
     public float aimX = 1, aimY = 0;
+    /** v1.5 B3: damage dealt per weapon slot and the cause of death, for the results screen. */
+    public final RunStats run = new RunStats();
     /** True while there is aim input (right stick, touch aim area, arrow keys); false = aiming where the hero faces. */
     public boolean aimActive;
     /** Clip the player sprite should play for the main weapon (AC_*) and when the latest main attack happened. */
@@ -596,6 +598,7 @@ public final class Sim {
     public void update(float dt, Input input) {
         sound.advance(dt);
         if (ended != 0) return;
+        run.src = RunStats.OTHER; // v1.5 B3: hazards and stage rules until a weapon's code sets its own slot
         time += dt;
         tNow = (float) time;
         input.move(mv);
@@ -617,8 +620,10 @@ public final class Sim {
         separate(dt);
         ai.updateHazards(dt);
         updateWeapons(dt);
+        run.src = RunStats.MAIN; // v1.5 B3
         if (main != null) main.update(dt);
         updateProjectiles(dt);
+        run.src = RunStats.OTHER;
         ai.updateProjectiles(dt);
         contactDamage();
         reap();
@@ -658,6 +663,11 @@ public final class Sim {
                 aimX = faceX / m;
                 aimY = faceY / m;
             }
+        }
+        int assist = Settings.get().autoAim(); // v1.5 B3: Soft / Full aim assist (Off changes nothing)
+        if (assist != Settings.AIM_OFF && AimAssist.pick(assist, this, aimX, aimY, aimActive, aimv)) {
+            aimX = aimv[0];
+            aimY = aimv[1];
         }
     }
 
@@ -1771,6 +1781,7 @@ public final class Sim {
         taken *= (float) stats.damageTaken; // Riot Shield
         heroHits++;
         dmgBy[source] += taken;
+        run.lastHurt = source; // v1.5 B3
         hp -= taken;
         sound.emit(SoundEvents.PLAYER_HURT);
         invuln = Math.max(invuln, inv);
@@ -1783,6 +1794,7 @@ public final class Sim {
         amount *= (float) stats.damageTaken;
         hp -= amount;
         dmgBy[DMG_AREA] += amount;
+        run.lastHurt = DMG_AREA; // v1.5 B3
         if (hp <= 0f) checkHeroDeath();
     }
 
@@ -1841,6 +1853,7 @@ public final class Sim {
         if (crit) dmg *= critMul;
         if (e.armor > 0f) dmg = Math.max(dmg * 0.4f, dmg - e.armor); // the Armored elite: 3 off every hit
         dmg = rules.damageIn(e, dmg, StageRules.CAT_HIT); // stage hook (v1.4): e.g. Ironclad takes less from hits
+        run.add(Math.min(dmg, e.hp)); // v1.5 B3: what the hit really took off, for the results screen
         e.hp -= dmg;
         if (stats.statusChance[Entities.ST_BURN] > 0f || stats.statusChance[Entities.ST_FROST] > 0f
                 || stats.statusChance[Entities.ST_ELECTRIFY] > 0f) { // rings: a chance per hit to add a stack
@@ -1850,7 +1863,7 @@ public final class Sim {
         }
         e.flash = 0.1f;
         e.softFlash = softHit;
-        addEnemyText(e, (int) dmg, crit);
+        if (Settings.get().showDamageNumber(crit)) addEnemyText(e, (int) dmg, crit); // v1.5 B3: the damage-numbers option
         float k = knock * (float) e.type.def.knockback * e.kbMul;
         if (k > 0) {
             if (e.boss) k *= 0.05f; // bosses barely move and never stagger
@@ -2724,11 +2737,13 @@ public final class Sim {
                 strikeN--;
                 strikeX[i] = strikeX[strikeN]; strikeY[i] = strikeY[strikeN];
                 strikeT[i] = strikeT[strikeN]; strikeSlot[i] = strikeSlot[strikeN];
+                run.src = slot; // v1.5 B3
                 if (slot < inv.weaponCount) strike(weapons[slot], x, y);
             }
         }
         for (int i = 0; i < inv.weaponCount; i++) {
             WeaponState w = weapons[i];
+            run.src = i; // v1.5 B3
             if (w.pulse > 0) w.pulse -= dt;
             w.leech = Math.min(LEECH_PER_SECOND, w.leech + LEECH_PER_SECOND * dt);
             switch (w.behavior) {
@@ -3186,6 +3201,7 @@ public final class Sim {
                 default:
                     break;
             }
+            run.src = p.slot >= RunStats.SLOTS ? RunStats.MAIN : p.slot; // v1.5 B3
             if (p.fusion != 0 && fusions.update(p, dt)) { removeProj(i); continue; }
             // off-screen culling (books and puddles stay; the cross dies by lifetime)
             if (p.kind != Entities.P_BOOK && p.kind != Entities.P_PUDDLE && p.kind != Entities.P_CROSS) {
@@ -3210,6 +3226,7 @@ public final class Sim {
                     if (e.hitBy(p.stamp)) continue;
                     e.markHit(p.stamp);
                 }
+                run.src = p.slot >= RunStats.SLOTS ? RunStats.MAIN : p.slot; // v1.5 B3
                 hurt(e, p.dmg, p.critChance, p.critMul, dx / d, dy / d, p.knock);
                 if (p.kind == Entities.P_FIRE) applyStatus(e, Entities.ST_BURN, p.evo ? 2 : 1, p.dmg, 0f); // Slag Cannon / Furnace Burst
                 else if (p.kind == Entities.P_PUDDLE) { // Corrosive Flask: Decay, and a one-stack slow

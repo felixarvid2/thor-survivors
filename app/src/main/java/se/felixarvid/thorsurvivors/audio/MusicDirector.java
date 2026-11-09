@@ -20,6 +20,9 @@ public final class MusicDirector {
         switch (phase) {
             case Engine.PH_MENU:
             case Engine.PH_SHOP:
+            case Engine.PH_OPTIONS: // v1.5 B3
+            case Engine.PH_CODEX:
+            case Engine.PH_REMAP:
                 return MENU;
             case Engine.PH_RESULT:
                 return win ? VICTORY : GAMEOVER;

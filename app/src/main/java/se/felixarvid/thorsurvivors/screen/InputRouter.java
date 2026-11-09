@@ -4,8 +4,10 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
+import se.felixarvid.thorsurvivors.game.ButtonMap;
 import se.felixarvid.thorsurvivors.game.Engine;
 import se.felixarvid.thorsurvivors.game.Input;
+import se.felixarvid.thorsurvivors.game.Settings;
 
 /**
  * Translates framework key/motion events into the shared {@link Input}. Every window that can hold input focus
@@ -34,6 +36,7 @@ public final class InputRouter {
             in.gamepadSeen = true;
         }
         boolean pad = isPad(e.getSource());
+        if (ButtonMap.bindable(code) && padButton(eng, in, code, down, e.getRepeatCount() == 0)) return true; // v1.5 B3: remappable buttons
         switch (code) {
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_A:
@@ -55,7 +58,6 @@ public final class InputRouter {
                 if (code == KeyEvent.KEYCODE_DPAD_DOWN && !pad) in.aDown = down;
                 else in.kDown = down;
                 return nav(down, Input.DOWN, code == KeyEvent.KEYCODE_DPAD_DOWN);
-            case KeyEvent.KEYCODE_BUTTON_A:
             case KeyEvent.KEYCODE_SPACE:
                 // while playing, the gamepad A button (and space) dodges; in menus it confirms
                 if (eng.phase == Engine.PH_PLAYING) {
@@ -69,14 +71,6 @@ public final class InputRouter {
             case KeyEvent.KEYCODE_NUMPAD_ENTER:
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_CONFIRM, 0, 0, 0);
                 return true;
-            case KeyEvent.KEYCODE_BUTTON_B:
-                // while playing, B dodges like A (pause stays on Start and the system back key); in menus it goes back
-                if (eng.phase == Engine.PH_PLAYING) {
-                    if (down && e.getRepeatCount() == 0) in.dodgeReq = true;
-                    return true;
-                }
-                if (down && e.getRepeatCount() == 0) in.post(Input.CMD_BACK, 0, 0, 0);
-                return true;
             case KeyEvent.KEYCODE_ESCAPE:
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_BACK, 0, 0, 0);
                 return true;
@@ -84,32 +78,46 @@ public final class InputRouter {
                 if (eng.phase == Engine.PH_MENU) return false; // let the activity exit from the main menu
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_BACK, 0, 0, 0);
                 return true;
-            case KeyEvent.KEYCODE_BUTTON_START:
             case KeyEvent.KEYCODE_P:
                 if (down && e.getRepeatCount() == 0) in.post(Input.CMD_START, 0, 0, 0);
                 return true;
-            case KeyEvent.KEYCODE_BUTTON_L1:
-            case KeyEvent.KEYCODE_BUTTON_R1:
-                if (eng.phase == Engine.PH_SHOP) { // the salvage terminal: shoulder buttons flip the page
-                    if (down && e.getRepeatCount() == 0) {
-                        in.post(Input.CMD_NAV, code == KeyEvent.KEYCODE_BUTTON_L1 ? Input.PAGE_PREV : Input.PAGE_NEXT, 0, 0);
-                    }
-                    return true;
-                }
-                if (eng.phase == Engine.PH_PLAYING && down && e.getRepeatCount() == 0) in.dodgeReq = true;
-                return true;
-            case KeyEvent.KEYCODE_BUTTON_X:
-            case KeyEvent.KEYCODE_BUTTON_Y:
-            case KeyEvent.KEYCODE_BUTTON_L2:
-            case KeyEvent.KEYCODE_BUTTON_R2:
-                // any face or shoulder button dodges while playing; elsewhere they are swallowed
-                if (eng.phase == Engine.PH_PLAYING && down && e.getRepeatCount() == 0) in.dodgeReq = true;
-                return true;
-            case KeyEvent.KEYCODE_BUTTON_SELECT:
-                return true; // swallow so the system does not act on it
             default:
                 return false;
         }
+    }
+
+    /**
+     * v1.5 B3 (item 29): a gamepad button through the {@link ButtonMap}. Defaults are the old behaviour: A confirms, B goes back, Start
+     * pauses (and starts a run in the menu), and while playing A, B, X, Y, L1, R1, L2 and R2 all dash; L1 / R1 flip the pages of the
+     * shop and the codex; Select is swallowed. On the remap screen, while an action waits, any button is the answer.
+     */
+    private static boolean padButton(Engine eng, Input in, int code, boolean down, boolean first) {
+        ButtonMap bm = Settings.get().buttons;
+        int ph = eng.phase;
+        if (ph == Engine.PH_REMAP && eng.remapListening >= 0) {
+            if (down && first) in.post(Input.CMD_BIND, code, 0, 0);
+            return true;
+        }
+        switch (bm.action(code, ph == Engine.PH_PLAYING)) {
+            case ButtonMap.PAUSE:
+                if (down && first) in.post(Input.CMD_START, 0, 0, 0);
+                return true;
+            case ButtonMap.DASH:
+                if (down && first) in.dodgeReq = true;
+                return true;
+            case ButtonMap.CONFIRM:
+                if (down && first) in.post(Input.CMD_CONFIRM, 0, 0, 0);
+                return true;
+            case ButtonMap.BACK:
+                if (down && first) in.post(Input.CMD_BACK, 0, 0, 0);
+                return true;
+            default:
+        }
+        if ((ph == Engine.PH_SHOP || ph == Engine.PH_CODEX) && (code == ButtonMap.L1 || code == ButtonMap.R1)) {
+            if (down && first) in.post(Input.CMD_NAV, code == ButtonMap.L1 ? Input.PAGE_PREV : Input.PAGE_NEXT, 0, 0);
+            return true;
+        }
+        return code != ButtonMap.THUMBL && code != ButtonMap.THUMBR; // the stick clicks stay with the system as before
     }
 
     /** True for gamepad and joystick sources, whose d-pad moves; any other source is a keyboard (arrows aim). */
@@ -155,7 +163,7 @@ public final class InputRouter {
         float trig = Math.max(Math.max(axis(e, MotionEvent.AXIS_LTRIGGER), axis(e, MotionEvent.AXIS_RTRIGGER)),
                 Math.max(axis(e, MotionEvent.AXIS_BRAKE), axis(e, MotionEvent.AXIS_GAS)));
         boolean held = trig > 0.5f;
-        if (held && !triggerHeld && Engine.get().phase == Engine.PH_PLAYING) in.dodgeReq = true;
+        if (held && !triggerHeld && Engine.get().phase == Engine.PH_PLAYING && Settings.get().buttons.isDash(ButtonMap.L2)) in.dodgeReq = true; // v1.5 B3
         triggerHeld = held;
 
         // stick -> menu navigation on threshold crossings

@@ -16,9 +16,23 @@ import java.util.Random;
  */
 public final class Engine {
     public static final int PH_MENU = 0, PH_SHOP = 1, PH_PLAYING = 2, PH_LEVELUP = 3, PH_PAUSED = 4, PH_CHEST = 5,
-            PH_RESULT = 6, PH_EQUIP = 7, PH_MERCHANT = 8, PH_TERMINAL = 9;
+            PH_RESULT = 6, PH_EQUIP = 7, PH_MERCHANT = 8, PH_TERMINAL = 9,
+            PH_OPTIONS = 10, PH_CODEX = 11, PH_REMAP = 12; // v1.5 B3: options, bestiary / codex, button remap
+    // v1.5 B3: CODEX and OPTIONS sit beside POWER-UPS on one row (left/right moves between the three)
     public static final int MENU_START = 0, MENU_STAGE = 1, MENU_HERO = 2, MENU_WEAPON = 3, MENU_SHOP = 4,
-            MENU_MUSIC = 5, MENU_SFX = 6, MENU_LIGHT = 7, MENU_COUNT = 8;
+            MENU_CODEX = 5, MENU_OPTIONS = 6, MENU_MUSIC = 7, MENU_SFX = 8, MENU_LIGHT = 9, MENU_COUNT = 10;
+    /** Rows of the options screen (v1.5 B3): music, SFX and lighting are the same settings as the menu rows. */
+    public static final int OPT_MUSIC = 0, OPT_SFX = 1, OPT_LIGHT = 2, OPT_SHAKE = 3, OPT_NUMBERS = 4, OPT_TELE = 5, OPT_TEXT = 6,
+            OPT_AIM = 7, OPT_HAPTICS = 8, OPT_REMAP = 9, OPT_BACK = 10, OPT_COUNT = 11;
+    /** Rows of the remap screen: the four actions (ButtonMap.CONFIRM..DASH), reset, back. */
+    public static final int REMAP_RESET = ButtonMap.COUNT, REMAP_BACK = ButtonMap.COUNT + 1, REMAP_COUNT = ButtonMap.COUNT + 2;
+    /** Codex grid: columns and entries per page. */
+    public static final int CODEX_COLS = 6, CODEX_PAGE = 24;
+
+    /** True for the phases drawn as menus (the title on the top screen, menu music): v1.5 B3 added the options, codex and remap screens. */
+    public static boolean isMenuPhase(int ph) {
+        return ph == PH_MENU || ph == PH_SHOP || ph == PH_OPTIONS || ph == PH_CODEX || ph == PH_REMAP;
+    }
 
     private static final Engine INSTANCE = new Engine();
 
@@ -72,6 +86,18 @@ public final class Engine {
     public volatile Equipment.Diff[] equipDiff = new Equipment.Diff[0];
     public volatile boolean resultNewBest;
 
+    // v1.5 B3: codex, first-run hints, loading tips, the remap screen
+    public Codex codex;
+    public final Tutorial tutorial = new Tutorial();
+    public volatile int codexTab;
+    /** Remap screen: the action waiting for a button press, or -1. */
+    public volatile int remapListening = -1;
+    /** Rolled after every run; {@link Tips#pick} turns it into the line shown on the menu and the results screen. */
+    public volatile int tipSeed = 1;
+    private final Random tipRng = new Random();
+    private float codexT;
+    private int lastPhase = PH_MENU;
+
     /** The Salvager's cards: a touch focuses a card first and buys on the second tap of the same card. */
     private boolean merchantTapped;
     private final Random rng = new Random();
@@ -88,7 +114,21 @@ public final class Engine {
         if (stageKeys.isEmpty()) stageKeys.addAll(d.stages.keySet()); // data without the Ashfall stages (tests of the base data)
         starters = d.starterWeapons();
         shopKeys.addAll(d.powerUps.keySet());
+        codex = new Codex(d, stageKeys); // v1.5 B3
+        tipSeed = tipRng.nextInt();
         for (se.felixarvid.thorsurvivors.data.PowerUpDef p : d.powerUps.values()) shopText.put(p.key, Describe.powerUp(p));
+    }
+
+    /** v1.5 B3: attaches the persistent store to the options, the button map, the codex and the tutorial (the app calls it once at start-up). */
+    public void attachStore(MetaProgress.Store st) {
+        Settings.get().load(st);
+        if (codex != null) codex.load(st);
+        tutorial.load(st);
+    }
+
+    /** The tip for the stage in the menu (a line of text, no allocation). */
+    public String tip() {
+        return Tips.pick(data == null ? null : stage().key, tipSeed);
     }
 
     public boolean isReady() {
@@ -160,6 +200,26 @@ public final class Engine {
             } else if (s.equipN > 0) openEquip();
             else if (s.merchant.wantsOpen()) openMerchant();
             else if (s.pois.wantsTerminal()) openTerminal();
+        }
+        v15Step(dt);
+    }
+
+    /** v1.5 B3: the first-run hints, the codex scan and the tip roll; runs every step in every phase. */
+    private void v15Step(float dt) {
+        input.move(tmp);
+        tutorial.update(phase, dt, (float) Math.sqrt(tmp[0] * tmp[0] + tmp[1] * tmp[1]));
+        if (phase == PH_PLAYING && sim != null && codex != null) {
+            codexT += dt;
+            if (codexT >= 0.5f) {
+                codexT = 0f;
+                codex.scan(sim, stageOverride != null ? -1 : stageIdx);
+            }
+        }
+        int ph = phase;
+        if (ph != lastPhase) {
+            boolean wasRun = lastPhase != PH_RESULT && !isMenuPhase(lastPhase);
+            if (wasRun && (ph == PH_MENU || ph == PH_RESULT)) tipSeed = tipRng.nextInt(); // a new tip for the next run
+            lastPhase = ph;
         }
     }
 
@@ -275,11 +335,20 @@ public final class Engine {
                 break;
             }
             case Input.CMD_START: start(); break;
+            case Input.CMD_BIND: bindButton(c[1]); break; // v1.5 B3
             case Input.CMD_TAP:
                 if (c[1] == phase) {
                     // first tap on a tile only focuses it (the shop and the Salvager); LEAVE acts at once
                     if (phase == PH_SHOP && c[2] > shopKeys.size()) { // PREV / NEXT page buttons: ids n+1, n+2
                         shopFlip(c[2] == shopKeys.size() + 1 ? -1 : 1);
+                        break;
+                    }
+                    if (phase == PH_CODEX) { // v1.5 B3: tab buttons are ids 1000+, BACK is the entry count, the rest are entries
+                        if (c[2] >= 1000) setCodexTab(c[2] - 1000);
+                        else if (c[2] <= codex.size(codexTab)) {
+                            focus = c[2];
+                            if (c[2] == codex.size(codexTab)) confirm(0);
+                        }
                         break;
                     }
                     boolean pick = phase == PH_SHOP && c[2] < shopKeys.size() && c[2] != focus
@@ -311,6 +380,9 @@ public final class Engine {
             case PH_MERCHANT: return sim.merchant.cards() + 1; // the cards (three, four with the Fuse Kit) and LEAVE
             case PH_TERMINAL: return Pois.CARDS + 1; // the three buff cards and DECLINE
             case PH_PAUSED: return 2;
+            case PH_OPTIONS: return OPT_COUNT;
+            case PH_REMAP: return REMAP_COUNT;
+            case PH_CODEX: return codex.size(codexTab) + 1; // the entries and BACK
             default: return 1;
         }
     }
@@ -322,11 +394,30 @@ public final class Engine {
         boolean changed = false;
         switch (phase) {
             case PH_MENU:
-                if (dir == Input.UP) f = (f + n - 1) % n;
-                else if (dir == Input.DOWN) f = (f + 1) % n;
+                if (f == MENU_SHOP || f == MENU_CODEX || f == MENU_OPTIONS) { // v1.5 B3: one row of three buttons
+                    if (dir == Input.LEFT) f = Math.max(MENU_SHOP, f - 1);
+                    else if (dir == Input.RIGHT) f = Math.min(MENU_OPTIONS, f + 1);
+                    else if (dir == Input.UP) f = MENU_WEAPON;
+                    else if (dir == Input.DOWN) f = MENU_MUSIC;
+                }
+                else if (dir == Input.UP) f = f == MENU_MUSIC ? MENU_SHOP : (f + n - 1) % n;
+                else if (dir == Input.DOWN) f = f == MENU_WEAPON ? MENU_SHOP : (f + 1) % n;
                 else if (isCycleRow(f)) {
                     changed = cycle(f, dir == Input.RIGHT ? 1 : -1);
                 }
+                break;
+            case PH_OPTIONS: // v1.5 B3
+                if (dir == Input.UP) f = (f + n - 1) % n;
+                else if (dir == Input.DOWN) f = (f + 1) % n;
+                else if (f < OPT_REMAP) changed = optCycle(f, dir == Input.RIGHT ? 1 : -1);
+                break;
+            case PH_REMAP:
+                if (remapListening >= 0) break; // waiting for a button
+                if (dir == Input.UP || dir == Input.LEFT) f = (f + n - 1) % n;
+                else if (dir == Input.DOWN || dir == Input.RIGHT) f = (f + 1) % n;
+                break;
+            case PH_CODEX:
+                f = codexNav(dir, f, n - 1);
                 break;
             case PH_SHOP:
                 if (f < n - 1) shopPage = f / SHOP_PAGE; // the focus may have been set directly
@@ -431,6 +522,69 @@ public final class Engine {
         return weaponIdx;
     }
 
+    // ------------------------------------------------------------------ v1.5 B3: options, codex, remap
+
+    /** Steps an options row; true when its value changed. Music, SFX and lighting are the menu's own settings. */
+    private boolean optCycle(int row, int delta) {
+        Settings st = Settings.get();
+        switch (row) {
+            case OPT_MUSIC: meta.stepMusic(delta); break;
+            case OPT_SFX: meta.stepSfx(delta); break;
+            case OPT_LIGHT: meta.stepLighting(delta); break;
+            case OPT_SHAKE: st.stepShake(delta); break;
+            case OPT_NUMBERS: st.stepNumbers(delta); break;
+            case OPT_TELE: st.setShapes(!st.colorblindShapes()); break;
+            case OPT_TEXT: st.setLarge(!st.largeText()); break;
+            case OPT_AIM: st.stepAim(delta); break;
+            case OPT_HAPTICS: st.setHaptics(!st.haptics()); break;
+            default: return false;
+        }
+        return true;
+    }
+
+    /** Move in the codex grid (6 columns); {@code items} is the entry count, the focus {@code items} is BACK. */
+    private int codexNav(int dir, int f, int items) {
+        if (dir == Input.PAGE_PREV || dir == Input.PAGE_NEXT) {
+            setCodexTab(codexTab + (dir == Input.PAGE_NEXT ? 1 : Codex.KINDS - 1));
+            return 0;
+        }
+        if (f >= items) { // BACK
+            if (dir == Input.UP && items > 0) return items - 1;
+            return f;
+        }
+        switch (dir) {
+            case Input.LEFT: return Math.max(0, f - 1);
+            case Input.RIGHT: return Math.min(items - 1, f + 1);
+            case Input.UP: return f >= CODEX_COLS ? f - CODEX_COLS : f;
+            case Input.DOWN:
+                if (f + CODEX_COLS < items) return f + CODEX_COLS;
+                return f / CODEX_COLS == (items - 1) / CODEX_COLS ? items : items - 1;
+            default: return f;
+        }
+    }
+
+    private void setCodexTab(int t) {
+        int n = ((t % Codex.KINDS) + Codex.KINDS) % Codex.KINDS;
+        if (n != codexTab) sound.emit(SoundEvents.UI_MOVE);
+        codexTab = n;
+        focus = 0;
+    }
+
+    /** A gamepad button pressed on the remap screen while an action waits for one. */
+    private void bindButton(int code) {
+        int a = remapListening;
+        if (phase != PH_REMAP || a < 0) return;
+        int r = Settings.get().buttons.bind(a, code);
+        if (r == ButtonMap.BIND_OK) {
+            remapListening = -1;
+            toast(ButtonMap.NAMES[a] + " = " + ButtonMap.buttonName(code));
+            sound.emit(SoundEvents.UI_CONFIRM);
+        } else if (r >= 0) {
+            toast(ButtonMap.buttonName(code) + " is already " + ButtonMap.NAMES[r]);
+            sound.emit(SoundEvents.UI_BACK);
+        }
+    }
+
     private void confirm(int sub) {
         int f = focus;
         int ph = phase;
@@ -445,6 +599,43 @@ public final class Engine {
                     phase = PH_SHOP;
                     focus = 0;
                     shopPage = 0;
+                }
+                else if (f == MENU_CODEX) { // v1.5 B3
+                    phase = PH_CODEX;
+                    focus = 0;
+                }
+                else if (f == MENU_OPTIONS) {
+                    phase = PH_OPTIONS;
+                    focus = 0;
+                }
+                break;
+            case PH_OPTIONS:
+                if (f < OPT_REMAP) optCycle(f, sub == 0 ? 1 : sub);
+                else if (f == OPT_REMAP) {
+                    phase = PH_REMAP;
+                    focus = 0;
+                    remapListening = -1;
+                } else {
+                    phase = PH_MENU;
+                    focus = MENU_OPTIONS;
+                }
+                break;
+            case PH_REMAP:
+                if (remapListening >= 0) break;
+                if (f < ButtonMap.COUNT) {
+                    remapListening = f;
+                } else if (f == REMAP_RESET) {
+                    Settings.get().buttons.reset();
+                    toast("Buttons reset");
+                } else {
+                    phase = PH_OPTIONS;
+                    focus = OPT_REMAP;
+                }
+                break;
+            case PH_CODEX:
+                if (f >= codex.size(codexTab)) {
+                    phase = PH_MENU;
+                    focus = MENU_CODEX;
                 }
                 break;
             case PH_SHOP:
@@ -535,6 +726,12 @@ public final class Engine {
     private void back() {
         switch (phase) {
             case PH_SHOP: phase = PH_MENU; focus = MENU_SHOP; break;
+            case PH_OPTIONS: phase = PH_MENU; focus = MENU_OPTIONS; break; // v1.5 B3
+            case PH_CODEX: phase = PH_MENU; focus = MENU_CODEX; break;
+            case PH_REMAP:
+                if (remapListening >= 0) remapListening = -1; // B cancels the wait
+                else { phase = PH_OPTIONS; focus = OPT_REMAP; }
+                break;
             case PH_PLAYING: phase = PH_PAUSED; focus = 0; break;
             case PH_PAUSED: resume(); break;
             case PH_EQUIP: answerEquip(false); break; // B = keep what you wear
