@@ -130,6 +130,30 @@ public class RefineryShotsTest {
         Shots.save(h.renderBottom(), "refinery_heat_low_bottom.png");
     }
 
+    /** v1.5 B8 (71): the vignette is one baked gradient; its strength follows the heat (3 levels, shots refinery_vignette_*.png). */
+    @Test
+    public void vignetteGradientAtThreeHeatLevels() throws Exception {
+        Shots h = new Shots();
+        Sim s = start(h);
+        RefineryRules r = (RefineryRules) s.rules;
+        s.time = 30;
+        float[] heats = {40f, 75f, 100f};
+        int[] edge = new int[3], centre = new int[3];
+        for (int i = 0; i < 3; i++) {
+            r.heat = heats[i];
+            frames(h, 2);
+            r.heat = heats[i];
+            android.graphics.Bitmap b = h.renderTop();
+            Shots.save(b, "refinery_vignette_" + (int) heats[i] + ".png");
+            int e = b.getPixel(6, Shots.TOP_H / 2), m = b.getPixel(Shots.TOP_W / 2, Shots.TOP_H / 2);
+            edge[i] = ((e >> 16) & 255) - (e & 255); // orange tint: red above blue
+            centre[i] = ((m >> 16) & 255) - (m & 255);
+        }
+        assertTrue("no vignette below 50 heat, edge tint " + edge[0], edge[1] > edge[0] + 8);
+        assertTrue("stronger at the limit " + edge[1] + " -> " + edge[2], edge[2] > edge[1] + 8);
+        assertTrue("the middle stays clear: " + centre[0] + ", " + centre[2], Math.abs(centre[2] - centre[0]) < 12);
+    }
+
     @Test
     public void heatWaveWarningAndBand() throws Exception {
         Shots h = new Shots();

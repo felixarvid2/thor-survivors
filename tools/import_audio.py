@@ -55,6 +55,10 @@ PACKS = {
                   "https://kenney.nl/assets/interface-sounds", CC0 + ", License.txt in the pack"),
     "digital": (os.path.join(LOCAL, "digital-audio", "Audio"), "Kenney Digital Audio", KENNEY,
                 "https://kenney.nl/assets/digital-audio", CC0 + ", License.txt in the pack"),
+    # v1.5 B8: music loops (Abstraction, CC0), stems of the same sketches are tempo-matched but used one per stage
+    "abstraction": (os.path.join(LOCAL, "music-loop-bundle-2026-q2"), "Music Loop Bundle (Abstraction)",
+                    "Abstraction (Benjamin Burnes)", "https://tallbeard.itch.io/music-loop-bundle",
+                    CC0 + ", _LICENSE.txt in the pack"),
 }
 # downloaded packs: key -> (art-src folder, pack title, author, OpenGameArt page slug)
 for key, slug, pack, author, page in [
@@ -283,6 +287,25 @@ SFX = {
     "equip_swap": dict(layers=[L("rd-rpg", "lock_01.ogg", 0, 0.27, 0),
                                L("rd-rpg", "chain_02.ogg", 0, 0.28, -4, at=0.05)],
                        max=0.4, fade=0.12, vol=0.75),
+    # ---- v1.5 B8 (76): elite modifiers, shrines, achievements; library packs only (Kenney)
+    "elite_shield_block": dict(layers=[L("impact", "impactMetal_heavy_001.ogg", 0, 0.3, 0, af="highpass=f=200"),
+                                       L("impact", "impactGlass_light_002.ogg", 0, 0.25, -6, rate=0.8, at=0.02,
+                                         af="highpass=f=1500")],
+                               max=0.3, fade=0.1, comp=3, sat=1.3, vol=0.85),  # barrier ring: metal clang + glassy shimmer
+    "volatile_pulse": dict(layers=[L("digital", "lowDown.ogg", 0, 0.5, 0, rate=0.8, af="lowpass=f=1200"),
+                                   L("digital", "phaserDown2.ogg", 0, 0.45, -5, rate=0.7, af="lowpass=f=2500")],
+                           max=0.45, fade=0.18, comp=3, sat=1.4, vol=0.8),  # unstable thump before the burst
+    "splitter_pop": dict(layers=[L("interface", "pluck_002.ogg", 0, 0.12, 0, rate=0.7),
+                                 L("interface", "glitch_002.ogg", 0, 0.15, -4, at=0.02, af="lowpass=f=4000")],
+                         max=0.18, fade=0.06, comp=2, vol=0.75),  # wet little pop
+    "shrine_activate": dict(layers=[L("digital", "powerUp8.ogg", 0, 0.9, 0, rate=0.7, af="lowpass=f=3200"),
+                                    L("impact", "impactBell_heavy_001.ogg", 0, 1.0, -5, rate=0.8, at=0.1,
+                                      af="lowpass=f=2200")],
+                            max=1.1, fade=0.35, comp=3, echo="aecho=0.8:0.6:80|160:0.35|0.2", vol=0.9),  # rising hum + bell
+    "achievement": dict(layers=[L("interface", "confirmation_003.ogg", 0, 0.6, 0),
+                                L("impact", "impactBell_heavy_000.ogg", 0, 1.0, -6, rate=1.1, at=0.12,
+                                  af="lowpass=f=4000")],
+                        max=1.0, fade=0.3, comp=2, echo="aecho=0.8:0.6:70|140:0.3|0.2", vol=0.85),  # clean double chime
     "tentacle_emerge": dict(layers=[L("meat", "rippingintomeat_0.mp3", 3.5, 0.8, 0),
                                     L("rd-mud", "mud_17.ogg", 0, 0.52, -1, rate=0.7)],
                             max=0.7, fade=0.25, comp=3, vol=0.9),
@@ -363,6 +386,19 @@ MUSIC = {
     "victory": dict(pack="darkscifi", name="victory_4.mp3", kind="stinger", start=0.0, len=5.8, fade_in=0.005,
                     fade_out=1.0, vol=0.9, loop=False),
 }
+# v1.5 B8 (75, 74): one calm loop per stage (Flats and Mines keep theirs) and the combat layer. The files are loops
+# by design (native), pitch-neutral: only a lowpass to take the shine off. "combat" fades in over the stage loop by
+# enemy count (MusicMix), it is an atmospheric bed so it needs no tempo match.
+MUSIC.update({
+    "hydro": dict(pack="abstraction", name="Week 22 - The Walking Dunes EVENING OASIS.ogg", kind="native",
+                  af="lowpass=f=6500", q="2", vol=0.8, loop=True),
+    "refinery": dict(pack="abstraction", name="Week 18 - Distant Skyline NIGHT DRIVE.ogg", kind="native",
+                     af="lowpass=f=7000", q="2", vol=0.8, loop=True),
+    "wreck": dict(pack="abstraction", name="Week 24 - Pull Me Down DEEP WELL.ogg", kind="native",
+                  af="lowpass=f=7000", q="2", vol=0.8, loop=True),
+    "combat": dict(pack="abstraction", name="Week 19 - Dark Portents SHROUDED FUTURE.ogg", kind="native",
+                   af="lowpass=f=6000", q="2", vol=0.55, loop=True),
+})
 XFADE = 0.08  # default loop seam cross-fade, seconds
 MUSIC_LUFS = -16.0
 MUSIC_Q = "3"  # libvorbis quality, about 100-112 kbps for this material

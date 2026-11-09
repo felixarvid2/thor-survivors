@@ -53,4 +53,31 @@ public class EngineAdvanceTest {
             assertTrue("every frame advances", e.sim.time > before);
         }
     }
+
+    /** v1.5 B8 (72): the step count has a ceiling, so a long stall can never snowball into a spiral of catch-up steps. */
+    @Test
+    public void stepsPerFrameAreCappedAndNeverTooLong() {
+        for (float dt = 0.0005f; dt < 6f; dt *= 1.13f) {
+            int n = Engine.stepsFor(dt);
+            assertTrue("dt " + dt, n >= 1 && n <= Engine.MAX_STEPS);
+            float h = Math.min(dt, Engine.MAX_FRAME) / n;
+            assertTrue("step " + h + " at dt " + dt, h <= Engine.MAX_STEP * 1.05f + 1e-6f);
+        }
+        assertEquals(1, Engine.stepsFor(1f / 60f));
+        assertEquals(1, Engine.stepsFor(1f / 120f));
+        assertEquals(1, Engine.stepsFor(1f / 58f));
+        assertEquals(2, Engine.stepsFor(1f / 30f));
+        assertEquals(Engine.MAX_STEPS, Engine.stepsFor(10f));
+    }
+
+    @Test
+    public void aStallCostsAtMostFiveUpdates() throws Exception {
+        Engine e = started();
+        e.sim.hp = e.sim.maxHp = 1e9f;
+        double t0 = e.sim.time;
+        e.advance(10f);
+        double dt = e.sim.time - t0;
+        assertEquals(Engine.MAX_FRAME, dt, 1e-3);
+        assertTrue(dt <= Engine.MAX_STEPS * Engine.MAX_STEP * 1.05 + 1e-4);
+    }
 }
