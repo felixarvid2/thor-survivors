@@ -150,33 +150,41 @@ public class ScreenshotTest {
                 {"CROSS", "cross"}, {"LIGHTNING", "lightning"}, {"AXE", "axe"}, {"KNIFE", "knife"},
                 {"FIREBALL", "fire"}, {"MAGIC_MISSILE", "wand"}, {"VESPERS", "vespers"}, {"HEAVENSWORD", "heavensword"}};
         for (String[] e : w) {
-            Shots h = new Shots();
-            boolean starter = h.eng.starters.contains(e[0]);
-            Sim s = starter ? h.startRun("FOREST", e[0], 11) : h.startRun("FOREST", "HOLYWATER", 11, e[0]);
-            if (!starter) { // swap the borrowed starter out so only the weapon under test shows
-                s.inv.weapons[0].def = s.inv.weapons[1].def;
-                s.inv.weapons[0].level = s.inv.weapons[1].level;
-                s.inv.weaponCount = 1;
-                s.recomputeAll();
-                s.weapons[0].cd = 0.3f;
-            }
-            s.time = 100;
-            h.drive(12, true);
             boolean saved = false;
-            for (int i = 0; i < 900 && !saved; i++) {
-                h.step(i + 700, true);
-                s = h.eng.sim;
-                isolate(s, e[0]); // level-ups during the run may have added other weapons
-                if (inAction(s, e[0], i)) {
-                    StringBuilder dbg = new StringBuilder();
-                    for (int j = 0; j < s.inv.weaponCount; j++) dbg.append(s.inv.weapons[j].def.key).append(' ');
-                    for (int j = 0; j < Sim.MAX_FX; j++) if (s.fx[j].life > 0) dbg.append("fx").append(s.fx[j].kind).append(' ');
-                    System.out.println("SHOT " + e[0] + " weapons=" + dbg + " enemies=" + s.enemyN);
-                    Shots.save(h.renderTop(), "weapon_" + e[1] + ".png");
-                    saved = true;
-                }
-            }
+            // v1.5 B6: enemies fan out and lead their shots now, so a fixed seed may not bring this weapon's effect on screen: try a few
+            for (int seed = 11; seed <= 15 && !saved; seed++) saved = weaponShot(e, seed);
             assertTrue(e[0] + " effect never appeared", saved);
         }
+    }
+
+    /** One weapon's shot for a run seed: true when its effect showed and the frame was saved. */
+    private boolean weaponShot(String[] e, int seed) throws Exception {
+        Shots h = new Shots();
+        boolean starter = h.eng.starters.contains(e[0]);
+        Sim s = starter ? h.startRun("FOREST", e[0], seed) : h.startRun("FOREST", "HOLYWATER", seed, e[0]);
+        if (!starter) { // swap the borrowed starter out so only the weapon under test shows
+            s.inv.weapons[0].def = s.inv.weapons[1].def;
+            s.inv.weapons[0].level = s.inv.weapons[1].level;
+            s.inv.weaponCount = 1;
+            s.recomputeAll();
+            s.weapons[0].cd = 0.3f;
+        }
+        s.time = 100;
+        h.drive(12, true);
+        boolean saved = false;
+        for (int i = 0; i < 900 && !saved; i++) {
+            h.step(i + 700, true);
+            s = h.eng.sim;
+            isolate(s, e[0]); // level-ups during the run may have added other weapons
+            if (inAction(s, e[0], i)) {
+                StringBuilder dbg = new StringBuilder();
+                for (int j = 0; j < s.inv.weaponCount; j++) dbg.append(s.inv.weapons[j].def.key).append(' ');
+                for (int j = 0; j < Sim.MAX_FX; j++) if (s.fx[j].life > 0) dbg.append("fx").append(s.fx[j].kind).append(' ');
+                System.out.println("SHOT " + e[0] + " weapons=" + dbg + " enemies=" + s.enemyN);
+                Shots.save(h.renderTop(), "weapon_" + e[1] + ".png");
+                saved = true;
+            }
+        }
+        return saved;
     }
 }

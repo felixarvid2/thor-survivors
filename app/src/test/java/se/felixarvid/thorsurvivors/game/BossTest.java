@@ -347,7 +347,7 @@ public class BossTest {
         v.hp = v.maxHp * 0.32f;
         step(t, 0.1);
         assertEquals(2, v.phase);
-        assertEquals("four more at 33%", 8, countEnemies(t, "SPORE_CARRIER"));
+        assertEquals("v1.5 B6: the 33% phase pulse clears the first four carriers and brings four new ones", 4, countEnemies(t, "SPORE_CARRIER"));
     }
 
     // ------------------------------------------------------------------ Smelter Foreman
@@ -725,7 +725,7 @@ public class BossTest {
         assertTrue(e.resultWin);
         assertTrue(e.resultFirst);
         assertEquals("double gold", s.gold * 2, e.resultGold);
-        assertEquals("and it is paid out", before + e.resultGold, fresh.gold);
+        assertTrue("and it is paid out (v1.5 B4: the achievements of the win pay on top)", fresh.gold >= before + e.resultGold);
         // victory by time
         e.input.clearMovement();
         e.phase = Engine.PH_MENU;

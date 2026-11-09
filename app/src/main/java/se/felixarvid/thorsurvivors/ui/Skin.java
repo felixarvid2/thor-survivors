@@ -21,7 +21,9 @@ public final class Skin {
             COOL = 0xFF40D8FF;
 
     /** Glyph kinds: the six elite modifiers in {@code Elites} order, then the hero statuses that are not one of them. */
-    public static final int G_FIRE = 0, G_FROST = 1, G_BARRAGE = 2, G_VOLCANO = 3, G_RAISER = 4, G_ARMORED = 5, G_DECAY = 6, G_BOLT = 7;
+    public static final int G_FIRE = 0, G_FROST = 1, G_BARRAGE = 2, G_VOLCANO = 3, G_RAISER = 4, G_ARMORED = 5, G_DECAY = 6, G_BOLT = 7,
+            G_DASH = 8, G_LINE = 9, G_RING = 10, // v1.5 B2: the dash status, and the line / area attack of the boss panel
+            G_SHIELD = 11, G_SPLIT = 12, G_BLAST = 13; // v1.5 B6: elite modifiers Shielded, Splitter, Volatile
 
     public final UiArt art = UiArt.get();
     public final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -31,6 +33,14 @@ public final class Skin {
     public final Path path = new Path();
     /** The scale of the frame: 1 at 1080 px height. Set by the owner each frame. */
     public float u = 1f;
+    /**
+     * v1.5 B2 item 19: large-text and high-contrast mode, set by the owner each frame. Text +20 %, a 2 px dark outline, and key
+     * text lightened to at least 4.5:1 against the steel. Off by default.
+     */
+    public boolean large;
+    public static final float LARGE_SCALE = 1.2f;
+    public static final double MIN_CONTRAST = 4.5;
+    private int ccIn, ccOut;
 
     private final Paint steel = new Paint(), stripe = new Paint(), stripeDim = new Paint(), vig = new Paint();
     private boolean shaders;
@@ -53,19 +63,42 @@ public final class Skin {
 
     public void text(Canvas c, String s, float x, float y, float size, int color, Paint.Align a) {
         tp.setTypeface(art.bold);
-        tp.setTextSize(size);
-        tp.setColor(color);
-        tp.setTextAlign(a);
-        c.drawText(s, x, y, tp);
+        put(c, s, x, y, size, color, a);
     }
 
     /** Body text in the lighter weight. */
     public void body(Canvas c, String s, float x, float y, float size, int color, Paint.Align a) {
         tp.setTypeface(art.semi);
-        tp.setTextSize(size);
-        tp.setColor(color);
+        put(c, s, x, y, size, color, a);
+    }
+
+    /** The drawing of every text call; the typeface is set by the caller. In large mode: +20 %, lightened colour, a 2 px outline. */
+    private void put(Canvas c, String s, float x, float y, float size, int color, Paint.Align a) {
         tp.setTextAlign(a);
+        if (!large) {
+            tp.setTextSize(size);
+            tp.setColor(color);
+            c.drawText(s, x, y, tp);
+            return;
+        }
+        tp.setTextSize(size * LARGE_SCALE);
+        tp.setStyle(Paint.Style.STROKE);
+        tp.setStrokeWidth(4f * Math.max(0.5f, u)); // 2 px each side of the glyph edge
+        tp.setStrokeJoin(Paint.Join.ROUND);
+        tp.setColor(0xFF000000);
         c.drawText(s, x, y, tp);
+        tp.setStyle(Paint.Style.FILL);
+        tp.setColor(legible(color));
+        c.drawText(s, x, y, tp);
+    }
+
+    /** The colour lightened until it reads at 4.5:1 on the steel (the last answer is remembered, the maths is not free). */
+    public int legible(int color) {
+        if (color != ccIn || ccOut == 0) {
+            ccIn = color;
+            ccOut = se.felixarvid.thorsurvivors.game.HudInfo.ensureContrast(color, BASE, MIN_CONTRAST);
+        }
+        return ccOut;
     }
 
     /** Heading text with a dark drop shadow (on top of paintings). */
@@ -78,7 +111,7 @@ public final class Skin {
     /** Text shrunk (down to 70 %) so it fits in maxW. */
     public void fit(Canvas c, String s, float x, float y, float size, float maxW, int color, Paint.Align a) {
         tp.setTypeface(art.bold);
-        tp.setTextSize(size);
+        tp.setTextSize(large ? size * LARGE_SCALE : size);
         float w = tp.measureText(s);
         if (w > maxW) size = Math.max(size * 0.7f, size * maxW / w);
         text(c, s, x, y, size, color, a);
@@ -87,6 +120,11 @@ public final class Skin {
     /** Wrapped body text; returns the number of lines drawn. */
     public int wrap(Canvas c, String s, float x, float y, float maxW, float lineH, int maxLines, float size, int color) {
         tp.setTypeface(art.semi);
+        if (large) {
+            size *= LARGE_SCALE;
+            lineH *= LARGE_SCALE;
+            color = legible(color);
+        }
         tp.setTextSize(size);
         tp.setColor(color);
         tp.setTextAlign(Paint.Align.LEFT);
@@ -296,6 +334,36 @@ public final class Skin {
         c.drawRoundRect(r, s * 0.1f, s * 0.1f, stroke);
     }
 
+    /**
+     * v1.5 B2 item 11: the cooldown sweep of a weapon slot. The part of the wait still to go is a dark pie that shrinks clockwise
+     * from 12 o'clock, with a bright leading edge; {@code ready} is 0..1 (1 draws nothing). Clipped to the slot, no allocation.
+     */
+    public void sweep(Canvas c, float x, float y, float s, float ready) {
+        if (ready >= 1f) return;
+        float cx = x + s / 2f, cy = y + s / 2f, rad = s * 0.75f;
+        float start = -90f + 360f * ready;
+        c.save();
+        c.clipRect(x, y, x + s, y + s);
+        r.set(cx - rad, cy - rad, cx + rad, cy + rad);
+        fill.setColor(0xB00A0807);
+        c.drawArc(r, start, 360f * (1f - ready), true, fill);
+        double a = Math.toRadians(start);
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setColor(0xCCFFB060);
+        stroke.setStrokeWidth(Math.max(2f, 2.5f * u));
+        c.drawLine(cx, cy, cx + (float) Math.cos(a) * rad, cy + (float) Math.sin(a) * rad, stroke);
+        c.restore();
+    }
+
+    /** A steady ring round a slot: the weapon has no volley to wait for (auras, very fast weapons). */
+    public void steadyRing(Canvas c, float x, float y, float s, int color) {
+        r.set(x + 2f * u, y + 2f * u, x + s - 2f * u, y + s - 2f * u);
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setColor(color);
+        stroke.setStrokeWidth(Math.max(2f, 3f * u));
+        c.drawRoundRect(r, s * 0.1f, s * 0.1f, stroke);
+    }
+
     // ------------------------------------------------------------------ glyphs
 
     /** A small vector glyph in a coloured disc: modifier and status icons (flame, flake, fan, mountain, up arrows, shield, drop). */
@@ -371,6 +439,45 @@ public final class Skin {
                 path.lineTo(cx + q * 0.05f, cy - q * 0.2f);
                 path.close();
                 c.drawPath(path, fill);
+                break;
+            case G_DASH: // two chevrons
+                stroke.setStrokeWidth(Math.max(2f, rad * 0.16f));
+                for (int i = 0; i < 2; i++) {
+                    float ox = (i - 0.5f) * q * 0.9f;
+                    path.moveTo(cx + ox - q * 0.35f, cy - q * 0.9f);
+                    path.lineTo(cx + ox + q * 0.35f, cy);
+                    path.lineTo(cx + ox - q * 0.35f, cy + q * 0.9f);
+                }
+                stroke.setStyle(Paint.Style.STROKE);
+                c.drawPath(path, stroke);
+                break;
+            case G_LINE: // a lunge: a line with an arrow head
+                stroke.setStrokeWidth(Math.max(2f, rad * 0.16f));
+                c.drawLine(cx - q * 1.2f, cy, cx + q * 0.6f, cy, stroke);
+                path.moveTo(cx + q * 1.3f, cy);
+                path.lineTo(cx + q * 0.4f, cy - q * 0.7f);
+                path.lineTo(cx + q * 0.4f, cy + q * 0.7f);
+                path.close();
+                c.drawPath(path, fill);
+                break;
+            case G_RING: // an area: a ring round a dot
+                stroke.setStrokeWidth(Math.max(2f, rad * 0.16f));
+                c.drawCircle(cx, cy, q * 1.1f, stroke);
+                c.drawCircle(cx, cy, q * 0.3f, fill);
+            case G_SHIELD: // v1.5 B6: a round shield with a bar across it
+                c.drawCircle(cx, cy, q * 1.15f, fill);
+                fill.setColor(0xFF0C0908);
+                c.drawRect(cx - q * 1.2f, cy - q * 0.15f, cx + q * 1.2f, cy + q * 0.15f, fill);
+                fill.setColor(color);
+                break;
+            case G_SPLIT: // v1.5 B6: one blob becoming two
+                c.drawCircle(cx - q * 0.75f, cy, q * 0.65f, fill);
+                c.drawCircle(cx + q * 0.75f, cy, q * 0.65f, fill);
+                break;
+            case G_BLAST: // v1.5 B6: a ring with a dot
+                stroke.setStrokeWidth(Math.max(2f, rad * 0.14f));
+                c.drawCircle(cx, cy, q * 1.15f, stroke);
+                c.drawCircle(cx, cy, q * 0.4f, fill);
                 break;
             default: // decay: a drop
                 path.moveTo(cx, cy - q * 1.35f);

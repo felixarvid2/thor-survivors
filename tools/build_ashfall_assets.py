@@ -148,6 +148,22 @@ ICONS = {
 }
 # ---- v1.4 chunk C: the Ironheart Core (a molten tint of the Governor's Crucible) and the portraits of the three Refinery bosses
 ICONS["unique_ironheart_core"] = ("flux/items/unique_governors_crucible", (255, 120, 40))
+# ---- v1.5 B5: new weapons, passives and uniques: tinted reuses of existing icons (source, (r, g, b))
+ICONS.update({
+    "ARC_LANCE": ("meshy/icons/skill_piercing_shot", (90, 200, 255)),
+    "STORM_LANCE": ("meshy/icons/skill_piercing_shot", (190, 140, 255)),
+    "SLAG_MORTAR": ("meshy/icons/skill_cluster_grenade", (255, 140, 40)),
+    "MAGMA_HOWITZER": ("meshy/icons/skill_cluster_grenade", (255, 70, 40)),
+    "TETHER_DRONE": ("meshy/icons/skill_parasite_link", (90, 230, 200)),
+    "LEASH_ARRAY": ("meshy/icons/skill_parasite_link", (255, 215, 90)),
+    "OVERCHARGE": ("flux/stats/resourceGen", (90, 200, 255)),
+    "SCRAP_MAGNET": ("meshy/icons/signal_pendant", (255, 140, 40)),
+    "GLASS_CORE": ("meshy/icons/crystal_lumen", (255, 90, 120)),
+    "unique_cinder_band": ("flux/items/conduit_ring_3", (255, 110, 40)),
+    "unique_echo_bell": ("meshy/icons/echo_relic", (255, 215, 90)),
+    "unique_lumen_ward": ("meshy/icons/riot_shield", (90, 220, 255)),
+})
+# ---- end v1.5 B5
 # ---- end chunk C
 # rarity frames (transparent middle, drawn over an item icon): Common, Uncommon = magic, Rare, Unique (design section 6)
 FRAMES = {"frame_common": "common", "frame_magic": "magic", "frame_rare": "rare", "frame_unique": "unique"}
@@ -163,11 +179,40 @@ PORTRAITS = {"boss_CARGO_LOADER": "drowned_engine", "boss_SLAGBORN": "pyre_warde
 PORTRAITS.update({"boss_HULL_BREACHER_ALPHA": "drowned_engine", "boss_SALVAGE_WARDEN": "warden", "boss_THE_PILLAR": "the_prism"})
 # ---- end chunk D
 # ---- v1.4 chunk B (Hydroponic Vaults): existing paintings stand in
-PORTRAITS.update({"boss_VERDANT_WELDER": "frozen_welder", "boss_ROOTMIND": "vire"})
+PORTRAITS.update({"boss_VERDANT_WELDER": "frozen_welder", "boss_ROOTMIND": "vine_matriarch"})
 # ---- end chunk B
 # ---- v1.4 chunk C: Foreman Brass, Stoker Captain, The Ironheart (existing paintings that suit them until the owner generates new ones)
-PORTRAITS.update({"boss_FOREMAN_BRASS": "foreman_dray", "boss_STOKER_CAPTAIN": "pyre_warden", "boss_IRONHEART": "warden"})
+PORTRAITS.update({"boss_FOREMAN_BRASS": "foreman_dray", "boss_STOKER_CAPTAIN": "brother_ash", "boss_IRONHEART": "elder_guardian"})
 # ---- end chunk C
+# ---- v1.5 B6 (items 51-52): no two bosses share a portrait. Where a painting is still used twice the second boss gets a
+# crop (fractions x0, y0, x1, y1 of the painting), a tint (r, g, b, strength) and a stage-colour frame (r, g, b), so each
+# reads as its own face on the spawn banner. Bosses that own their painting get only the frame.
+PORTRAIT_STYLE = {
+    "boss_CARGO_LOADER": (None, None, (120, 150, 190)),
+    "boss_SLAGBORN": (None, None, (255, 120, 40)),
+    "boss_VIRE_AWAKENED": (None, None, (255, 80, 60)),
+    "boss_SMELTER_FOREMAN": (None, None, (255, 150, 50)),
+    "boss_THE_FIRST": (None, None, (120, 255, 120)),
+    "boss_BROOD_MOTHER": (None, None, (150, 200, 90)),
+    "boss_FROZEN_WELDER": (None, None, (130, 210, 255)),
+    "boss_COMMANDANT_HALE": (None, None, (170, 180, 120)),
+    "boss_OVERSEER_UNIT_7": (None, None, (230, 60, 60)),
+    "boss_GOVERNOR_KADE": (None, None, (230, 190, 90)),
+    # Meridian Wreck: Hull Breacher is the Cargo Loader's engine seen close up and tinted cold teal
+    "boss_HULL_BREACHER_ALPHA": ((0.18, 0.05, 0.82, 0.69), (40, 200, 190, 0.35), (60, 200, 190)),
+    "boss_SALVAGE_WARDEN": (None, (200, 120, 60, 0.30), (205, 125, 60)),
+    "boss_THE_PILLAR": (None, None, (210, 160, 255)),
+    # Hydroponic Vaults: the Verdant Welder is the Frozen Welder thawed and gone green
+    "boss_VERDANT_WELDER": ((0.10, 0.0, 0.90, 0.80), (70, 220, 90, 0.45), (90, 220, 110)),
+    "boss_ROOTMIND": (None, (120, 255, 150, 0.15), (80, 230, 140)),
+    # Refinery: Foreman Brass is the Smelter Foreman's helmet and face in brass
+    "boss_FOREMAN_BRASS": ((0.20, 0.08, 0.80, 0.68), (230, 170, 60, 0.40), (230, 170, 60)),
+    "boss_STOKER_CAPTAIN": (None, (255, 110, 30, 0.20), (255, 100, 30)),
+    "boss_IRONHEART": (None, (255, 120, 40, 0.40), (255, 140, 50)),
+}
+# icons of uniques that used to reuse another unique's picture: (source, tint r, g, b, corner glyph)
+ICONS["unique_rootminds_heartwood"] = ("flux/items/unique_ashen_heartwood", (90, 255, 140), "leaf")
+ICONS["unique_echo_of_the_pillar"] = ("flux/items/unique_heart_of_lumen", (200, 150, 255), "shock")
 # gem crystals (transparent icons, trimmed): key -> (source, px)
 GEMS = {"crystal_lumen": 64, "crystal_void": 64, "crystal_ember": 64}
 
@@ -191,6 +236,43 @@ def rounded(im, frac=0.17):
     out = im.copy()
     out.putalpha(Image.fromarray((np.asarray(im.getchannel("A"), dtype=np.float32) * np.asarray(m, dtype=np.float32) / 255).astype(np.uint8)))
     return out
+
+
+def src_glyph(entry):
+    """The corner glyph of an ICONS tuple (source, tint[, glyph]), or None."""
+    return entry[2] if len(entry) > 2 else None
+
+
+def outline_and_glyph(im, colour, glyph):
+    """v1.5 B6: a 2 px outline in the tint colour and a small corner glyph (leaf = heal, shock = discharge)."""
+    from PIL import ImageDraw
+    w, h = im.size
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=int(w * 0.17), outline=colour + (255,), width=2)
+    c = (w - 18, 18)  # top right
+    d.ellipse((c[0] - 13, c[1] - 13, c[0] + 13, c[1] + 13), fill=(10, 14, 12, 235), outline=colour + (255,))
+    if glyph == "leaf":
+        d.polygon([(c[0] - 7, c[1] + 6), (c[0] - 5, c[1] - 5), (c[0] + 7, c[1] - 7), (c[0] + 5, c[1] + 5)], fill=colour + (255,))
+    else:
+        d.polygon([(c[0] + 2, c[1] - 9), (c[0] - 6, c[1] + 1), (c[0] - 1, c[1] + 1), (c[0] - 3, c[1] + 9),
+                   (c[0] + 6, c[1] - 2), (c[0] + 1, c[1] - 2)], fill=colour + (255,))
+    return im
+
+
+def portrait(key, name):
+    """v1.5 B6: a boss banner portrait: the painting, an optional crop and tint, then a 3 px stage-colour frame."""
+    from PIL import ImageDraw
+    crop, tint, frame = PORTRAIT_STYLE[key]
+    im = Image.open(os.path.join(AI, "flux", "bosses", name + ".webp")).convert("RGBA")
+    if crop:
+        w, h = im.size
+        im = im.crop((int(crop[0] * w), int(crop[1] * h), int(crop[2] * w), int(crop[3] * h)))
+    im = im.resize((PORTRAIT_PX, PORTRAIT_PX), Image.LANCZOS)
+    if tint:
+        im = Image.blend(im, Image.new("RGBA", im.size, tint[:3] + (255,)), tint[3])
+    ImageDraw.Draw(im).rounded_rectangle((0, 0, PORTRAIT_PX - 1, PORTRAIT_PX - 1), radius=int(PORTRAIT_PX * 0.06),
+                                         outline=frame + (255,), width=3)
+    return rounded(im, 0.06)
 
 
 def trim(im):
@@ -308,9 +390,10 @@ def build_images(manifest, sizes):
     # ---- icons + gems
     pk = Packer(1024)
     for key, src in ICONS.items():
-        tint = None
+        tint, glyph = None, None
         if isinstance(src, tuple):
-            src, tint = src
+            src, tint = src[0], src[1]
+            glyph = src_glyph(ICONS[key])
         im = Image.open(os.path.join(AI, src + ".webp")).convert("RGBA").resize((ICON_PX, ICON_PX), Image.LANCZOS)
         if tint:  # blend 40% of the colour over the colour channels, keep the alpha
             a = im.getchannel("A")
@@ -318,6 +401,8 @@ def build_images(manifest, sizes):
             im = Image.blend(im, colour, 0.4)
             im.putalpha(a)
         im = rounded(im)
+        if glyph:
+            im = outline_and_glyph(im, tint, glyph)
         px, py = pk.place(im)
         images["icon." + key] = {"sheet": "ashfall/icons.webp", "rect": [px, py, ICON_PX, ICON_PX],
                                  "anchor": [ICON_PX // 2, ICON_PX // 2]}
@@ -327,8 +412,7 @@ def build_images(manifest, sizes):
         images["icon." + key] = {"sheet": "ashfall/icons.webp", "rect": [px, py, ICON_PX, ICON_PX],
                                  "anchor": [ICON_PX // 2, ICON_PX // 2]}
     for key, name in PORTRAITS.items():
-        im = rounded(Image.open(os.path.join(AI, "flux", "bosses", name + ".webp")).convert("RGBA")
-                     .resize((PORTRAIT_PX, PORTRAIT_PX), Image.LANCZOS), 0.06)
+        im = portrait(key, name)
         px, py = pk.place(im)
         images["icon." + key] = {"sheet": "ashfall/icons.webp", "rect": [px, py, PORTRAIT_PX, PORTRAIT_PX],
                                  "anchor": [PORTRAIT_PX // 2, PORTRAIT_PX // 2]}

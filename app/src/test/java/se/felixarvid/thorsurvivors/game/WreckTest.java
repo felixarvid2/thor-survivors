@@ -669,6 +669,11 @@ public class WreckTest {
         Enemy b = s.spawnAt("BREACHER", 250f, 0f, false);
         b.hp = b.maxHp = 1e6f;
         s.hp = s.maxHp = 1000f;
+        for (int i = 0; i < s.enemyN; i++) { // v1.5 B6: a stray wave enemy's bite must not leave the hero invulnerable when the burst lands
+            if (s.enemies[i] == b) continue;
+            s.enemies[i].silent = true;
+            s.enemies[i].dead = true;
+        }
         float armor = (float) s.stats.armor;
         boolean line = false;
         Input in = new Input();
@@ -684,7 +689,7 @@ public class WreckTest {
         assertTrue("the burst kills it", b.dead);
         float lost = 1000f - s.hp;
         float burst = 20f * (float) s.stage.dmgMul(s.time); // contact and burst damage grow with the run time (v1.4 harder)
-        assertTrue("about 20 damage (x the damage curve): " + lost, lost >= burst - armor - 0.5f && lost <= burst + 0.5f);
+        assertTrue("about 20 damage (x the damage curve): " + lost, lost >= burst - armor - 2.5f && lost <= burst + 0.5f); // v1.5 B6: 2.5 slack, the hero regenerates a little over the approach
         // the cap
         Sim t = run(8);
         for (int i = 0; i < 12; i++) t.spawnAt("BREACHER", 600f + i, 0f, false);

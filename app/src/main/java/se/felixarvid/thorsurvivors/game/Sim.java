@@ -52,6 +52,10 @@ public final class Sim {
         /** Fusions.* id when this slot holds a weapon fusion (0 = none) and a timer for it. */
         public int fusion;
         public float aux;
+        /** v1.5 B5: Arsenal.* id of a new weapon (0 = none), its beam timer / range (Tether Drone), and Overdrive (maxed, passive owned, not yet evolved). */
+        public int arsenal;
+        public float beamEvery, range;
+        public boolean overdrive;
     }
 
     public final GameData data;
@@ -72,6 +76,8 @@ public final class Sim {
     public final MainWeapon main;
     /** Aim direction of the main weapon (unit vector): the aim input if any, else the facing direction. */
     public float aimX = 1, aimY = 0;
+    /** v1.5 B3: damage dealt per weapon slot and the cause of death, for the results screen. */
+    public final RunStats run = new RunStats();
     /** True while there is aim input (right stick, touch aim area, arrow keys); false = aiming where the hero faces. */
     public boolean aimActive;
     /** Clip the player sprite should play for the main weapon (AC_*) and when the latest main attack happened. */
@@ -90,6 +96,8 @@ public final class Sim {
 
     // player
     public float px, py, hp, maxHp, faceX = 1, faceY = 0, invuln, walk;
+    /** v1.5 B6: the hero's velocity in units per second over the last step (walk, dodge and push all count). */
+    public float pvx, pvy;
     public boolean facingRight = true;
     public static final float PLAYER_R = 12f;
     public double time;
@@ -124,6 +132,7 @@ public final class Sim {
     final BossAi boss = new BossAi(this, ai);
     final Elites elites = new Elites(this);
     final Fusions fusions = new Fusions(this);
+    final Arsenal arsenal = new Arsenal(this); // v1.5 B5
     /** Hero statuses from enemy hazards (design section 7): seconds left of Burn, Slow and Decay. */
     public float heroBurnT, heroSlowT, heroDecayT;
     private float statusAcc;
@@ -144,6 +153,8 @@ public final class Sim {
     public final int[] toastColor = new int[MAX_TOASTS];
     /** Elites (design section 5): when the next one is due, how many came, how many were killed, the one alive (or null). */
     public float nextEliteAt;
+    /** v1.5 B4: the modifiers of this run (ascension tier, daily modifier, bought charges); set by {@link #applyMods} right after the constructor. */
+    public RunMods mods = RunMods.NONE;
     public int eliteSpawned, eliteKilled;
     public Enemy eliteNow;
     /** The boss shown in the HUD (the first alive; The First before the others), the 2 s spawn banner, and The First's end. */
@@ -311,6 +322,32 @@ public final class Sim {
 
     private int lastRow = -1;
     private float spawnTimer;
+    // ---- v1.5 B7: run curse (item 68), stand-still penalty (66), spawn-ahead bias (67)
+    /** Curse chosen for this run (snapshot of {@link CurseMod#get()}), the ascension tier's HP multiplier, and the derived multipliers. */
+    public double runCurse, runTierHp = 1.0, curseSpeedMul = 1.0, curseSpawnMul = 1.0, curseGoldMul = 1.0;
+    /** Item 66: the stand-still penalty (spawns +15 %, a small drift) can be switched off for tests and A/B runs. */
+    public boolean standStillPenalty = true;
+    public final WaveDirector.StandStill stand = new WaveDirector.StandStill();
+    /** Item 66: damage the stand-still drift has dealt this run (for the soak and tests). */
+    public float stillDamage;
+    /** Item 67: share of normal spawns placed in a cone ahead of the movement heading (0 = off). */
+    public float spawnAheadBias;
+    private float headX = 1f, headY = 0f;
+
+    /** Applies the run curse; call before the first step (the constructor does it from {@link CurseMod}). */
+    public void setRunCurse(double curse, double tierHp) {
+        runCurse = Math.max(0.0, curse);
+        runTierHp = Math.max(1.0, tierHp);
+        curseSpeedMul = CurseMod.factor(runCurse);
+        curseSpawnMul = CurseMod.factor(runCurse);
+        curseGoldMul = CurseMod.goldMul(runCurse);
+    }
+
+    /** Extra enemy HP multiplier of the run curse and ascension tier on top of the shop's (1 + stats.curse); the three together stay under {@link CurseMod#HP_CAP}. */
+    double curseHpExtra() {
+        double shop = stats == null ? 0.0 : stats.curse;
+        return CurseMod.hpMul(runCurse, runTierHp, shop) / (1.0 + shop);
+    }
     /** Fractional gold not yet paid out (Greed on 1-gold coins). */
     private double goldFrac;
     private float regenAcc;
@@ -327,6 +364,13 @@ public final class Sim {
         this(data, stage, starterKey, meta, heroKey, 0L); // deterministic by default; the game passes a fresh seed
     }
 
+    /** v1.5 B4: gives the run its modifiers (the first elite comes earlier with the Elites modifier). */
+    public void applyMods(RunMods m) {
+        mods = m == null ? RunMods.NONE : m;
+        setRunCurse(runCurse, mods.hpMult()); // v1.5 integration: the ascension HP goes through CurseMod's capped HP (B7), applied once
+        if (mods.eliteEarlySec() > 0f) nextEliteAt = Math.max(30f, nextEliteAt - mods.eliteEarlySec());
+    }
+
     /** Same, with the random generator seeded before the first spawns (headless runs and soaks are then reproducible). */
     public Sim(GameData data, StageDef stage, String starterKey, Map<String, Double> meta, String heroKey, long seed) {
         this(data, stage, starterKey, meta, heroKey, Long.valueOf(seed));
@@ -334,8 +378,10 @@ public final class Sim {
 
     private Sim(GameData data, StageDef stage, String starterKey, Map<String, Double> meta, String heroKey, Long seed) {
         rng.setSeed(seed);
+        setRunCurse(CurseMod.get(), CurseMod.tierHpMul()); // v1.5 B7
         this.data = data;
         this.stage = stage;
+        this.spawnAheadBias = stage.spawnAhead; // v1.5 B7 item 67
         this.meta = meta;
         this.hero = heroKey == null ? null : data.heroes.get(heroKey);
         MainWeaponDef mwd = hero == null ? null : data.mainWeapons.get(hero.main);
@@ -365,6 +411,8 @@ public final class Sim {
         merchant.init(seed == null ? 0L : seed, hasFinds());
         events.init(seed == null ? 0L : seed);
         pois.init(seed == null ? 0L : seed, hasFinds());
+        vacRng.setSeed((seed == null ? 0L : seed) ^ 0x7ACC0F00DL); // v1.5 B5: the Vacuum Gem has its own random
+        vacNext = 150.0 + vacRng.nextDouble() * 90.0;
         destCx = Integer.MIN_VALUE; // list the destructibles again: the places add their own
         refreshDestructibles();
     }
@@ -532,6 +580,8 @@ public final class Sim {
     }
 
     private static int behaviorOf(String key) {
+        int ar = Arsenal.behaviorOf(Arsenal.idOf(key)); // v1.5 B5
+        if (ar >= 0) return ar;
         switch (key) {
             case "STORMLASH": return B_WHIP;
             case "FOUNDRY_SPILL": return B_WATER;
@@ -562,6 +612,7 @@ public final class Sim {
         w.behavior = behaviorOf(s.def.key);
         w.evo = s.def.evolution;
         w.fusion = Fusions.idOf(s.def.key);
+        w.arsenal = Arsenal.idOf(s.def.key);
         Map<String, Double> m = s.def.statsAt(s.level);
         w.dmg = g(m, "power", 1) * 10f * (float) stats.might;
         w.interval = (float) Math.max(50, g(m, "interval", 1000)) / 1000f * (float) stats.cooldownMul;
@@ -572,18 +623,43 @@ public final class Sim {
         w.hasHitDelay = m.containsKey("hitBoxDelay");
         w.hitDelay = Math.max(0.05f, g(m, "hitBoxDelay", 500) / 1000f);
         w.auraRadius = 50f * w.area;
-        w.endless = s.def.key.equals("VESPERS") || w.fusion == Fusions.CENSER || w.fusion == Fusions.FARADAY;
+        w.endless = s.def.key.equals("VESPERS") || w.fusion == Fusions.CENSER || w.fusion == Fusions.FARADAY
+                || w.arsenal == Arsenal.TETHER || w.arsenal == Arsenal.LEASH;
+        w.beamEvery = g(m, "beamEvery", 600) / 1000f * (float) stats.cooldownMul;
+        w.range = g(m, "range", 150);
         w.knock = g(m, "knockback", 0.3f);
         w.critChance = (g(m, "critChance", 0) + (float) stats.critBonus) * (1f + (float) stats.luck);
         w.critMul = g(m, "critMul", 2);
         w.amount = Math.max(1, Math.round(g(m, "amount", 1)) + stats.amountBonus);
         w.pierce = Math.max(1, Math.round(g(m, "penetrating", 1)));
         w.dependsOnDuration = g(m, "intervalDependsOnDuration", 0) > 0 || s.def.key.equals("HOLYBOOK");
+        // v1.5 B5 Overdrive: a maxed base weapon whose evolution passive is owned (the boss chest has not come yet) gets +1 projectile and -10% cooldown
+        boolean od = overdriveOf(s);
+        if (od) {
+            w.amount += 1;
+            w.interval *= OVERDRIVE_COOLDOWN;
+            w.beamEvery *= OVERDRIVE_COOLDOWN;
+        }
+        if (od && !w.overdrive && !fresh) toast("OVERDRIVE: " + s.def.name, 0xFFFFB347);
+        w.overdrive = od;
         if (fresh) {
             w.cd = 0.4f + 0.15f * i;
             w.pending = 0;
             w.side = 1;
         }
+    }
+
+    /** Overdrive: -10% cooldown (and +1 projectile) while a maxed weapon waits for its evolution. */
+    public static final float OVERDRIVE_COOLDOWN = 0.9f;
+
+    /** True when the slot holds a base weapon at max level that has an evolution and one of its synergy passives is owned. */
+    boolean overdriveOf(Inventory.Slot s) {
+        WeaponDef d = s.def;
+        if (d.evolution || d.fusion || d.evoInto == null || s.level < d.maxLevel()) return false;
+        WeaponDef target = data.weapons.get(d.evoInto);
+        if (target == null || !target.evolution) return false;
+        for (String p : d.evoSynergy) if (inv.hasPassive(p)) return true;
+        return false;
     }
 
     private static float g(Map<String, Double> m, String k, double d) {
@@ -596,12 +672,19 @@ public final class Sim {
     public void update(float dt, Input input) {
         sound.advance(dt);
         if (ended != 0) return;
+        run.src = RunStats.OTHER; // v1.5 B3: hazards and stage rules until a weapon's code sets its own slot
         time += dt;
         tNow = (float) time;
         input.move(mv);
         updateAim(input);
         updateDodge(input, dt);
+        float pox = px, poy = py; // v1.5 B6: the hero's velocity, read by the ranged enemies' lead-shot
         movePlayer(dt);
+        if (dt > 0f) {
+            pvx = (px - pox) / dt;
+            pvy = (py - poy) / dt;
+        }
+        updateStandStill(dt); // v1.5 B7 item 66
         refreshDestructibles();
         events.update(dt);
         rules.update(dt);
@@ -617,8 +700,10 @@ public final class Sim {
         separate(dt);
         ai.updateHazards(dt);
         updateWeapons(dt);
+        run.src = RunStats.MAIN; // v1.5 B3
         if (main != null) main.update(dt);
         updateProjectiles(dt);
+        run.src = RunStats.OTHER;
         ai.updateProjectiles(dt);
         contactDamage();
         reap();
@@ -628,6 +713,7 @@ public final class Sim {
             condenseFar();
         }
         updatePickups(dt);
+        updateVacuumGem();
         updateFinds();
         updateFusionReady(dt);
         merchant.update();
@@ -636,6 +722,7 @@ public final class Sim {
         if (freezeTimer > 0) freezeTimer -= dt;
         if (invuln > 0) invuln -= dt;
         if (guardT > 0) guardT -= dt;
+        if (wardT > 0) wardT -= dt;
         if (hitShake > 0) hitShake -= dt;
         if (pylonCd > 0) pylonCd -= dt;
         if (screenFlash > 0) screenFlash -= dt;
@@ -658,6 +745,11 @@ public final class Sim {
                 aimX = faceX / m;
                 aimY = faceY / m;
             }
+        }
+        int assist = Settings.get().autoAim(); // v1.5 B3: Soft / Full aim assist (Off changes nothing)
+        if (assist != Settings.AIM_OFF && AimAssist.pick(assist, this, aimX, aimY, aimActive, aimv)) {
+            aimX = aimv[0];
+            aimY = aimv[1];
         }
     }
 
@@ -682,6 +774,9 @@ public final class Sim {
     }
 
     static final float ASH_EVERY = 50f;
+    /** v1.5 B5 Cinder Band: a patch every 48 u, radius 40, 6 damage per second. */
+    static final float CINDER_EVERY = 48f, CINDER_R = 40f, CINDER_DPS = 6f;
+    private float cinderDist;
     /**
      * Hazard slots kept free for telegraphs and boss attacks: the hero's ash trail stops filling the pool this many slots
      * short of it, elite trails and Slagborn's trail fewer ({@link #HAZ_RESERVE_TRAIL}).
@@ -712,6 +807,13 @@ public final class Sim {
             float pw = rules.pushWeight(StageRules.PUSH_HERO, null) * sp * dt;
             px += pushV[0] * pw;
             py += pushV[1] * pw;
+        }
+        if (stats.cinderTrail && len > 0.05f) { // v1.5 B5 Cinder Band: burning ground behind the hero, 6 dps to enemies in 40 u
+            cinderDist += len * sp * dt;
+            if (cinderDist >= CINDER_EVERY) {
+                cinderDist = 0f;
+                if (hazN < MAX_HAZ - HAZ_RESERVE_ASH) ai.addHazard(Entities.HZ_ASH, px, py + 6f, CINDER_R, 2.2f, CINDER_DPS, 0f);
+            }
         }
         if (stats.ashTrail && len > 0.05f) { // Ashwalker Treads: a patch of ash every 40 units, enemies in it move at 80%
             ashDist += len * sp * dt;
@@ -1138,6 +1240,27 @@ public final class Sim {
         return rules.lightMul() * events.lightMul();
     }
 
+    /** Item 66 and the heading for item 67: after 6 s inside a 40 unit radius a drift hurts the hero and spawns come 15 % faster; moving resets it. */
+    private void updateStandStill(float dt) {
+        stand.update(px, py, dt);
+        float hx = mv[0], hy = mv[1], hl = hx * hx + hy * hy;
+        if (hl > 0.0025f) {
+            float inv = 1f / (float) Math.sqrt(hl);
+            headX = hx * inv;
+            headY = hy * inv;
+        }
+        if (standStillPenalty && stand.active() && !noSpawns && ended == 0) {
+            float d = WaveDirector.stillDps(time) * dt;
+            stillDamage += d;
+            areaDamage(d);
+        }
+    }
+
+    /** True while the stand-still penalty (item 66) is on: the renderer can tint the drift in the stage's colour. */
+    public boolean standStillActive() {
+        return standStillPenalty && stand.active();
+    }
+
     private void updateWaves(float dt) {
         if (noSpawns) return;
         int idx = se.felixarvid.thorsurvivors.data.WaveSelector.indexAt(stage.rows, time);
@@ -1160,12 +1283,13 @@ public final class Sim {
             if (horde >= 0) toast("SWARM INCOMING", 0xFFFF6A3D);
         }
         int minimum = row.minimum;
+        if (curseSpawnMul != 1.0) minimum = Math.min(WaveDirector.ENEMY_CAP, (int) Math.ceil(minimum * curseSpawnMul)); // v1.5 B7 item 68
         float freq = row.frequencyMs;
         if (horde >= 0) {
             minimum = Math.max(minimum, (int) stage.hordes[horde][2]);
             freq = Math.min(freq, (float) stage.hordes[horde][3]);
         }
-        spawnTimer += dt * 1000f * rules.spawnMul() * events.spawnMul() * pois.spawnMul;
+        spawnTimer += dt * 1000f * rules.spawnMul() * events.spawnMul() * pois.spawnMul * (float) curseSpawnMul * (standStillPenalty ? stand.spawnMul() : 1f);
         if (spawnTimer >= freq) {
             spawnTimer = 0;
             // Vampire Survivors: each tick one of EACH enemy type of the row, then top the field up to `minimum`
@@ -1260,6 +1384,12 @@ public final class Sim {
         }
         Enemy e = enemies[enemyN++];
         place(e);
+        if (dist == 0 && spawnAheadBias > 0f && !boss && rng.nextFloat() < spawnAheadBias) { // item 67: ahead of the heading
+            float a = (float) Math.atan2(headY, headX) + (rng.nextFloat() * 2f - 1f) * WaveDirector.AHEAD_SPREAD;
+            float d = HALF_W + 100f + rng.nextFloat() * 100f;
+            e.x = px + (float) Math.cos(a) * d;
+            e.y = py + (float) Math.sin(a) * d * 0.75f;
+        }
         if (dist > 0) {
             float a = rng.nextFloat() * 6.2831853f;
             e.x = px + (float) Math.cos(a) * dist;
@@ -1330,6 +1460,7 @@ public final class Sim {
             e.mt0 = 1.5f;
             e.mt1 = 2.5f;
             e.mt2 = Elites.RAISE_EVERY * 0.5f;
+            elites.arm(e); // v1.5 B6
         }
         return e;
     }
@@ -1388,16 +1519,19 @@ public final class Sim {
         e.toBeacon = !boss && t.arch == EnemyDef.ARCH_CHASER && events.flagBeacon();
         // Ashfall bosses carry their final HP in the data; the Vampire Survivors ones get the old x3
         double hp = t.def.maxHp * 10.0 * (t.def.hpTimesLevel ? t.def.level : 1) * stage.enemyHealth
-                * (1 + stats.curse) * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
+                * (1 + stats.curse) * curseHpExtra() * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
         if (boss && t.def.ashfallBoss) hp *= bossHpRamp(t.def.param("hpRamp", 0f), time);
-        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time); // phase 13: the HP of wave enemies grows with the run time
+        // phase 13: the HP of wave enemies grows with the run time; v1.5 B7 item 70: +3 %/min past 25:00.
+        // v1.5 B4 ascension HP is no longer multiplied here: it reaches curseHpExtra() through runTierHp (CurseMod tier HP, capped with the curse)
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time) * WaveDirector.lateHpMul(time);
         e.hp = e.maxHp = (float) Math.max(1, hp);
-        e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * stats.enemySpeed);
+        e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * curseSpeedMul * stats.enemySpeed);
         e.power = (float) t.def.power;
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
         if (t.arch != EnemyDef.ARCH_CHASER) ai.init(e);
-        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) e.speed *= (float) stage.speedMul(time); // v1.4: wave enemies get quicker with the run time
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) e.speed *= (float) stage.speedMul(time) * mods.speedMult(); // v1.4; v1.5 B4: ascension
+        if (false) ; //: wave enemies get quicker with the run time
         if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) { // phase 13: contact and bolt damage grow with the run time too
             float dm = (float) stage.dmgMul(time);
             e.power *= dm;
@@ -1409,6 +1543,7 @@ public final class Sim {
         boolean frozen = freezeTimer > 0;
         float decay = (float) Math.exp(-9f * dt);
         Enemy bossFound = null, eliteFound = null;
+        chasersNow = 0;
         for (int i = 0; i < enemyN; i++) {
             Enemy e = enemies[i];
             e.anim += dt;
@@ -1445,9 +1580,18 @@ public final class Sim {
                     float d = (float) Math.sqrt(d2t);
                     if (d > 1f && !(e.toBeacon && d < Events.BEACON_R * 0.8f)) {
                         float sp = ai.speedOf(e);
-                        e.x += tdx / d * sp * dt;
-                        e.y += tdy / d * sp * dt;
+                        float ux = tdx / d, uy = tdy / d;
+                        if (chasersLast > EnemyAi.FLANK_OVER && !e.toBeacon && !e.boss) { // v1.5 B6: a big pack fans out across +-40 degrees
+                            float f = EnemyAi.flankBlend(d), c = EnemyAi.FLANK_COS[e.id % 5], sn = EnemyAi.FLANK_SIN[e.id % 5] * f;
+                            c = 1f + (c - 1f) * f;
+                            float rx = ux * c - uy * sn, ry = uy * c + ux * sn;
+                            ux = rx;
+                            uy = ry;
+                        }
+                        e.x += ux * sp * dt;
+                        e.y += uy * sp * dt;
                     }
+                    chasersNow++;
                 }
             } else if (!frozen && !stunned) {
                 ai.update(e, dt, moving, dx, dy, d2);
@@ -1465,6 +1609,15 @@ public final class Sim {
         }
         bossNow = bossFound;
         eliteNow = eliteFound;
+        chasersLast = chasersNow;
+    }
+
+    /** v1.5 B6: chasers that walked this step and the step before (the flank spread starts above {@link EnemyAi#FLANK_OVER}). */
+    int chasersNow, chasersLast;
+
+    /** v1.5 B6: the next enemy id (the boss phase pulse only clears adds that already existed). */
+    int nextEnemyId() {
+        return nextId;
     }
 
     // ------------------------------------------------------------------ statuses (design section 7)
@@ -1550,7 +1703,7 @@ public final class Sim {
         if (e.dead || amount <= 0f) return;
         amount = rules.damageIn(e, amount, color == Status.C_BURN ? StageRules.CAT_BURN : color == Status.C_ELEC ? StageRules.CAT_ELECTRIFY
                 : color == Status.C_FROST ? StageRules.CAT_FROST : StageRules.CAT_DECAY); // stage hook (v1.4)
-        if (amount <= 0f) return;
+        if (amount <= 0f || e.shieldT > 0f) return; // v1.5 B6: no status damage through a boss's phase shield
         e.hp -= amount;
         e.dotAcc += amount;
         if (e.dotAcc >= 1f && show && statusTexts < MAX_STATUS_TEXTS) {
@@ -1636,7 +1789,7 @@ public final class Sim {
 
     /** Damage without a flash, number or sound (links); kills when it empties the enemy. */
     void dot(Enemy e, float amount) {
-        if (e.dead || e.dormant) return;
+        if (e.dead || e.dormant || e.shieldT > 0f) return;
         e.hp -= amount;
         if (e.hp <= 0) killNow(e);
     }
@@ -1767,10 +1920,27 @@ public final class Sim {
     public static final int DMG_CONTACT = 0, DMG_BOLT = 1, DMG_AREA = 2, DMG_BLAST = 3;
     public final float[] dmgBy = new float[4];
 
+    /** v1.5 B5 Echo Bell: gems in a row (each within GEM_CHAIN of the last) that arm the bonus; whether the next hit carries it. */
+    static final int BELL_STREAK = 10;
+    private int bellStreak;
+    boolean bellReady;
+    /** v1.5 B5 Lumen Ward: seconds until the next hit can be absorbed (0 = ready). */
+    public float wardT;
+
     void hurtHero(float taken, float inv, boolean shake, int source) {
+        if (stats.wardEvery > 0.0 && wardT <= 0f) { // v1.5 B5 Lumen Ward: absorbs one hit per wardEvery seconds
+            wardT = (float) stats.wardEvery;
+            invuln = Math.max(invuln, Math.min(inv, 0.5f));
+            sound.emit(SoundEvents.EVOLUTION);
+            addFx(Entities.FX_FLASH, px, py - 20f, 110f, 0f, 0.3f, 0, false);
+            spark(px, py - 16f, 0xFF5AE0FF, 10);
+            toast("LUMEN WARD ABSORBED THE HIT", 0xFF5AE0FF);
+            return;
+        }
         taken *= (float) stats.damageTaken; // Riot Shield
         heroHits++;
         dmgBy[source] += taken;
+        run.lastHurt = source; // v1.5 B3
         hp -= taken;
         sound.emit(SoundEvents.PLAYER_HURT);
         invuln = Math.max(invuln, inv);
@@ -1783,6 +1953,7 @@ public final class Sim {
         amount *= (float) stats.damageTaken;
         hp -= amount;
         dmgBy[DMG_AREA] += amount;
+        run.lastHurt = DMG_AREA; // v1.5 B3
         if (hp <= 0f) checkHeroDeath();
     }
 
@@ -1836,11 +2007,23 @@ public final class Sim {
 
     public void hurt(Enemy e, float dmg, float chance, float critMul, float kx, float ky, float knock) {
         if (e.dead || e.dormant) return;
+        if (bellReady) { // v1.5 B5 Echo Bell: the first hit after a 10-gem streak
+            bellReady = false;
+            dmg *= 1f + (float) stats.echoBell;
+            sound.emit(SoundEvents.COIN);
+        }
         boolean crit = chance > 0 && rng.nextFloat() < chance;
         lastCrit = crit;
         if (crit) dmg *= critMul;
         if (e.armor > 0f) dmg = Math.max(dmg * 0.4f, dmg - e.armor); // the Armored elite: 3 off every hit
+        if (e.mods != 0) {
+            float before = dmg;
+            dmg = elites.shieldedDamage(e, dmg); // v1.5 B6: the Shielded elite's frontal arc
+            if (dmg < before) sound.emit(SoundEvents.ELITE_SHIELD_BLOCK); // v1.5 integration: B8 sound id 54
+        }
+        if (e.shieldT > 0f) dmg = 0f; // v1.5 B6: a boss in its phase-change shield takes nothing
         dmg = rules.damageIn(e, dmg, StageRules.CAT_HIT); // stage hook (v1.4): e.g. Ironclad takes less from hits
+        run.add(Math.min(dmg, e.hp)); // v1.5 B3: what the hit really took off, for the results screen
         e.hp -= dmg;
         if (stats.statusChance[Entities.ST_BURN] > 0f || stats.statusChance[Entities.ST_FROST] > 0f
                 || stats.statusChance[Entities.ST_ELECTRIFY] > 0f) { // rings: a chance per hit to add a stack
@@ -1850,7 +2033,7 @@ public final class Sim {
         }
         e.flash = 0.1f;
         e.softFlash = softHit;
-        addEnemyText(e, (int) dmg, crit);
+        if (Settings.get().showDamageNumber(crit)) addEnemyText(e, (int) dmg, crit); // v1.5 B3: the damage-numbers option
         float k = knock * (float) e.type.def.knockback * e.kbMul;
         if (k > 0) {
             if (e.boss) k *= 0.05f; // bosses barely move and never stagger
@@ -1883,6 +2066,7 @@ public final class Sim {
                 continue;
             }
             kills++;
+            if (e.elite) elites.onDeath(e); // v1.5 B6: Volatile blast, Splitter copies (queued)
             rules.onEnemyDeath(e);
             sound.emit(SoundEvents.ENEMY_DEATH);
             if (e.type.arch == EnemyDef.ARCH_EXPLODER) ai.carrierBurst(e); // a spore carrier bursts when it dies
@@ -1895,6 +2079,7 @@ public final class Sim {
             enemies[enemyN - 1] = e;
             enemyN--;
         }
+        elites.flushSplits(); // v1.5 B6: Splitter copies, spawned once the swap loop is done
     }
 
     private void addCorpse(Enemy e) {
@@ -2111,6 +2296,37 @@ public final class Sim {
         }
     }
 
+    // ------------------------------------------------------------------ v1.5 B5: the Vacuum Gem
+
+    /** Pickup value of a floor Vacuum Gem (a Vacuum dropped by an enemy has 0): it also pulls coins, and shows a toast. */
+    public static final float VACUUM_GEM = 2f;
+    private final Random vacRng = new Random();
+    /** Run time of the next Vacuum Gem (a rare floor pickup about every 4 minutes, 180 to 300 s apart, at most one live). */
+    public double vacNext;
+
+    public boolean vacuumGemLive() {
+        for (int i = 0; i < pickN; i++) if (picks[i].kind == Entities.K_VACUUM && picks[i].value >= VACUUM_GEM) return true;
+        return false;
+    }
+
+    private void updateVacuumGem() {
+        if (!pois.enabled || time < vacNext || vacuumGemLive()) return;
+        if (time > vacNext + 30.0) { // the clock jumped (a test or tool set the time): schedule from here instead of dropping a gem at once
+            vacNext = time + 180.0 + vacRng.nextDouble() * 120.0;
+            return;
+        }
+        for (int attempt = 0; attempt < 8; attempt++) {
+            float a = vacRng.nextFloat() * 6.2831855f, d = 280f + vacRng.nextFloat() * 200f;
+            float x = px + (float) Math.cos(a) * d, y = py + (float) Math.sin(a) * d;
+            if (map.blocked(x, y)) continue;
+            addPickup(Entities.K_VACUUM, x, y, VACUUM_GEM);
+            vacNext = time + 180.0 + vacRng.nextDouble() * 120.0;
+            toast("A VACUUM GEM LANDED NEARBY", 0xFF39FF88);
+            return;
+        }
+        vacNext = time + 10.0; // no free spot round the hero right now
+    }
+
     private void updatePickups(float dt) {
         float magnet = 70f * (float) stats.magnetMul;
         for (int i = pickN - 1; i >= 0; i--) {
@@ -2158,6 +2374,12 @@ public final class Sim {
     private void collect(Pickup p) {
         switch (p.kind) {
             case Entities.K_GEM:
+                bellStreak = tNow - lastGemT < SoundEvents.GEM_CHAIN ? bellStreak + 1 : 1; // v1.5 B5 Echo Bell
+                if (bellStreak >= BELL_STREAK && stats.echoBell > 0) {
+                    bellStreak = 0;
+                    bellReady = true;
+                    toast("ECHO BELL: NEXT HIT +" + Math.round(stats.echoBell * 100) + "%", 0xFFFFD85A);
+                }
                 gemChain = tNow - lastGemT < SoundEvents.GEM_CHAIN ? Math.min(SoundEvents.GEM_MAX_CHAIN, gemChain + 1) : 0;
                 lastGemT = tNow;
                 sound.emit(SoundEvents.GEM, gemChain);
@@ -2167,18 +2389,25 @@ public final class Sim {
             case Entities.K_COINBAG:
                 sound.emit(SoundEvents.COIN);
                 // Greed gives fractions (1 gold x 1.2): carry the remainder so single coins still add up
-                goldFrac += p.value * stage.goldMultiplier * stats.greedMul;
+                goldFrac += p.value * stage.goldMultiplier * stats.greedMul * curseGoldMul;
                 int whole = (int) (goldFrac + 1e-6);
                 goldFrac -= whole;
                 gold += whole;
                 break;
             case Entities.K_ROAST:
                 sound.emit(SoundEvents.FOOD_HEAL);
-                heal(30f);
+                heal(30f * mods.healMult()); // v1.5 B4: ascension cuts healing drops
                 break;
             case Entities.K_VACUUM:
                 sound.emit(SoundEvents.COIN);
-                for (int i = 0; i < pickN; i++) if (picks[i].kind == Entities.K_GEM) picks[i].pulled = true;
+                boolean gemVac = p.value >= VACUUM_GEM; // v1.5 B5: the floor Vacuum Gem pulls coins and bags too
+                for (int i = 0; i < pickN; i++) {
+                    if (picks[i].kind == Entities.K_GEM || (gemVac && (picks[i].kind == Entities.K_COIN || picks[i].kind == Entities.K_COINBAG))) picks[i].pulled = true;
+                }
+                if (gemVac) {
+                    addFx(Entities.FX_RING, px, py, 260f, 0f, 0.5f, 0, false);
+                    toast("VACUUM GEM", 0xFF39FF88);
+                }
                 break;
             case Entities.K_OROLOGION:
                 sound.emit(SoundEvents.COIN);
@@ -2273,7 +2502,7 @@ public final class Sim {
     private void eliteRewards(Enemy e) {
         sound.emit(SoundEvents.ELITE_DIE);
         eliteKilled++;
-        if (eliteKilled >= 2 && time >= 300.0) addPickup(Entities.K_CHEST, e.x + 36f, e.y + 8f, ARMS_CRATE); // Arms Crate, next to the gear crate
+        if (eliteKilled >= 2 && time >= WaveDirector.armsCrateFrom) addPickup(Entities.K_CHEST, e.x + 36f, e.y + 8f, ARMS_CRATE); // Arms Crate, next to the gear crate
         if (!data.baseItems.isEmpty()) {
             dropEquipment(e.x, e.y, data.baseItems.get(rng.nextInt(data.baseItems.size())), rollRarity());
         }
@@ -2347,7 +2576,8 @@ public final class Sim {
 
     /** Gold the run pays out: doubled when The First was killed. */
     public int endGold() {
-        return firstKilled ? gold * 2 : gold;
+        int g = firstKilled ? gold * 2 : gold;
+        return mods == RunMods.NONE ? g : Math.round(g * mods.goldMult()); // v1.5 B4: +15% per ascension tier, x1.5 on the first daily
     }
 
     /** The hero picks an item up: an empty slot equips it, a better one waits for a choice, anything else is salvaged. */
@@ -2479,6 +2709,7 @@ public final class Sim {
         e.mt0 = 1.5f;
         e.mt1 = 2.5f;
         e.mt2 = Elites.RAISE_EVERY * 0.5f;
+        elites.arm(e); // v1.5 B6
         int adds = (int) elite("adds", 6);
         float a0 = rng.nextFloat() * 6.2831853f;
         for (int k = 0; k < adds; k++) {
@@ -2508,7 +2739,7 @@ public final class Sim {
         WaveRow row = stage.rows.get(WaveSelector.indexAt(stage.rows, time));
         if (row.enemies.length == 0) return;
         EnemyType t = type(row.enemies[rng.nextInt(row.enemies.length)]);
-        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, stage, time)));
+        Enemy e = spawnElite(t, Elites.roll(rng, Elites.modCount(data, stage, time), time));
         if (e != null) nextEliteAt = (float) time + Elites.interval(data, stage, time);
     }
 
@@ -2689,7 +2920,7 @@ public final class Sim {
             inv.levelUp(s.def.key);
             lines.add(s.def.name + " -> Lv " + s.level);
         }
-        int coins = Math.round((30 + rng.nextInt(60)) * (float) stage.goldMultiplier * (float) stats.greedMul);
+        int coins = Math.round((30 + rng.nextInt(60)) * (float) stage.goldMultiplier * (float) stats.greedMul * (float) curseGoldMul);
         gold += coins;
         lines.add("+" + coins + " gold");
         recomputeAll();
@@ -2724,11 +2955,13 @@ public final class Sim {
                 strikeN--;
                 strikeX[i] = strikeX[strikeN]; strikeY[i] = strikeY[strikeN];
                 strikeT[i] = strikeT[strikeN]; strikeSlot[i] = strikeSlot[strikeN];
+                run.src = slot; // v1.5 B3
                 if (slot < inv.weaponCount) strike(weapons[slot], x, y);
             }
         }
         for (int i = 0; i < inv.weaponCount; i++) {
             WeaponState w = weapons[i];
+            run.src = i; // v1.5 B3
             if (w.pulse > 0) w.pulse -= dt;
             w.leech = Math.min(LEECH_PER_SECOND, w.leech + LEECH_PER_SECOND * dt);
             switch (w.behavior) {
@@ -2819,6 +3052,7 @@ public final class Sim {
         p.evo = w.evo || w.fusion != 0;
         p.fusion = w.fusion;
         p.aux = p.aux2 = p.blastR = 0f;
+        p.tag = 0;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 2f;
         p.radius = 10f;
@@ -2851,6 +3085,7 @@ public final class Sim {
         p.slot = 255;
         p.evo = false;
         p.fusion = 0;
+        p.tag = 0;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 1f;
         p.radius = 8f;
@@ -2876,6 +3111,7 @@ public final class Sim {
         switch (w.behavior) {
             case B_WHIP: whip(w); break;
             case B_MISSILE: {
+                if (w.arsenal == Arsenal.LANCE || w.arsenal == Arsenal.STORM) { arsenal.fireLance(w, slot); break; }
                 // nearest enemy at fire time, then a straight line: no homing
                 Enemy t = nearest(1000f);
                 Projectile p = newProj(Entities.P_MISSILE, slot, w);
@@ -2967,6 +3203,7 @@ public final class Sim {
                 break;
             }
             case B_WATER: {
+                if (w.arsenal == Arsenal.MORTAR || w.arsenal == Arsenal.HOWITZER) { arsenal.fireMortar(w, slot); break; }
                 Projectile p = newProj(Entities.P_PUDDLE, slot, w);
                 if (p == null) return;
                 // a flask lands within ~250 u of the player, biased toward enemies
@@ -3122,6 +3359,7 @@ public final class Sim {
             p.x = px + (float) Math.cos(p.orbitAngle) * p.orbitRadius;
             p.y = py + (float) Math.sin(p.orbitAngle) * p.orbitRadius;
             if (w.fusion != 0) fusions.setupBook(w, p, i);
+            if (w.arsenal != 0) arsenal.setupDrone(w, p, i); // v1.5 B5
         }
     }
 
@@ -3186,7 +3424,9 @@ public final class Sim {
                 default:
                     break;
             }
+            run.src = p.slot >= RunStats.SLOTS ? RunStats.MAIN : p.slot; // v1.5 B3
             if (p.fusion != 0 && fusions.update(p, dt)) { removeProj(i); continue; }
+            if (p.tag != 0 && arsenal.update(p, dt)) { removeProj(i); continue; } // v1.5 B5
             // off-screen culling (books and puddles stay; the cross dies by lifetime)
             if (p.kind != Entities.P_BOOK && p.kind != Entities.P_PUDDLE && p.kind != Entities.P_CROSS) {
                 float dx = p.x - px, dy = p.y - py;
@@ -3210,13 +3450,15 @@ public final class Sim {
                     if (e.hitBy(p.stamp)) continue;
                     e.markHit(p.stamp);
                 }
+                run.src = p.slot >= RunStats.SLOTS ? RunStats.MAIN : p.slot; // v1.5 B3
                 hurt(e, p.dmg, p.critChance, p.critMul, dx / d, dy / d, p.knock);
                 if (p.kind == Entities.P_FIRE) applyStatus(e, Entities.ST_BURN, p.evo ? 2 : 1, p.dmg, 0f); // Slag Cannon / Furnace Burst
-                else if (p.kind == Entities.P_PUDDLE) { // Corrosive Flask: Decay, and a one-stack slow
+                else if (p.kind == Entities.P_PUDDLE && p.tag == 0) { // Corrosive Flask: Decay, and a one-stack slow
                     applyStatus(e, Entities.ST_DECAY, 1, p.dmg, 0f);
                     applyStatus(e, Entities.ST_FROST, e.frost < 1 ? 1 : 0, p.dmg, 0f);
                 }
                 if (p.fusion != 0) fusions.onHit(p, e);
+                if (p.tag != 0) arsenal.onHit(p, e); // v1.5 B5
                 if (main != null && (p.kind == Entities.P_MAIN || p.sub != Entities.SUB_NONE)) main.onHit(p, e);
                 if (p.kind == Entities.P_FIRE || p.kind == Entities.P_AXE) { // a small burst where it hits
                     addFx(Entities.FX_BLAST, e.x, e.y, p.kind == Entities.P_FIRE ? 34f : 24f, p.kind == Entities.P_FIRE ? 1f : 0f, 0.28f, 0, p.evo);

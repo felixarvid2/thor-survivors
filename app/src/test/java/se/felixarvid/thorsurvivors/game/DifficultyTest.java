@@ -29,21 +29,23 @@ public class DifficultyTest {
         GameData d = TestData.load();
         for (String k : new String[]{"FLATS", "MINES"}) {
             StageDef st = d.stages.get(k);
+            boolean f = k.equals("FLATS"); // v1.5 final: Flats has its own HP, damage and speed curves (survival re-tune), Mines keep the v1.4 HP and damage
             assertEquals(1.0, st.hpMul(0), 1e-9);
-            assertEquals(1.2, st.hpMul(10 * 60), 1e-9);
-            assertEquals(1.6, st.hpMul(15 * 60), 1e-9);
-            assertEquals(2.4, st.hpMul(20 * 60), 1e-9);
-            assertEquals(3.7, st.hpMul(22.5 * 60), 1e-9);
-            assertEquals(9.0, st.hpMul(30 * 60), 1e-9);
-            assertEquals("held after the last point", 9.0, st.hpMul(99 * 60), 1e-9);
-            assertEquals("v1.4: damage ends at 7.5, not 18", 7.5, st.dmgMul(30 * 60), 1e-9);
-            assertEquals(5.0, st.dmgMul(24 * 60), 1e-9);
-            assertEquals(3.5, st.dmgMul(20 * 60), 1e-9);
+            assertEquals(f ? 0.9 : 1.2, st.hpMul(10 * 60), 1e-9);
+            assertEquals(f ? 1.2 : 1.6, st.hpMul(15 * 60), 1e-9);
+            assertEquals(f ? 1.8 : 2.4, st.hpMul(20 * 60), 1e-9);
+            assertEquals(f ? 2.775 : 3.7, st.hpMul(22.5 * 60), 1e-9);
+            assertEquals(f ? 6.75 : 9.0, st.hpMul(30 * 60), 1e-9);
+            assertEquals("held after the last point", f ? 6.75 : 9.0, st.hpMul(99 * 60), 1e-9);
+            assertEquals("v1.4: damage ends at 7.5, not 18", f ? 5.625 : 7.5, st.dmgMul(30 * 60), 1e-9);
+            assertEquals(f ? 3.75 : 5.0, st.dmgMul(24 * 60), 1e-9);
+            assertEquals(f ? 2.625 : 3.5, st.dmgMul(20 * 60), 1e-9);
             assertEquals("speed: 1 at the start", 1.0, st.speedMul(0), 1e-9);
-            assertEquals(1.1, st.speedMul(5 * 60), 1e-9);
-            assertEquals(1.65, st.speedMul(20 * 60), 1e-9);
-            assertEquals(2.25, st.speedMul(30 * 60), 1e-9);
-            assertEquals("Mines start harder (stage knob)", k.equals("FLATS") ? 1.35 : 1.4, st.dmgMul(0), 1e-9);
+            assertEquals(f ? 1.035 : 1.05, st.speedMul(5 * 60), 1e-9);
+            // v1.5 B7 item 63 and the final re-tune: the speed excess over 1.0 is scaled per stage (Flats x0.35, Mines x0.5 of the v1.4 curve)
+            assertEquals(f ? 1.114 : 1.325, st.speedMul(20 * 60), 1e-9);
+            assertEquals(f ? 1.219 : 1.625, st.speedMul(30 * 60), 1e-9);
+            assertEquals("Mines start harder (stage knob)", f ? 1.35 : 1.4, st.dmgMul(0), 1e-9);
         }
         assertEquals("the old stages have no speed curve", 1.0, d.stages.get("FOREST").speedMul(25 * 60), 1e-9);
         assertEquals("the old stages have no curve", 1.0, d.stages.get("FOREST").hpMul(25 * 60), 1e-9);
@@ -55,9 +57,9 @@ public class DifficultyTest {
         Enemy early = s.addEnemy("COLONIST", 0, 0, false);
         s.time = 30 * 60;
         Enemy late = s.addEnemy("COLONIST", 0, 0, false);
-        assertEquals(early.maxHp * 9.0f, late.maxHp, 0.01f);
-        assertEquals("1.35 at the start, 7.5 at 30:00", early.power * 7.5f / 1.35f, late.power, 0.01f);
-        assertEquals("speed x2.25 at 30:00", early.speed * 2.25f, late.speed, 0.01f);
+        assertEquals(early.maxHp * 6.75f * 1.15f, late.maxHp, 0.01f); // curve x6.75 (v1.5 final Flats curve) and the v1.5 B7 late ramp (+3 %/min past 25:00 = x1.15)
+        assertEquals("1.35 at the start, 5.625 at 30:00", early.power * 5.625f / 1.35f, late.power, 0.01f);
+        assertEquals("speed x1.219 at 30:00 (v1.5 final: Flats eased from 2.25)", early.speed * 1.219f, late.speed, 0.01f);
         s.time = 0;
         Enemy bossEarly = s.addEnemy("SLAGBORN", 0, 0, true);
         s.time = 20 * 60;

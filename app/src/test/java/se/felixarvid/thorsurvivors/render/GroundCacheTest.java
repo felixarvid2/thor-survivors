@@ -141,4 +141,18 @@ public class GroundCacheTest {
         }
         assertTrue("prefetched " + (c.builds - first), c.builds - first >= 4);
     }
+
+    /** v1.5 B8 (79): a stage change frees the old stage's chunk bitmaps instead of keeping 24 of them around. */
+    @Test
+    public void stageChangeFreesTheOldChunkBitmaps() {
+        GroundCache c = cache("FOREST");
+        c.async = false;
+        for (int cy = 0; cy < 3; cy++) for (int cx = 0; cx < 3; cx++) assertNotNull(c.chunkBitmap(cx, cy));
+        long before = c.bitmapBytes();
+        assertTrue("chunks hold memory: " + before, before >= 9L * CH * T * CH * T * 4);
+        c.setup(WorldGen.of("LIBRARY"), "LIBRARY", T, 0xFF70747F);
+        assertEquals("released on the stage change", 0L, c.bitmapBytes());
+        assertNotNull("and rebuilt on demand", c.chunkBitmap(0, 0));
+        assertEquals(1L * CH * T * CH * T * 4, c.bitmapBytes());
+    }
 }

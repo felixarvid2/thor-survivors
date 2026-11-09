@@ -37,7 +37,9 @@ import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.MetaProgress;
+import se.felixarvid.thorsurvivors.game.Settings;
 import se.felixarvid.thorsurvivors.game.Sim;
+import se.felixarvid.thorsurvivors.game.TelegraphPalette;
 import se.felixarvid.thorsurvivors.game.WorldGen;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas.Clip;
 import se.felixarvid.thorsurvivors.game.stage.RefineryRules;
@@ -98,6 +100,15 @@ public final class WorldRenderer {
     private final Bitmap[] shadows = new Bitmap[321];
     private boolean shadowsReady;
     private final Lighting light = new Lighting();
+    /** v1.5 B1: hit-stop, shake, sparks, damage numbers and the other juice (see Vfx). */
+    final Vfx vfx = new Vfx();
+    /** Tests: a fixed wall-clock step for the effects instead of the real one (negative = real). */
+    float testDt = -1f;
+
+    /** v1.5 B1: the game loop's hit-stop hook. Returns the part of {@code dt} the world may advance (0 during a hit-stop). */
+    public float filterDt(float dt) {
+        return vfx.filterDt(dt);
+    }
 
     // colour filters (created once)
     private final ColorFilter fWhite = new PorterDuffColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_ATOP);
@@ -112,7 +123,7 @@ public final class WorldRenderer {
             fRedAdd = new LightingColorFilter(0xFFFF5040, 0), fGold = new LightingColorFilter(0xFFFFE080, 0);
 
     // elites and equipment (design phases 9 and 10): the outline tint of each modifier, the rarity glow of a crate
-    private final ColorFilter[] fMod = new ColorFilter[Elites.COUNT];
+    private final ColorFilter[] fMod = new ColorFilter[Elites.COUNT], fModCb = new ColorFilter[Elites.COUNT]; // v1.5 integration: the colorblind set
     private final ColorFilter fLumen = new LightingColorFilter(0xFF39FF88, 0);
     private final ColorFilter[] fRar = {new LightingColorFilter(0xFFC8CCD4, 0), new LightingColorFilter(0xFF4FA8FF, 0),
             new LightingColorFilter(0xFFFFD84A, 0), new LightingColorFilter(0xFFFF8A2A, 0)};
@@ -189,9 +200,12 @@ public final class WorldRenderer {
         shade[SHADES] = null; // fully lit props and pickups need no filter
         // a ColorFilter creates its native object when a Paint carrying it is first used for drawing (Paint.getNativeInstance), not on
         // setColorFilter: draw one pixel with each of them now, so no filter is created mid-frame
-        for (int i = 0; i < Elites.COUNT; i++) fMod[i] = new PorterDuffColorFilter(Elites.COLORS[i], PorterDuff.Mode.SRC_ATOP);
+        for (int i = 0; i < Elites.COUNT; i++) {
+            fMod[i] = new PorterDuffColorFilter(Elites.COLORS[i], PorterDuff.Mode.SRC_ATOP);
+            fModCb[i] = new PorterDuffColorFilter(TelegraphPalette.TO_COLORS[i], PorterDuff.Mode.SRC_ATOP);
+        }
         ColorFilter[][] all = {shade, shadeLift, {fWhite, fBright, fRed, fIce, fCyan, fGreen, fViolet, fOrange, fRedAdd, fGold},
-                fMod, fRar};
+                fMod, fModCb, fRar};
         Canvas primer = new Canvas(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888));
         for (ColorFilter[] set : all) {
             for (ColorFilter f : set) {
@@ -250,7 +264,7 @@ public final class WorldRenderer {
         gd = e.data;
         ensureTints();
         int ph = e.phase;
-        boolean menu = s == null || ph == Engine.PH_MENU || ph == Engine.PH_SHOP;
+        boolean menu = s == null || Engine.isMenuPhase(ph); // v1.5 B3: also options, codex, remap
         if (menu && topUi.menuReady()) { // the title screen: painting, embers and title instead of the world
             ks = h / 1080f;
             topUi.drawMenu(c, w, h, e, dualScreen, e.menuTime);
@@ -275,8 +289,14 @@ public final class WorldRenderer {
             camX = s.px;
             camY = s.py;
             trackPlayer(s, realDt);
+            vfx.observe(s, e); // v1.5 B1
+            vfx.update(testDt >= 0f ? testDt : realDt);
         }
         int camPx = Math.round(camX * sc), camPy = Math.round(camY * sc);
+        if (!menu) { // v1.5 B1: trauma shake moves the camera itself, so the ground chunks still cover the screen
+            camPx += Math.round(vfx.shakeX * ks);
+            camPy += Math.round(vfx.shakeY * ks);
+        }
         ox = w / 2 - camPx;
         oy = h / 2 - camPy;
         String stage = e.stage().key;
@@ -319,6 +339,7 @@ public final class WorldRenderer {
         if (lightMode == MetaProgress.LIGHT_FULL) {
             if (!menu) {
                 gatherDynamicLights(s);
+                gatherVfxLights(s);
                 gatherFindLights(s);
                 gatherMerchantLight(s);
                 gatherPoiLights(s);
@@ -381,6 +402,12 @@ public final class WorldRenderer {
             float r = f.kind == Entities.FX_FLASH ? f.w : 70f;
             light.add(sx(f.x), sy(f.y), r * sc * (0.5f + 0.5f * k), Math.min(1f, k * 1.6f), Lighting.WARM);
         }
+    }
+
+    /** v1.5 B1: the level-up pulse and the evolution pillar light the ground around the hero. */
+    private void gatherVfxLights(Sim s) {
+        float st = vfx.lightStrength();
+        if (st > 0.01f && light.n < Lighting.MAX - 2) light.add(sx(s.px), sy(s.py) - 28f * ks, 230f * sc * (0.6f + 0.4f * st), Math.min(1f, st), Lighting.WARM);
     }
 
     /** Emergency lights (warm, flickering) and lumen growths (green pulse) among the props near the view. */
@@ -757,7 +784,7 @@ public final class WorldRenderer {
 
     // ------------------------------------------------------------------ places (Pois): outposts, terminals, vault, nests, vents
 
-    private static final int POI_OUTPOST = 1, POI_TERMINAL = 2, POI_VAULT = 3;
+    private static final int POI_OUTPOST = 1, POI_TERMINAL = 2, POI_VAULT = 3, POI_SPOT = 4; // POI_SPOT: v1.5 B5 shrine / cursed cache
 
     private void addPoiProps(Sim s, int m) {
         Pois p = s.pois;
@@ -769,6 +796,10 @@ public final class WorldRenderer {
         for (int i = 0; i < p.termN && propN < MAX_PROPS; i++) {
             int px = sx(p.termX[i]), py = sy(p.termY[i]);
             if (px >= -m && px <= scrW + m && py >= -m - 200 && py <= scrH + m) addProp(POI_PROP, POI_TERMINAL * 100 + i, px, py);
+        }
+        for (int i = 0; i < p.spotN && propN < MAX_PROPS; i++) { // v1.5 B5
+            int px = sx(p.spotX[i]), py = sy(p.spotY[i]);
+            if (px >= -m && px <= scrW + m && py >= -m - 200 && py <= scrH + m) addProp(POI_PROP, POI_SPOT * 100 + i, px, py);
         }
         if (p.hasVault && propN < MAX_PROPS) {
             int px = sx(p.vaultX), py = sy(p.vaultY);
@@ -867,7 +898,7 @@ public final class WorldRenderer {
             float prog = (ph - (Pois.VENT_PERIOD - Pois.VENT_WARN)) / Pois.VENT_WARN;
             warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 18f));
             float ir = r * prog;
-            fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (40 + 90 * prog) << 24) | teleRgb());
             c.drawOval(cx - ir, cy - ir * 0.8f, cx + ir, cy + ir * 0.8f, fill);
             glow(c, atlas.img("vfx.embers_0"), cx, cy - r * 0.2f, r * 1.2f * prog, t * 40f, null, (int) (120 * prog));
         }
@@ -929,6 +960,29 @@ public final class WorldRenderer {
                 text.setColor(0xFF40D8FF);
                 int top = im == null ? 70 : Math.round(im.h() * ks * 1.05f);
                 c.drawText("RELAY", px, py - top - 10f * ks + (float) Math.sin(now * 2.2) * 3f * ks, text);
+                text.clearShadowLayer();
+            }
+            return;
+        }
+        if (type == POI_SPOT) { // v1.5 B5: Shrine of Haste (a gold lamp) and Cursed Cache (a crate with a violet glow)
+            boolean shrine = p.spotKind[idx] == Pois.SP_SHRINE, used = p.spotUsed(idx);
+            float gl = used ? 0.15f : 0.5f + 0.5f * (float) Math.sin(now * 3.0 + idx);
+            if (!used) glow(c, atlas.img("vfx.energy_glow_0"), px, py - 30f * ks, 150f * ks, 0f, shrine ? fGold : fViolet, (int) (70 + 70 * gl));
+            drawShadow(c, px, py - 2, Math.round(24 * ks));
+            Img im = atlas.img(shrine ? "prop.emergency_light" : "prop.cargo_crate");
+            if (im != null) {
+                bmp.setColorFilter(used ? shadeAt(px, py, 0.1f) : null);
+                bmp.setAlpha(255);
+                blit(c, im, px, py, ks * 1.05f, bmp);
+                bmp.setColorFilter(null);
+            }
+            if (!used) {
+                text.setTextAlign(Paint.Align.CENTER);
+                text.setTextSize(18f * ks);
+                text.setShadowLayer(3f, 0f, 2f, 0xFF000000);
+                text.setColor(shrine ? 0xFFFFD84A : 0xFFB060FF);
+                int top = im == null ? 70 : Math.round(im.h() * ks * 1.05f);
+                c.drawText(shrine ? "HASTE" : "CURSED", px, py - top - 10f * ks + (float) Math.sin(now * 2.2) * 3f * ks, text);
                 text.clearShadowLayer();
             }
             return;
@@ -1339,10 +1393,13 @@ public final class WorldRenderer {
         gemCrowd = Math.max(0f, Math.min(1f, (gemsShown - GEM_CROWD_FROM) / GEM_CROWD_SPAN));
         gemHeroX = sx(s.px);
         gemHeroY = sy(s.py);
+        gemMagnet = 70f * (float) s.stats.magnetMul;
+        gemTrailLeft = 40; // a budget: a vacuum pull makes hundreds of gems fly at once
         for (int j = 0; j < np; j++) drawPickup(c, s.picks[sIdx[j]]);
 
         drawTelegraphs(c, s, t);
         drawEliteRings(c, s, t);
+        drawShields(c, s, t); // v1.5 integration: B6 Shielded arcs and boss phase shields
 
         // 3. enemies + player (visible only), strictly ordered by (feet y, id)
         int n = 0, nb = 0;
@@ -1461,6 +1518,7 @@ public final class WorldRenderer {
             if (f.life > 0) drawFx(c, f);
         }
         drawParticles(c, s);
+        drawVfx(c, s);
         drawPlayerBar(c, s, ppx, ppy);
         drawTexts(c, s);
     }
@@ -1541,7 +1599,7 @@ public final class WorldRenderer {
             if (mi >= 0) {
                 float pulse = 0.5f + 0.5f * (float) Math.sin(now * 5.5);
                 int o = Math.max(2, Math.round(3.5f * ks));
-                bmp.setColorFilter(fMod[mi]);
+                bmp.setColorFilter(TelegraphPalette.mode == TelegraphPalette.MODE_SHAPES ? fModCb[mi] : fMod[mi]); // v1.5 integration
                 bmp.setAlpha((int) (120 + 135 * pulse));
                 for (int k = 0; k < 4; k++) {
                     int ox2 = (k & 1) == 0 ? o : -o, oy2 = (k & 2) == 0 ? o : -o;
@@ -1610,9 +1668,17 @@ public final class WorldRenderer {
             float life = Sim.CORPSE_LIFE;
             float alpha = k.age < life - FADE ? 1f : Math.max(0f, (life - k.age) / FADE);
             float clipT = k.boss ? BOSS_DEATH_CLIP : DEATH_CLIP;
+            float shrink = 1f;
+            if (!k.boss && k.radius >= Vfx.LARGE_R) { // v1.5 B1: a large enemy dissolves: the fall squeezed into 0.25 s while it shrinks and fades
+                float u = Vfx.dissolve(k.age);
+                if (u >= 1f) continue;
+                alpha = 1f - u;
+                shrink = 1f - 0.4f * u;
+                clipT = Vfx.DISSOLVE_TIME;
+            }
             int hs = k.id & (STATE - 1);
             int dir = stId[hs] == k.id ? stDir[hs] : 0;
-            float s2 = ks * visualScale(k.type, k.boss, m) * (k.elite ? 1.4f : 1f) * (k.boss ? 1f : k.type.drawScale);
+            float s2 = ks * visualScale(k.type, k.boss, m) * (k.elite ? 1.4f : 1f) * (k.boss ? 1f : k.type.drawScale) * shrink;
             drawShadow(c, px, py, Math.round(k.radius * sc * 0.95f * (0.4f + 0.6f * alpha)));
             ColorFilter dcf = k.type.tint != 0 ? tintAt(k.type.tint, shadeIndex(px, py - 10f * ks, FLOOR_ENEMY * 0.8f)) : null;
             bmp.setColorFilter(dcf != null ? dcf : shadeAt(px, py - 10f * ks, FLOOR_ENEMY * 0.8f));
@@ -1627,7 +1693,7 @@ public final class WorldRenderer {
             }
             bmp.setColorFilter(null);
             bmp.setAlpha(255);
-            if (k.age < 0.4f) drawDeathBurst(c, k, px, py);
+            if (k.age < 0.4f && !(k.radius >= Vfx.LARGE_R && !k.boss && k.age >= Vfx.DISSOLVE_TIME)) drawDeathBurst(c, k, px, py);
         }
     }
 
@@ -1689,7 +1755,7 @@ public final class WorldRenderer {
         int dir = dirOf(dvx, dvy);
         if (dvx != 0f || dvy != 0f) playerDir = dir;
         else dir = playerDir;
-        ColorFilter cf = now < redUntil ? fRed : shadeAt(px, py - 30f * ks, FLOOR_PLAYER);
+        ColorFilter cf = vfx.heroFlash > 0f ? fWhite : heroShade(s, px, py - 30f * ks); // v1.5 B1: a 0.1 s white flash; v1.5 integration: B4 tint
         bmp.setColorFilter(cf);
         bmp.setAlpha(255);
         float atk = s.hero != null ? s.lastMainAttack : s.lastAttack;
@@ -1726,6 +1792,29 @@ public final class WorldRenderer {
         bmp.setColorFilter(null);
     }
 
+    // ---- v1.5 integration: the hero's worn cosmetic tint (B4, MetaProgress.tint) multiplied into the light step
+    private static final float HERO_TINT_MIX = 0.45f;
+    private final ColorFilter[] tintShade = new ColorFilter[SHADES + 1];
+    private int tintShadeCol;
+
+    /** The light filter of the hero at a point, with the worn tint mixed in (filters rebuilt only when the tint changes). */
+    private ColorFilter heroShade(Sim s, float x, float y) {
+        se.felixarvid.thorsurvivors.game.MetaProgress meta = Engine.get().meta;
+        int tc = s.hero == null || meta == null ? 0 : meta.tint(s.hero.key);
+        if (tc == 0) return shadeAt(x, y, FLOOR_PLAYER);
+        if (tc != tintShadeCol) {
+            tintShadeCol = tc;
+            float r = 1f - HERO_TINT_MIX + HERO_TINT_MIX * ((tc >> 16) & 255) / 255f, g = 1f - HERO_TINT_MIX + HERO_TINT_MIX * ((tc >> 8) & 255) / 255f,
+                    b = 1f - HERO_TINT_MIX + HERO_TINT_MIX * (tc & 255) / 255f;
+            for (int i = 0; i <= SHADES; i++) {
+                float v = 255f * i / SHADES;
+                tintShade[i] = new LightingColorFilter(0xFF000000 | Math.round(v * r) << 16 | Math.round(v * g) << 8 | Math.round(v * b), 0);
+            }
+        }
+        int i = shadeIndex(x, y, FLOOR_PLAYER);
+        return tintShade[i < 0 ? SHADES : i];
+    }
+
     /** Aim indicator at the player's feet: a short tick and a chevron pointing where the main weapon fires. */
     private void drawAim(Canvas c, Sim s, int px, int py) {
         float ax = s.aimX, ay = s.aimY, nx = -ay, ny = ax;
@@ -1755,7 +1844,9 @@ public final class WorldRenderer {
     /** Gems this close to the hero (world units) and the violet / red ones keep their full size and glow in a crowd. */
     private static final float GEM_NEAR = 190f;
     private float gemCrowd;
-    private int gemHeroX, gemHeroY;
+    private int gemHeroX, gemHeroY, gemTrailLeft;
+    /** v1.5 B1: the hero's magnet radius in world units (0 = no trails this frame). */
+    private float gemMagnet;
 
     private void drawPickup(Canvas c, Pickup p) {
         int px = sx(p.x), bob = Math.round((float) Math.sin(p.bob) * ks * 2f);
@@ -1783,6 +1874,17 @@ public final class WorldRenderer {
             }
             float k = size / Math.max(im.w(), im.h());
             bmp.setColorFilter(null);
+            if (gemMagnet > 0f && (p.pulled || gemTrailLeft > 0)) { // v1.5 B1: a magnetised gem leaves a 3-frame stretched trail behind it
+                float tx = px - gemHeroX, ty = py - gemHeroY, td = (float) Math.sqrt(tx * tx + ty * ty);
+                if (td > 24f * ks && (p.pulled || td < gemMagnet * sc)) {
+                    gemTrailLeft--;
+                    float ux = tx / td, uy = ty / td;
+                    for (int g = 1; g <= 3; g++) {
+                        bmp.setAlpha((int) (190 * (1f - crowd) / g));
+                        blit(c, im, Math.round(px + ux * g * 15f * ks), Math.round(py + uy * g * 15f * ks), k * (1f - 0.18f * g), bmp);
+                    }
+                }
+            }
             bmp.setAlpha((int) (255 * (1f - 0.4f * crowd)));
             blit(c, im, px, py, k, bmp);
             bmp.setAlpha(255);
@@ -2064,13 +2166,40 @@ public final class WorldRenderer {
 
     /** Warn ring: red-orange with a black outline, full brightness (telegraphs are never dimmed). */
     private void warnRing(Canvas c, float cx, float cy, float r, float pulse) {
-        stroke.setStrokeWidth(5f * ks);
+        Settings st = Settings.get(); // v1.5 integration: B3 "Telegraphs: Shapes" (blue hatched fill, bold orange edge)
+        float em = st.telegraphEdgeMul();
+        stroke.setStrokeWidth(5f * ks * em);
         stroke.setColor(0xDD000000);
         c.drawOval(cx - r, cy - r * 0.8f, cx + r, cy + r * 0.8f, stroke);
-        stroke.setStrokeWidth(2.5f * ks);
-        stroke.setColor(0xFFFF3B1F);
+        if (st.hatched()) hatchOval(c, cx, cy, r);
+        stroke.setStrokeWidth(2.5f * ks * em);
+        stroke.setColor(st.telegraphEdge(0xFFFF3B1F));
         c.drawOval(cx - r, cy - r * 0.8f, cx + r, cy + r * 0.8f, stroke);
-        glow(c, atlas.img("vfx.warn_ring_0"), cx, cy, r * 2.05f, 0f, null, (int) (150 + 90 * pulse));
+        if (!st.hatched()) glow(c, atlas.img("vfx.warn_ring_0"), cx, cy, r * 2.05f, 0f, null, (int) (150 + 90 * pulse));
+    }
+
+    /** v1.5 integration: the RGB of a danger fill (the stage red, or B3's Shapes blue), to OR under an alpha. */
+    private static int teleRgb() {
+        return Settings.get().telegraphFill(0xFFFF3B1F) & 0xFFFFFF;
+    }
+
+    private final android.graphics.Path hatchPath = new android.graphics.Path();
+    private final RectF hatchRect = new RectF();
+
+    /** v1.5 integration: diagonal hatching inside a ground ellipse (Shapes mode), the same look as the options preview. */
+    private void hatchOval(Canvas c, float cx, float cy, float r) {
+        c.save();
+        hatchPath.reset();
+        hatchRect.set(cx - r, cy - r * 0.8f, cx + r, cy + r * 0.8f);
+        hatchPath.addOval(hatchRect, android.graphics.Path.Direction.CW);
+        c.clipPath(hatchPath);
+        fill.setColor(Settings.SHAPES_FILL);
+        c.drawOval(hatchRect, fill);
+        stroke.setColor(0xCC9CC4FF);
+        stroke.setStrokeWidth(3f * ks);
+        float step = 16f * ks;
+        for (float o = -2f * r; o <= 2f * r; o += step) c.drawLine(cx + o - r, cy + r, cx + o + r, cy - r, stroke);
+        c.restore();
     }
 
     /** Slag pools, spore clouds and frost patches lie on the ground; a pool that is still warning shows only its ring. */
@@ -2163,7 +2292,7 @@ public final class WorldRenderer {
             float prog = 1f - h.warn / Math.max(0.01f, h.warnMax);
             warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 16f));
             float ir = r * prog;
-            fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (40 + 90 * prog) << 24) | teleRgb());
             c.drawOval(cx - ir, cy - ir * 0.8f, cx + ir, cy + ir * 0.8f, fill);
             float fall = (1f - prog) * (1f - prog) * 340f * ks; // lobbed: it comes down from above the ring
             if (h.variant == Entities.BV_STOMP) return;
@@ -2214,7 +2343,7 @@ public final class WorldRenderer {
         c.rotate(deg, cx, cy);
         if (h.warn > 0f) {
             float prog = 1f - h.warn / Math.max(0.01f, h.warnMax);
-            fill.setColor(((int) (30 + 50 * prog) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (30 + 50 * prog) << 24) | teleRgb());
             c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
             stroke.setStrokeWidth(2.5f * ks);
             stroke.setColor(0xFF000000);
@@ -2227,7 +2356,7 @@ public final class WorldRenderer {
             float k = Math.min(1f, h.life * 2.5f);
             fill.setColor(0xFF000000);
             c.drawRect(cx, cy - wd / 2f - 3f * ks, cx + len, cy + wd / 2f + 3f * ks, fill);
-            fill.setColor(((int) (200 * k) << 24) | 0xFF3B1F);
+            fill.setColor(((int) (200 * k) << 24) | teleRgb());
             c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
             Img beam = atlas.img("vfx.lumen_beam");
             if (beam != null) {
@@ -2262,7 +2391,7 @@ public final class WorldRenderer {
                     float r = e.type.def.param("hitR", 34f) * sc;
                     int tx = sx(e.ax), ty = sy(e.ay);
                     warnRing(c, tx, ty, r, 0.5f + 0.5f * (float) Math.sin(t * 20f));
-                    fill.setColor(((int) (40 + 100 * prog) << 24) | 0xFF3B1F);
+                    fill.setColor(((int) (40 + 100 * prog) << 24) | teleRgb());
                     c.drawOval(tx - r * prog, ty - r * prog * 0.8f, tx + r * prog, ty + r * prog * 0.8f, fill);
                     glow(c, atlas.img("vfx.spores_0"), tx, ty, r * 1.6f, t * 40f, fGreen, (int) (60 + 120 * prog));
                     break;
@@ -2274,20 +2403,14 @@ public final class WorldRenderer {
                     c.rotate(deg, cx, cy);
                     fill.setColor(0xFF000000);
                     c.drawRect(-3f * ks + cx, cy - wd / 2f - 3f * ks, cx + len + 3f * ks, cy + wd / 2f + 3f * ks, fill);
-                    fill.setColor(0xFF4A1208);
-                    c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
-                    fill.setColor(0xFFFF3B1F);
-                    c.drawRect(cx, cy - wd / 2f, cx + len * prog, cy + wd / 2f, fill);
-                    stroke.setStrokeWidth(2.5f * ks);
-                    stroke.setColor(0xFFFF7A3A);
-                    c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, stroke);
+                    chargeBody(c, cx, cy, len, wd, prog); // v1.5 integration: Shapes mode
                     c.restore();
                     break;
                 }
                 case EnemyDef.ARCH_EXPLODER: {
                     float r = e.type.def.param("cloudR", 90f) * sc;
                     warnRing(c, cx, cy, r, 0.5f + 0.5f * (float) Math.sin(t * 30f));
-                    fill.setColor(((int) (40 + 90 * prog) << 24) | 0xFF3B1F);
+                    fill.setColor(((int) (40 + 90 * prog) << 24) | teleRgb());
                     c.drawOval(cx - r * prog, cy - r * prog * 0.8f, cx + r * prog, cy + r * prog * 0.8f, fill);
                     break;
                 }
@@ -2320,7 +2443,7 @@ public final class WorldRenderer {
                 if (e.ai == BossAi.BA_PULL_TELE && e.tele > 0f) {
                     float prog = 1f - e.tele / Math.max(0.01f, e.teleMax);
                     warnRing(c, cx, cy, range, 0.5f + 0.5f * (float) Math.sin(t * 18f));
-                    fill.setColor(((int) (20 + 60 * prog) << 24) | 0xFF3B1F);
+                    fill.setColor(((int) (20 + 60 * prog) << 24) | teleRgb());
                     c.drawOval(cx - range, cy - range * 0.8f, cx + range, cy + range * 0.8f, fill);
                     for (int k = 0; k < 8; k++) { // arrows pointing in: it is going to pull
                         float a = k * 0.7853982f + 0.2f, r0 = range * (0.95f - 0.4f * ((prog * 3f + k * 0.125f) % 1f)), r1 = r0 - 28f * ks;
@@ -2397,10 +2520,10 @@ public final class WorldRenderer {
                     c.drawOval(rx - wd * 0.42f, ly - wd * 0.34f, rx + wd * 0.42f, ly + wd * 0.34f, stroke);
                 }
             } else {
-                fill.setColor(((int) (36 + 100 * prog) << 24) | 0xFF3B1F);
+                fill.setColor(((int) (36 + 100 * prog) << 24) | teleRgb());
                 c.drawRect(lx - len / 2f, ly - wd / 2f, lx + len / 2f, ly + wd / 2f, fill);
                 stroke.setStrokeWidth(5f * ks);
-                stroke.setColor(((int) (70 + 90 * prog) << 24) | 0xFF3B1F);
+                stroke.setColor(((int) (70 + 90 * prog) << 24) | teleRgb());
                 for (float h = -len / 2f; h < len / 2f; h += 90f * ks) c.drawLine(lx + h, ly - wd / 2f, lx + h + wd * 0.6f, ly + wd / 2f, stroke);
                 stroke.setStrokeWidth(5.5f * ks);
                 stroke.setColor(0xFF000000);
@@ -2419,14 +2542,29 @@ public final class WorldRenderer {
         c.rotate(deg, cx, cy);
         fill.setColor(0xFF000000);
         c.drawRect(-3f * ks + cx, cy - wd / 2f - 3f * ks, cx + len + 3f * ks, cy + wd / 2f + 3f * ks, fill);
-        fill.setColor(0xFF4A1208);
-        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
-        fill.setColor(0xFFFF3B1F);
-        c.drawRect(cx, cy - wd / 2f, cx + len * prog, cy + wd / 2f, fill);
-        stroke.setStrokeWidth(2.5f * ks);
-        stroke.setColor(0xFFFF7A3A);
-        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, stroke);
+        chargeBody(c, cx, cy, len, wd, prog);
         c.restore();
+    }
+
+    /** v1.5 integration: the lane of a charge in the rotated frame, in the standard red or B3's Shapes blue with hatching. */
+    private void chargeBody(Canvas c, int cx, int cy, float len, float wd, float prog) {
+        Settings st = Settings.get();
+        boolean sh = st.hatched();
+        fill.setColor(sh ? 0xFF10243C : 0xFF4A1208);
+        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, fill);
+        fill.setColor(sh ? 0xFF3C8CFF : 0xFFFF3B1F);
+        c.drawRect(cx, cy - wd / 2f, cx + len * prog, cy + wd / 2f, fill);
+        if (sh) {
+            c.save();
+            c.clipRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f);
+            stroke.setColor(0xCC9CC4FF);
+            stroke.setStrokeWidth(3f * ks);
+            for (float o = 0f; o <= len + wd; o += 16f * ks) c.drawLine(cx + o - wd, cy + wd / 2f, cx + o, cy - wd / 2f, stroke);
+            c.restore();
+        }
+        stroke.setStrokeWidth(2.5f * ks * st.telegraphEdgeMul());
+        stroke.setColor(st.telegraphEdge(0xFFFF7A3A));
+        c.drawRect(cx, cy - wd / 2f, cx + len, cy + wd / 2f, stroke);
     }
 
     /**
@@ -2440,10 +2578,10 @@ public final class WorldRenderer {
         c.save();
         c.translate(ox, oy);
         c.rotate(deg);
-        fill.setColor(((int) (46 + 80 * prog) << 24) | 0xFF3B1F); // the unsafe half: x < 0
+        fill.setColor(((int) (46 + 80 * prog) << 24) | teleRgb()); // the unsafe half: x < 0
         c.drawRect(-far, -far, 0f, far, fill);
         stroke.setStrokeWidth(5f * ks);
-        stroke.setColor(((int) (70 + 90 * prog) << 24) | 0xFF3B1F);
+        stroke.setColor(((int) (70 + 90 * prog) << 24) | teleRgb());
         for (float k = -far; k < far; k += 110f * ks) c.drawLine(0f, k, -far, k + far, stroke); // hazard hatching
         stroke.setStrokeWidth(8f * ks);
         stroke.setColor(0xFF000000);
@@ -2469,6 +2607,51 @@ public final class WorldRenderer {
         c.restore();
     }
 
+    // ------------------------------------------------------------------ v1.5 integration: B6 shields on the floor
+
+    /**
+     * The frontal 120 degree arc of every Shielded elite while its shield is up (Elites.faceA, eshT; the arc blocks 70 % of
+     * hits from inside it), and a lumen ring with the hex shield glow round a boss in its phase-change shield
+     * (BossAi.phaseShield). One pass over the live enemies, no allocation.
+     */
+    private void drawShields(Canvas c, Sim s, float t) {
+        for (int i = 0; i < s.enemyN; i++) {
+            Enemy e = s.enemies[i];
+            if (e.dead || e.dormant) continue;
+            boolean arc = (e.mods & Elites.M_SHIELDED) != 0 && e.eshT > 0f;
+            float ps = BossAi.phaseShield(e);
+            if (!arc && ps <= 0f) continue;
+            int cx = sx(e.x), cy = sy(e.y);
+            if (cx < -300 || cx > scrW + 300 || cy < -300 || cy > scrH + 300) continue;
+            if (arc) {
+                float r = e.radius * sc * 1.55f + 6f * ks, deg = e.faceA * 57.29578f;
+                float k = Math.min(1f, e.eshT / 0.25f); // fades in the last quarter second before it drops
+                int col = TelegraphPalette.map(Elites.COLORS[6]) & 0xFFFFFF;
+                rect.set(cx - r, cy - 14f * ks - r * 0.8f, cx + r, cy - 14f * ks + r * 0.8f);
+                stroke.setStrokeWidth(9f * ks);
+                stroke.setColor(((int) (170 * k)) << 24);
+                c.drawArc(rect, deg - 60f, 120f, false, stroke);
+                stroke.setStrokeWidth(5f * ks);
+                stroke.setColor(((int) (235 * k)) << 24 | col);
+                c.drawArc(rect, deg - 60f, 120f, false, stroke);
+                stroke.setStrokeWidth(2f * ks);
+                stroke.setColor(((int) (200 * k)) << 24 | 0xE8F4FF);
+                c.drawArc(rect, deg - 52f, 104f, false, stroke);
+            }
+            if (ps > 0f) {
+                float pu = 0.5f + 0.5f * (float) Math.sin(t * 14f), k = Math.min(1f, ps / 0.2f);
+                float r = e.radius * sc * 1.35f + 10f * ks;
+                glow(c, atlas.img("vfx.hex_shield_0"), cx, cy - 20f * ks, r * 2.3f, t * 20f, fCyan, (int) ((120 + 80 * pu) * k));
+                stroke.setStrokeWidth(6f * ks);
+                stroke.setColor(((int) (150 * k)) << 24);
+                c.drawOval(cx - r, cy - 20f * ks - r * 0.85f, cx + r, cy - 20f * ks + r * 0.85f, stroke);
+                stroke.setStrokeWidth(3f * ks);
+                stroke.setColor(((int) ((180 + 70 * pu) * k)) << 24 | 0x39FF88);
+                c.drawOval(cx - r, cy - 20f * ks - r * 0.85f, cx + r, cy - 20f * ks + r * 0.85f, stroke);
+            }
+        }
+    }
+
     /** An elite's floor ring: 2 px, in the colour of one of its modifiers, pulsing (the outline on the sprite is drawn with the creature). */
     private void drawEliteRings(Canvas c, Sim s, float t) {
         Enemy e = s.eliteNow;
@@ -2479,7 +2662,7 @@ public final class WorldRenderer {
         if (mi < 0) return;
         float pu = 0.5f + 0.5f * (float) Math.sin(t * 5.5f), r = e.radius * sc * (1.25f + 0.1f * pu);
         stroke.setStrokeWidth(2f * ks);
-        stroke.setColor((((int) (150 + 100 * pu)) << 24) | (Elites.COLORS[mi] & 0xFFFFFF));
+        stroke.setColor((((int) (150 + 100 * pu)) << 24) | (TelegraphPalette.map(Elites.COLORS[mi]) & 0xFFFFFF)); // v1.5 integration: colorblind palette
         c.drawOval(cx - r, cy - r * 0.55f, cx + r, cy + r * 0.55f, stroke);
         stroke.setStrokeWidth(1f * ks);
         stroke.setColor(0x99000000);
@@ -2488,7 +2671,7 @@ public final class WorldRenderer {
 
     /** The live elite's bar and the names of its modifiers over its head. */
     private void drawEliteBar(Canvas c, Enemy e, int px, int py, int headPx) {
-        bar(c, px, py - headPx - 22, Math.max(110, headPx), 8, e.hp / e.maxHp, 0xFF2A1508, Elites.COLORS[Math.max(0, Elites.indexOf(e.mods, 0))]);
+        bar(c, px, py - headPx - 22, Math.max(110, headPx), 8, e.hp / e.maxHp, 0xFF2A1508, TelegraphPalette.map(Elites.COLORS[Math.max(0, Elites.indexOf(e.mods, 0))]));
         int m = e.mods & 63;
         if (modLabel[m] == null) modLabel[m] = "ELITE  " + Elites.label(m);
         text.setTextAlign(Paint.Align.CENTER);
@@ -2704,38 +2887,114 @@ public final class WorldRenderer {
         }
     }
 
+    /** v1.5 B1: the pooled damage numbers (Vfx): crits pop in 1.4x with a yellow rim, hits on one enemy within 0.15 s are summed, at most 24 live. */
     private void drawTexts(Canvas c, Sim s) {
-        // keep the newest few: a stable threshold on remaining life (crits always stay)
-        int live = 0;
-        for (int i = 0; i < Sim.MAX_TEXT; i++) {
-            DamageText d = s.texts[i];
-            if (d.life > 0 && !d.crit && !d.heal) lifeTmp[live++] = d.life;
-        }
-        float thresh = 0f;
-        int ties = MAX_TEXTS_DRAWN; // how many numbers with exactly the threshold life may still be drawn
-        if (live > MAX_TEXTS_DRAWN) {
-            for (int i = 1; i < live; i++) { // insertion sort ascending
-                float v = lifeTmp[i];
-                int j = i - 1;
-                while (j >= 0 && lifeTmp[j] > v) { lifeTmp[j + 1] = lifeTmp[j]; j--; }
-                lifeTmp[j + 1] = v;
-            }
-            thresh = lifeTmp[live - MAX_TEXTS_DRAWN];
-            for (int i = live - 1; i >= 0 && lifeTmp[i] > thresh; i--) ties--; // hits of one frame share a life
-        }
+        if (!Vfx.settingDamageNumbers()) return;
         text.setTextAlign(Paint.Align.CENTER);
         text.setShadowLayer(2f, 0f, 2f, 0xCC000000);
-        for (int i = 0; i < Sim.MAX_TEXT; i++) {
-            DamageText d = s.texts[i];
-            if (d.life <= 0) continue;
-            if (!d.crit && !d.heal && (d.life < thresh || (d.life == thresh && ties-- <= 0))) continue;
-            text.setTextSize((d.crit ? 24f : d.color != 0 ? 15f : 18f) * ks); // status numbers are small and coloured
-            int a = (int) (255 * Math.min(1f, d.life * 4f));
-            text.setColor((d.color != 0 ? d.color : d.heal ? 0x40FF60 : d.crit ? 0xFFD030 : 0xFFFFFF) | (a << 24));
-            c.drawText(d.digits, 0, d.len, sx(d.x), sy(d.y), text);
+        for (int i = 0; i < Vfx.MAX_NUM; i++) {
+            if (!vfx.nlive[i]) continue;
+            int kind = vfx.nkind[i];
+            boolean crit = vfx.ncrit[i];
+            float age = vfx.nage[i], left = vfx.nlife[i] - age;
+            float size = kind == Vfx.N_BLIP ? 13f + 1.5f * vfx.nval[i] : kind == Vfx.N_STATUS ? 15f : 18f;
+            size *= Vfx.popScale(crit, age); // a crit: 1.4x with the pop-in overshoot
+            text.setTextSize(size * ks);
+            int a = (int) (255 * Math.min(1f, left * 5f));
+            int col;
+            if (kind == Vfx.N_BLIP) col = BLIP_COLORS[Math.min(BLIP_COLORS.length - 1, vfx.nval[i])];
+            else col = vfx.ncolor[i] != 0 ? vfx.ncolor[i] : kind == Vfx.N_HEAL ? 0x40FF60 : crit ? 0xFFD030 : 0xFFFFFF;
+            int x = sx(vfx.nx[i]), y = sy(vfx.ny[i]);
+            if (kind == Vfx.N_BLIP) { // "+1": the plus is drawn as a char before the digits
+                text.setColor((col & 0x00FFFFFF) | (a << 24));
+                c.drawText("+1", x, y, text);
+                textsDrawn++;
+                continue;
+            }
+            if (crit) { // the yellow rim
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(Math.max(2f, 3.2f * ks));
+                stroke.setTextSize(size * ks);
+                stroke.setTextAlign(Paint.Align.CENTER);
+                stroke.setTypeface(text.getTypeface());
+                stroke.setColor(0x00FFC820 | (a << 24)); // yellow rim
+                c.drawText(vfx.ndig[i], 0, vfx.nlen[i], x, y, stroke);
+                stroke.setStyle(Paint.Style.STROKE);
+            }
+            text.setColor((col & 0x00FFFFFF) | (a << 24));
+            c.drawText(vfx.ndig[i], 0, vfx.nlen[i], x, y, text);
             textsDrawn++;
         }
         text.clearShadowLayer();
+    }
+
+    private static final int[] BLIP_COLORS = {0xA8FFC8, 0xA8FFE0, 0xA8FFF8, 0xB8F0FF, 0xC8E0FF, 0xD8D0FF, 0xE8C8FF, 0xFFC0F0};
+
+    /** v1.5 B1: sparks, shards, level-up gems and chest motes (all from the Vfx particle pool), then the ring, chest lid and pillar. */
+    private void drawVfx(Canvas c, Sim s) {
+        Img glowImg = atlas.img("vfx.energy_glow_1");
+        for (int i = 0; i < Vfx.MAX_PART; i++) {
+            float life = vfx.plife[i];
+            if (life <= 0f) continue;
+            int px = sx(vfx.ppx[i]), py = sy(vfx.ppy[i]);
+            if (px < -40 || px > scrW + 40 || py < -40 || py > scrH + 40) continue;
+            float f = Math.min(1f, life / vfx.pmax[i] * 1.6f);
+            int rgb = vfx.pcol[i] & 0x00FFFFFF;
+            int k = vfx.pkind[i];
+            if (k == Vfx.P_GEM || k == Vfx.P_MOTE) {
+                glow(c, glowImg, px, py, vfx.psize[i] * 4f * ks, 0f, k == Vfx.P_MOTE ? fGold : fCyan, (int) (230 * f));
+                fill.setColor(rgb | ((int) (255 * f) << 24));
+                int r = Math.max(2, Math.round(vfx.psize[i] * 0.5f * ks));
+                c.drawRect(px - r, py - r, px + r, py + r, fill);
+            } else {
+                fill.setColor(rgb | ((int) (255 * f) << 24));
+                int r = Math.max(1, Math.round(vfx.psize[i] * 0.5f * ks));
+                c.drawRect(px - r, py - r, px + r, py + r, fill);
+            }
+        }
+        for (int i = 0; i < Vfx.MAX_EFF; i++) {
+            if (!vfx.effectLive(i)) continue;
+            int px = sx(vfx.ex[i]), py = sy(vfx.ey[i]);
+            float age = vfx.eage[i], u = age / vfx.edur[i];
+            switch (vfx.ekind[i]) {
+                case Vfx.E_RING: {
+                    float r = Vfx.ringRadius(age) * ks;
+                    glow(c, atlas.img("vfx.energy_ring"), px, py - 26f * ks, r * 2f, 0f, fCyan, (int) (230 * (1f - u)));
+                    glow(c, atlas.img("vfx.energy_glow_0"), px, py - 26f * ks, r * 2.2f, 0f, fGreen, (int) (110 * (1f - u)));
+                    break;
+                }
+                case Vfx.E_LID: {
+                    Img im = atlas.img(PICK_KEYS[Entities.K_CHEST]);
+                    float hop = (float) Math.sin(Math.min(1f, u * 1.6f) * Math.PI) * 54f * ks;
+                    glow(c, atlas.img("vfx.energy_glow_0"), px, py - 20f * ks, (150f + 160f * u) * ks, 0f, fGold, (int) (220 * (1f - u)));
+                    if (im != null) { // the top half of the chest flies up and fades: the lid
+                        int top = Math.round(py - hop);
+                        c.save();
+                        c.clipRect(px - 200, top - 300, px + 200, top - Math.round(im.ay * ks * 0.5f) + Math.round(im.ay * ks * 0.2f));
+                        bmp.setColorFilter(null);
+                        bmp.setAlpha((int) (255 * (1f - u * u)));
+                        blit(c, im, px, top, ks * (1f + 0.3f * u), bmp);
+                        bmp.setAlpha(255);
+                        c.restore();
+                    }
+                    break;
+                }
+                default: { // the evolution pillar: a column of gold light, rising off the screen
+                    float al = Vfx.pillarAlpha(age);
+                    float wob = 0.85f + 0.15f * (float) Math.sin(age * 9f);
+                    Img g0 = atlas.img("vfx.energy_glow_0");
+                    int steps = 9;
+                    for (int k = 0; k < steps; k++) {
+                        float hk = (k + 0.5f) / steps;
+                        glow(c, g0, px, py - hk * scrH * 1.1f, (150f - 50f * hk) * ks * wob, 0f, fGold, (int) (190 * al * (1f - 0.6f * hk)));
+                    }
+                    fill.setColor(0xFFFFF0B0 & 0x00FFFFFF | ((int) (150 * al * wob) << 24));
+                    int hw = Math.max(2, Math.round(9f * ks * wob));
+                    c.drawRect(px - hw, 0, px + hw, py - Math.round(10f * ks), fill);
+                    break;
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ overlays (screen space)
@@ -2744,11 +3003,24 @@ public final class WorldRenderer {
     private void drawOverlay(Canvas c, int w, int h, Engine e, Sim s, boolean menu, boolean dual) {
         int ph = e.phase;
         if (s != null && !menu) {
-            float v = 1f - (float) ((now - hitAt) / (HIT_TINT * 3));
-            if (v > 0) {
+            float edge = vfx.edgeAlpha(s.maxHp > 0f ? s.hp / s.maxHp : 1f); // v1.5 B1: sized by the damage; a 1.2 Hz beat below 25 % HP
+            if (edge > 0.004f && s.ended == 0) {
                 ensureVignette(w, h);
-                vig.setAlpha((int) (255 * VIGNETTE * Math.min(1f, v)));
+                vig.setAlpha((int) (255 * edge));
                 c.drawRect(0, 0, w, h, vig);
+            }
+            if (s.standStillActive() && s.ended == 0) { // v1.5 integration: B7's stand-still drift, an ashen pulsing frame
+                float pu = 0.5f + 0.5f * (float) Math.sin(now * 4.0), bw = 46f * ks;
+                stroke.setStrokeWidth(bw);
+                stroke.setColor(((int) (40 + 50 * pu)) << 24 | 0x8A6A4A);
+                c.drawRect(bw / 2f, bw / 2f, w - bw / 2f, h - bw / 2f, stroke);
+                stroke.setStrokeWidth(bw * 0.3f);
+                stroke.setColor(((int) (60 + 70 * pu)) << 24 | 0xC89A5A);
+                c.drawRect(bw * 0.15f, bw * 0.15f, w - bw * 0.15f, h - bw * 0.15f, stroke);
+            }
+            if (vfx.flash > 0f) { // level-up: a 6 % white flash
+                fill.setColor(((int) (255 * Vfx.FLASH_ALPHA * vfx.flash / Vfx.FLASH_TIME) << 24) | 0xFFFFFF);
+                c.drawRect(0, 0, w, h, fill);
             }
             if (s.screenFlash > 0) { // never brighter than 0.25 alpha: the small screen shows a lot at once
                 fill.setColor(((int) (60 * Math.min(1f, s.screenFlash * 2)) << 24) | 0xFFFFFF);

@@ -73,6 +73,13 @@ public final class Entities {
         /** Width in world units of this enemy's charge telegraph (0 = from its radius). */
         public float teleW;
 
+        // v1.5 B6: elite modifiers Shielded / Volatile, boss phase shield and boss enrage (see Elites, BossAi)
+        /** Shielded elite: facing angle of the frontal arc (radians) and the shield cycle timer (above 0 = up, then down for a while). */
+        public float faceA, eshT;
+        /** Boss: seconds of the phase-change shield left (takes no damage), seconds alive, and the 90 s enrage flag (see BossAi.enraged). */
+        public float shieldT, bossAge;
+        public boolean timeEnrage;
+
         public void clearStatus() {
             burn = frost = elec = decay = 0;
             burnT = frostT = elecT = decayT = burnAcc = burnHit = elecHit = decayHit = 0f;
@@ -218,6 +225,8 @@ public final class Entities {
         /** Fusion weapon id of the weapon that fired it (Fusions.*, 0 = none) and its scratch values (timers, base orbit radius, blast radius). */
         public int fusion;
         public float aux, aux2, blastR;
+        /** v1.5 B5: Arsenal.* id of the new weapon that fired it (0 = none). */
+        public int tag;
     }
 
     public static final int K_GEM = 0, K_COIN = 1, K_COINBAG = 2, K_ROAST = 3, K_VACUUM = 4, K_OROLOGION = 5,

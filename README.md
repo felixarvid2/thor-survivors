@@ -6,7 +6,7 @@ Du har kraschat på en övergiven gruvkoloni där lumen, en lysande infektion, h
 
 Spelet är inspirerat av Vampire Survivors och Halls of Torment. Du styr bara hur hjälten rör sig, siktar och undviker. Vapnen skjuter av sig själva. Varje fiende du dödar lämnar kristaller. Med dem går du upp i nivå och väljer nya vapen, uppgraderingar och förmågor. När ett vapen är fullt uppgraderat och har rätt följeslagare kan det utvecklas till något mycket starkare, och två fullt uppgraderade vapen kan smälta samman till ett helt nytt. Varje runda bygger du upp en ny kombination. Mot slutet möter du bossar, och till sist det som väntar längst ner i mörkret.
 
-Välj mellan tre hjältar som spelar helt olika: en tung närstridskämpe med hammare, en snabb skytt och en mystiker som förgiftar och sprider sporer. På banorna ligger dessutom gömda vapenlådor och utrustningsskåp, och minikartan visar var de finns. Ute i mörkret finns också övergivna utposter med sovande vakter, lumenbon som släpper hundflockar, reläterminaler som ger en kraftfull förstärkning mot ett pris, heta ventiler och ett förseglat valv som bara en sprängd tunna får upp. Då och då dyker en överlevande tekniker upp på banan och byter vapen, utrustning och förnödenheter mot guld, så länge du hinner fram till honom. Sent i rundan sätter dessutom särskilda händelser ditt tålamod på prov: ett torn att inta, ett ras som regnar ner, ett ljusutbrott, en fyr att försvara och till sist en flodvåg av fiender. Det guld du samlar ihop kan du lägga på bestående förbättringar mellan rundorna.
+Välj mellan tre hjältar som spelar helt olika: en tung närstridskämpe med hammare, en snabb skytt och en mystiker som förgiftar och sprider sporer. På banorna ligger dessutom gömda vapenlådor och utrustningsskåp, och minikartan visar var de finns. Ute i mörkret finns också övergivna utposter med sovande vakter, lumenbon som släpper hundflockar, reläterminaler som ger en kraftfull förstärkning mot ett pris, heta ventiler och ett förseglat valv som bara en sprängd tunna får upp. Då och då dyker en överlevande tekniker upp på banan och byter vapen, utrustning och förnödenheter mot guld, så länge du hinner fram till honom. Sent i rundan sätter dessutom särskilda händelser ditt tålamod på prov: ett torn att inta, ett ras som regnar ner, ett ljusutbrott, en fyr att försvara och till sist en flodvåg av fiender. Det guld du samlar ihop kan du lägga på bestående förbättringar mellan rundorna. Vill du ha mer motstånd finns fem ascension-nivåer per bana, ett curse-reglage som ger mer guld och en daglig utmaning, och achievements, rekord och en codex håller koll på vad du har klarat och mött.
 
 ## Fem banor
 
@@ -28,6 +28,8 @@ Den övre skärmen visar spelvärlden. Den nedre har allt annat: hälsa, vapen, 
 - Höger spak: sikta
 - A eller B: undvik (X, Y och axelknapparna fungerar också)
 - Start: paus
+
+Knapparna kan bytas i Options, där du också ställer in skakning, skadesiffror, stor text, färgblindläge, sikthjälp och vibration.
 
 ## Ladda ner
 

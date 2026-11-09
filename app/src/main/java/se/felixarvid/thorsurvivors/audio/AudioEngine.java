@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import se.felixarvid.thorsurvivors.game.Engine;
+import se.felixarvid.thorsurvivors.game.Settings;
 import se.felixarvid.thorsurvivors.game.MetaProgress;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.SoundEvents;
@@ -33,9 +34,9 @@ import se.felixarvid.thorsurvivors.util.IO;
  * system routes USAGE_GAME to, so nothing here depends on the dual screen.
  */
 public final class AudioEngine {
-    private static final int STREAMS = 16, TICK_MS = 40;
+    private static final int STREAMS = VoiceLimiter.GLOBAL, TICK_MS = 40;
     private static final float FADE_OUT = 0.9f, FADE_IN = 1.4f, FADE_STINGER = 0.05f, DUCK = 0.45f;
-    /** SoundPool priority per id: higher survives when all 16 streams are busy. */
+    /** SoundPool priority per id: higher survives when all streams are busy (the {@link VoiceLimiter} cuts first). */
     private static final int[] PRIORITY = new int[SoundEvents.COUNT];
 
     static {
@@ -56,8 +57,9 @@ public final class AudioEngine {
     private final SoundPool pool;
     private final int[] soundId = new int[SoundEvents.COUNT];
     private final float[] baseVol = new float[SoundEvents.COUNT], pitchVar = new float[SoundEvents.COUNT];
-    private final int[][] voices = new int[SoundEvents.COUNT][];
-    private final int[] voiceHead = new int[SoundEvents.COUNT];
+    /** v1.5 B8 (77): per-sound and global voice caps; the quietest voice goes first. */
+    private final VoiceLimiter limiter = new VoiceLimiter();
+    private final float[] durSec = new float[SoundEvents.COUNT];
     private long rngState = 0x9E3779B97F4A7C15L ^ System.nanoTime();
 
     // music (state below is owned by the music thread except the volatile inputs)
@@ -70,12 +72,19 @@ public final class AudioEngine {
     private String curTrack;
     private long lastTickMs;
     private volatile boolean ducked;
+    /** v1.5 B8 (74): living enemies (written by the game thread) -> combat layer level (smoothed on the music thread). */
+    private volatile int density;
+    private volatile boolean bossNow;
+    private final MusicMix mix = new MusicMix();
+    private Voice layer;
     private final Runnable tickTask = this::tick;
 
     private static final class Voice {
         MediaPlayer mp;
         float level, target, fadeSec, base;
         boolean dying;
+        /** 0 other, 1 calm stage track (dips under the combat layer), 2 the combat layer itself. */
+        int kind;
         /** Set by {@link #pause}: this player was really playing then, so {@link #resume} may restart it. */
         boolean resumeOnResume;
     }
@@ -93,13 +102,14 @@ public final class AudioEngine {
                         .build())
                 .build();
         for (int i = 0; i < SoundEvents.COUNT; i++) {
-            voices[i] = new int[SoundEvents.VOICES[i]];
+            durSec[i] = 1f;
             AudioManifest.Entry e = manifest.sfx.get(SoundEvents.NAMES[i]);
             if (e == null) continue;
             baseVol[i] = e.volume;
             pitchVar[i] = e.pitchVar;
             try (AssetFileDescriptor afd = assets.openFd("audio/" + e.file)) {
                 soundId[i] = pool.load(afd, 1);
+                durSec[i] = duration(afd);
             } catch (IOException | RuntimeException ex) {
                 soundId[i] = 0; // unreadable file: silent
             }
@@ -107,6 +117,24 @@ public final class AudioEngine {
         musicThread.start();
         music = new Handler(musicThread.getLooper());
         music.post(tickTask);
+    }
+
+    /** Length of a sound in seconds for the voice limiter; 1 s when it cannot be read. */
+    private static float duration(AssetFileDescriptor afd) {
+        android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+        try {
+            r.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            String d = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            return d == null ? 1f : Math.max(0.05f, Math.min(4f, Long.parseLong(d) / 1000f));
+        } catch (RuntimeException e) {
+            return 1f;
+        } finally {
+            try {
+                r.release();
+            } catch (Exception ignored) {
+                // nothing to release
+            }
+        }
     }
 
     private AudioManifest loadManifest() {
@@ -145,7 +173,7 @@ public final class AudioEngine {
             flush = false;
             q.clear();
         }
-        float gain = SoundEvents.stepGain(meta.sfxVol);
+        float gain = Settings.get().sfxVol(); // v1.5 integration: B3 Settings (same step as the menu row)
         for (int e; (e = q.poll()) >= 0; ) {
             if (gain > 0f) play(SoundEvents.idOf(e), SoundEvents.argOf(e), gain);
         }
@@ -154,22 +182,27 @@ public final class AudioEngine {
             bossCheckNs = now;
             bossAlive = false;
             finalAlive = false;
+            int alive = 0;
             Sim bs = eng.sim;
-            if (bs != null && eng.phase != Engine.PH_RESULT && eng.phase != Engine.PH_MENU
-                    && eng.phase != Engine.PH_SHOP) {
+            if (bs != null && eng.phase != Engine.PH_RESULT && !Engine.isMenuPhase(eng.phase)) { // v1.5 B3
                 for (int i = 0; i < bs.enemyN; i++) {
+                    if (!bs.enemies[i].dead) alive++;
                     if (bs.enemies[i].boss && !bs.enemies[i].dead) {
                         bossAlive = true;
                         if (bs.enemies[i].type.pattern == 5) finalAlive = true; // The First: the final track
                     }
                 }
             }
+            density = alive;
         }
         Sim s = eng.sim;
         String stage = s == null ? "FLATS" : s.stage.key;
         String t = MusicDirector.trackFor(eng.phase, stage, bossAlive, finalAlive, eng.resultWin);
         if (MusicDirector.FINAL.equals(t) && !manifest.music.containsKey(t)) t = MusicDirector.trackFor(eng.phase, stage, bossAlive, false, eng.resultWin);
         if (MusicDirector.BOSS.equals(t) && !manifest.music.containsKey(t)) t = MusicDirector.stageTrack(stage);
+        // v1.5 B8 (75): a stage whose own file is missing plays what it played before
+        if (MusicDirector.isStageTrack(t) && !manifest.music.containsKey(t)) t = MusicDirector.legacyStageTrack(stage);
+        bossNow = bossAlive || finalAlive;
         wantTrack = t;
         ducked = eng.phase == Engine.PH_PAUSED || eng.phase == Engine.PH_LEVELUP || eng.phase == Engine.PH_CHEST
                 || eng.phase == Engine.PH_EQUIP || eng.phase == Engine.PH_MERCHANT || eng.phase == Engine.PH_TERMINAL;
@@ -189,11 +222,13 @@ public final class AudioEngine {
         float rate = 1f + (rnd() * 2f - 1f) * pitchVar[id];
         if (id == SoundEvents.GEM) rate *= (float) Math.pow(2.0, SoundEvents.gemSemitones(arg) / 12.0);
         rate = Math.max(0.5f, Math.min(2f, rate));
-        int[] v = voices[id];
-        int h = voiceHead[id];
-        if (v[h] != 0) pool.stop(v[h]); // voice stealing: cut the oldest of this sound
-        v[h] = pool.play(sid, Math.min(1f, vol), Math.min(1f, vol), PRIORITY[id], 0, rate);
-        voiceHead[id] = (h + 1) % v.length;
+        float lvl = Math.min(1f, vol);
+        // voice limiting: the sound's own cap (at most 4) and 24 in all; the quietest voice is cut, or this one is dropped
+        int slot = limiter.admit(id, SoundEvents.VOICES[id], lvl, SystemClock.uptimeMillis() / 1000.0, durSec[id] / rate);
+        if (slot == VoiceLimiter.DROP) return;
+        int stolen = limiter.stolenHandle();
+        if (stolen != 0) pool.stop(stolen);
+        limiter.setHandle(slot, pool.play(sid, lvl, lvl, PRIORITY[id], 0, rate));
     }
 
     // ------------------------------------------------------------------ lifecycle (UI thread)
@@ -203,7 +238,9 @@ public final class AudioEngine {
         if (released) return;
         pool.autoPause();
         music.post(() -> {
-            for (Voice v : playing) {
+            for (int i = 0; i <= playing.size(); i++) {
+                final Voice v = i < playing.size() ? playing.get(i) : layer;
+                if (v == null) continue;
                 v.resumeOnResume = false; // isPlaying() can throw in a bad state, so it stays inside safe()
                 safe(() -> {
                     if (v.mp.isPlaying()) {
@@ -221,8 +258,9 @@ public final class AudioEngine {
         paused = false;
         pool.autoResume();
         music.post(() -> {
-            for (Voice v : playing) { // a finished stinger was not playing at pause time and stays finished
-                if (!v.resumeOnResume) continue;
+            for (int i = 0; i <= playing.size(); i++) { // a finished stinger was not playing at pause time and stays finished
+                final Voice v = i < playing.size() ? playing.get(i) : layer;
+                if (v == null || !v.resumeOnResume) continue;
                 v.resumeOnResume = false;
                 safe(() -> v.mp.start());
             }
@@ -239,6 +277,8 @@ public final class AudioEngine {
         music.post(() -> {
             for (Voice v : playing) free(v);
             playing.clear();
+            if (layer != null) free(layer);
+            layer = null;
             musicThread.quitSafely();
         });
         pool.release();
@@ -256,11 +296,15 @@ public final class AudioEngine {
         if (musicVol <= 0) { // music OFF: no player at all; raising it again starts the current phase's track
             for (Voice v : playing) free(v);
             playing.clear();
+            if (layer != null) free(layer);
+            layer = null;
             curTrack = null;
         } else if (want == null ? curTrack != null : !want.equals(curTrack)) {
             switchTo(want);
         }
-        float gain = SoundEvents.stepGain(musicVol) * (ducked ? DUCK : 1f);
+        float gain = Settings.get().musicVol() * (ducked ? DUCK : 1f); // v1.5 integration: B3 Settings
+        updateLayer(dt, want, musicVol > 0);
+        float combat = mix.combat();
         for (int i = playing.size() - 1; i >= 0; i--) {
             Voice v = playing.get(i);
             float step = dt / Math.max(0.01f, v.fadeSec);
@@ -271,11 +315,40 @@ public final class AudioEngine {
                 playing.remove(i);
                 continue;
             }
-            float vol = v.level * v.base * gain;
+            float vol = v.level * v.base * gain * (v.kind == 1 ? MusicMix.calmGain(combat) : 1f);
             final MediaPlayer mp = v.mp;
             safe(() -> mp.setVolume(vol, vol));
         }
         music.postDelayed(tickTask, TICK_MS);
+    }
+
+    /** The combat layer (74): runs over a stage track only, at the level {@link MusicMix} gives for the enemy count. */
+    private void updateLayer(float dt, String want, boolean on) {
+        float c = mix.step(dt, density, bossNow);
+        boolean need = on && curTrack != null && MusicDirector.isStageTrack(curTrack)
+                && manifest.music.containsKey(MusicDirector.COMBAT);
+        if (need && layer == null) {
+            Voice v = open(manifest.music.get(MusicDirector.COMBAT), false, FADE_IN);
+            if (v != null) {
+                v.kind = 2;
+                layer = v;
+            }
+        } else if (!need && layer != null) { // hand it to the ordinary fade-out list at its current loudness
+            layer.level *= c;
+            layer.kind = 0;
+            layer.dying = true;
+            layer.target = 0f;
+            layer.fadeSec = FADE_OUT;
+            playing.add(layer);
+            layer = null;
+        }
+        if (layer != null) {
+            float gain = Settings.get().musicVol() * (ducked ? DUCK : 1f); // v1.5 integration: B3 Settings
+            layer.level = Math.min(1f, layer.level + dt / Math.max(0.01f, layer.fadeSec));
+            float vol = layer.level * layer.base * gain * c;
+            final MediaPlayer mp = layer.mp;
+            safe(() -> mp.setVolume(vol, vol));
+        }
     }
 
     private void switchTo(String track) {
@@ -288,6 +361,14 @@ public final class AudioEngine {
         AudioManifest.Entry e = track == null ? null : manifest.music.get(track);
         if (e == null) return; // missing file: silence
         boolean stinger = MusicDirector.isStinger(track);
+        Voice v = open(e, stinger, stinger ? FADE_STINGER : FADE_IN);
+        if (v == null) return;
+        if (MusicDirector.isStageTrack(track)) v.kind = 1;
+        playing.add(v);
+    }
+
+    /** Starts a player for a manifest entry, silent at first (the tick fades it in); null if it cannot be opened. */
+    private Voice open(AudioManifest.Entry e, boolean stinger, float fadeIn) {
         MediaPlayer mp = new MediaPlayer();
         try (AssetFileDescriptor afd = assets.openFd("audio/" + e.file)) {
             mp.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
@@ -303,14 +384,14 @@ public final class AudioEngine {
             } catch (RuntimeException ignored) {
                 // already gone
             }
-            return;
+            return null;
         }
         Voice v = new Voice();
         v.mp = mp;
         v.base = e.volume;
         v.target = 1f;
-        v.fadeSec = stinger ? FADE_STINGER : FADE_IN;
-        playing.add(v);
+        v.fadeSec = fadeIn;
+        return v;
     }
 
     private static void free(Voice v) {

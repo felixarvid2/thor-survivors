@@ -7,7 +7,7 @@ Survivors stages FOREST and LIBRARY), so the XP and gold curves stay familiar. D
 x1.25 and speed x1.05 on top of the LIBRARY mods (it is the second stage).
 
 Run from thor-survivors/:  python3 tools/build_ashfall_stages.py
-Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `powerups`, `equipment`, `equipmentRules` and `fusions`
+Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `powerups`, `equipment`, `equipmentRules`, `fusions` and `weapons` (v1.5 B5)
 are touched, plus the balance numbers listed in HERO_TUNE and MAIN_TUNE (design phase 12: they are applied on top of the
 heroes and mainWeapons that are already in the file; names, texts and branches stay as they are).
 """
@@ -150,20 +150,24 @@ ELITES = dict(first=120, interval=90, min=45, shrinkPerMin=0.02, hpMul=6, damage
 # Applied on top of the heroes / mainWeapons already in ashfall_data.json: dotted path -> value. Measured with StageSoak (see the
 # thor-survivors-balance skill): a main weapon is strong but no longer replaces the VS build, Spectre survives like the others.
 HERO_TUNE = {
+    # v1.5 final hero spread (Spectre 26 points above Bastion and Xenomant on Flats): Spectre HP 126 -> 118 (-6 %), Bastion HP 154 -> 162 (+5 %)
+    # v1.5 B7 item 61 hero parity (skilled bot, 30 seeds x 5 stages; spread per stage up to 43 points before): HP Bastion 140 -> 154, Spectre 115 -> 126, Xenomant 115 -> 105 (+-10 %)
     # glass cannon, but not made of glass: HP 80 -> 105, armor 1, regen 0.5, and every level takes 0.7% less damage (-35% at level 50)
-    "SPECTRE.hp": 115, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
+    "SPECTRE.hp": 118, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
     "SPECTRE.perLevel.damageTaken": -0.009,
     "BASTION.regen": 0.7,   # v1.4 (was 0.3): chronic attrition from bolts and slag is what kills the slow tank, see "Svårighet (v1.4)"
     # v1.3.1 hero parity (mid bot, 32 seeds): Spectre and Xenomant died of contact late (the damage curve makes a Colonist hit 96 at 30:00, Xenomant
     # had 95 HP and no armor), Bastion survived 3 in 4. Defence now grows with the level for all three.
-    "BASTION.hp": 140, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
+    "BASTION.hp": 162, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
     "SPECTRE.perLevel.power": 0.006, "SPECTRE.perLevel.maxHp": 0.005,              # new / was 0.004 (damageTaken stays -0.007)
-    "XENOMANT.hp": 115, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
+    "XENOMANT.hp": 105, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
     "XENOMANT.perLevel.maxHp": 0.004, "XENOMANT.perLevel.damageTaken": -0.0015,    # new
 }
 MAIN_TUNE = {
-    "HAMMER.power": 1.5, "HAMMER.params.slamPower": 2.2, "HAMMER.interval": 1200,   # was 1.6 / 2.4 / 1100
-    "CASTER.power": 0.5, "CASTER.params.burstPower": 0.3,                              # was 1.2 / 0.5
+    "HAMMER.power": 1.65, "HAMMER.params.slamPower": 2.42, "HAMMER.interval": 1200,   # v1.4: 1.5 / 2.2 (was 1.6 / 2.4 / 1100)
+    "CASTER.power": 0.45, "CASTER.params.burstPower": 0.27,                            # v1.4: 0.5 / 0.3 (was 1.2 / 0.5)
+    # v1.5 B7 item 61: Hammer +10 % (1.5 -> 1.65, slam 2.2 -> 2.42), Pistols +10 % (0.6 -> 0.66), Caster -10 % (0.5 -> 0.45, burst 0.3 -> 0.27)
+    "PISTOLS.power": 0.66,
     # PISTOLS stay as they were (0.6, no pierce): pierce 1 made Spectre the strongest main weapon (111% of the Whip) without helping his survival
 }
 HERO_TEXT = {
@@ -269,6 +273,76 @@ def fusion_rows(f):
     return rows
 
 
+# --------------------------------------------------------------------------- v1.5 B5: new weapons, passives and uniques
+# The overlay block "weapons" (GameData.applyOverlay): three base weapons with an evolution each, three passives. Same row
+# layout as game_data.json (row 0 the full block, later rows deltas); `evoSynergy` lists the passives that evolve the weapon
+# at max level (any of them), `evoInto` the evolution (evolution=True, one row). `rarity` is the offer weight (the VS weapons
+# weigh 70 to 100). Behaviours live in game/Arsenal.java (ARC_LANCE, SLAG_MORTAR, TETHER_DRONE and their evolutions), the
+# passives use existing PlayerStats keys only (speed, duration, magnet, greed, power, maxHp).
+def _rows(first, *deltas):
+    return [first] + [dict(d) for d in deltas]
+
+
+V15_WEAPONS = {
+    "ARC_LANCE": dict(
+        name="Arc Lance", evoInto="STORM_LANCE", evoSynergy=["OVERCHARGE", "SPEED"], rarity=60,
+        description="A straight lance of charged plasma at the nearest enemy. Pierces 3, one more every second level.",
+        rows=_rows(dict(interval=1400, repeatInterval=120, power=4.0, area=1, speed=1, amount=1, penetrating=3, knockback=0.3,
+                        critChance=0.1, critMul=2),
+                   dict(power=0.5), dict(penetrating=1), dict(power=0.5), dict(penetrating=1), dict(amount=1),
+                   dict(penetrating=1), dict(power=0.5))),
+    "STORM_LANCE": dict(
+        name="Storm Lance", evolution=True,
+        description="Twin lances that pierce six and electrify. Every hit arcs half its damage to a neighbour.",
+        rows=[dict(interval=1200, repeatInterval=140, power=6.0, area=1.3, speed=1.2, amount=2, penetrating=6, knockback=0.3,
+                   critChance=0.2, critMul=2)]),
+    "SLAG_MORTAR": dict(
+        name="Slag Mortar", evoInto="MAGMA_HOWITZER", evoSynergy=["SCRAP_MAGNET", "AREA"], rarity=60,
+        description="Lobs a shell that leaves a burning slag puddle. Strong on a crowd that stands still, useless against one you kite.",
+        rows=_rows(dict(interval=2200, repeatInterval=260, power=0.3, area=1, speed=1, amount=1, duration=3000, hitBoxDelay=500,
+                        knockback=0),
+                   dict(power=0.1), dict(amount=1), dict(duration=500), dict(power=0.1), dict(area=0.15), dict(amount=1),
+                   dict(power=0.1))),
+    "MAGMA_HOWITZER": dict(
+        name="Magma Howitzer", evolution=True,
+        description="Two heavy shells. Each lands with a blast and leaves a wide, long-lived magma pool.",
+        rows=[dict(interval=2200, repeatInterval=300, power=0.8, area=1.35, speed=1, amount=2, duration=4500, hitBoxDelay=450,
+                   knockback=0)]),
+    "TETHER_DRONE": dict(
+        name="Tether Drone", evoInto="LEASH_ARRAY", evoSynergy=["GLASS_CORE", "COOLDOWN"], rarity=60,
+        description="A drone circles you and tethers the weakest enemy within reach every 0.6 s. Short range: it cannot cover everything.",
+        rows=_rows(dict(interval=1000, repeatInterval=0, power=1.4, area=1, speed=1, amount=1, beamEvery=600, range=150,
+                        knockback=0.1, critChance=0.05, critMul=2),
+                   dict(power=0.25), dict(amount=1), dict(range=20), dict(power=0.25), dict(amount=1), dict(range=20),
+                   dict(power=0.25))),
+    "LEASH_ARRAY": dict(
+        name="Leash Array", evolution=True,
+        description="Three drones, each tethering the two weakest enemies in reach, slowing them.",
+        rows=[dict(interval=1000, repeatInterval=0, power=2.6, area=1.2, speed=1.2, amount=3, beamEvery=480, range=220,
+                   knockback=0.1, critChance=0.1, critMul=2)]),
+    # passives (powerUp): the keys are the stat keys PlayerStats already sums
+    "OVERCHARGE": dict(
+        name="Overcharge", powerUp=True, rarity=60,
+        description="+6% projectile speed and +4% effect duration per level.",
+        rows=_rows(dict(speed=0.06, duration=0.04), *[dict(speed=0.06, duration=0.04)] * 4)),
+    "SCRAP_MAGNET": dict(
+        name="Scrap Magnet", powerUp=True, rarity=60,
+        description="+25% pickup range and +3% gold per level. Not a combat stat: it pays for the kiter.",
+        rows=_rows(dict(magnet=0.25, greed=0.03), *[dict(magnet=0.25, greed=0.03)] * 3)),
+    "GLASS_CORE": dict(
+        name="Glass Core", powerUp=True, rarity=40,
+        description="+20% might per level, but -15% max HP per level. For those who do not get hit.",
+        rows=_rows(dict(power=0.20, maxHp=-0.15), *[dict(power=0.20, maxHp=-0.15)] * 2)),
+}
+
+# three more uniques (fixed values), dropped by the timed bosses that carried none: slot, name, icon, values, source
+V15_UNIQUES = {
+    "CINDER_BAND": ("RING", "Cinder Band", "unique_cinder_band", {"cinderTrail": 1, "statusChance_burn": 0.05}, "COMMANDANT_HALE"),
+    "ECHO_BELL": ("NECK", "Echo Bell", "unique_echo_bell", {"echoBell": 0.30, "magnet": 0.15}, "OVERSEER_UNIT_7"),
+    "LUMEN_WARD": ("BODY", "Lumen Ward", "unique_lumen_ward", {"lumenWard": 45, "armor": 1}, "FROZEN_WELDER"),
+}
+
+
 # --------------------------------------------------------------------------- wave tables (design 9.3)
 K = dict(COL="COLONIST", HND="SPORE_HOUND", SGT="SERGEANT", DRN="SECURITY_DRONE", WLD="WELDER", SPC="SPORE_CARRIER",
          SML="SMELTER", VIR="VIRE")
@@ -343,6 +417,8 @@ TUNE_DEFAULT = dict(
     boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
     wave_mul=[[0, 1.0]],   # v1.4 (Hydro / Refinery / Wreck only): [minute, factor] on the finished rows' minimum, linear between points
     rules={},              # v1.4 (Hydro / Refinery / Wreck only): overrides of the stage's rules params (StageDef.rules)
+    spawn_ahead=0.0,       # v1.5 B7 item 67: share of normal spawns placed in a 50 degree cone ahead of the hero's heading (anti line-kite)
+    first_boss_shift=0,    # v1.5 B7 item 62: seconds the first timed boss (7:30) and its chest are delayed
 )
 STAGE_TUNE = {
     # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
@@ -361,6 +437,28 @@ STAGE_TUNE = {
     "MINES": dict(hordes=[[200, 50], [370, 70], [520, 90], [675, 110], [825, 140], [975, 170], [1125, 200], [1245, 250], [1430, 290], [1600, 290]], extra_types=[[1, "SGT"], [3, "DRN"]],
                   dmg_curve=[[0, 1.4], [3, 1.45], [6, 1.45], [10, 1.72], [13, 2.0], [16, 2.64], [20, 3.5], [24, 5], [30, 7.5]]),
 }
+# v1.5 B7 (items 62, 63, 67): measured with StageSoak (skilled bot, 40 seeds x 3 heroes per stage, ARMS_FROM 660 s, see TEKNIK "v1.5 batch 7").
+#  - spawn_ahead: share of normal spawns placed in a 50 degree cone ahead of the hero's heading. The line-kite bot survived 120-180 % as often as the skilled
+#    bot (Flats 42 vs 23 %, Hydro 47 vs 34, Refinery 28 vs 23, Wreck 17 vs 12), so 0.2 on those four; on Deep Mines it cost 17 points (36 -> 19) and the line-kite
+#    bot was already below 85 %, so Mines has none.
+#  - speed_curve: the first evolution moved from 9-12 to 11-14 min (Arms Crates from 11:00, WaveDirector.armsCrateFrom), which cost 10-25 survival
+#    points; the excess speed over 1.0 from minute 10 is cut by 50 % (Flats), 20 % (Hydro), 40 % (Refinery) and 55 % (Wreck) to win part of it back.
+STAGE_TUNE["FLATS"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.125], [15, 1.2], [20, 1.325], [25, 1.46], [30, 1.625]])
+STAGE_TUNE["HYDRO"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.2], [15, 1.348], [20, 1.586], [25, 1.851], [30, 2.18]])
+STAGE_TUNE["REFINERY"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.15], [15, 1.24], [20, 1.439], [25, 1.667], [30, 1.952]])
+STAGE_TUNE["WRECK"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.113], [15, 1.18], [20, 1.329], [25, 1.5], [30, 1.714]])
+# v1.5 final re-tune (after B5 weapons/passives and B6 elites/flanking/enrage landed on top of B7's numbers: 30:00 survival with the skilled bot
+# was Flats 7, Mines 21, Hydro 26, Refinery 20, Wreck 15 %, 80 seeds x 3 heroes per stage). Targets 45 / 40 / 35 / 30 / 25. The speed curve is
+# still the strong knob (the whole excess over 1.0 scaled to Flats x0.35, Mines x0.5 [of the default curve], Hydro x0.85, Refinery x0.78 and
+# Wreck x0.35 of B7's values); Flats also takes HP and damage x0.75 from minute 10 (the speed cut alone could not reach 45 without making
+# the enemies stand still). Elites x0.6 HP and damage did nothing for survival, density x0.75 gave 5 points.
+STAGE_TUNE["FLATS"].update(speed_curve=[[0, 1.0], [5, 1.035], [10, 1.044], [15, 1.07], [20, 1.114], [25, 1.161], [30, 1.219]],
+                           hp_curve=[[0, 1], [10, 0.9], [15, 1.2], [20, 1.8], [25, 3.75], [30, 6.75]],
+                           dmg_curve=[[0, 1.35], [3, 1.4], [6, 1.35], [10, 1.237], [13, 1.485], [16, 1.98], [20, 2.625], [24, 3.75], [30, 5.625]])
+STAGE_TUNE["MINES"].update(speed_curve=[[0, 1.0], [5, 1.05], [10, 1.125], [15, 1.2], [20, 1.325], [25, 1.46], [30, 1.625]])
+STAGE_TUNE["HYDRO"].update(speed_curve=[[0, 1.0], [5, 1.085], [10, 1.17], [15, 1.296], [20, 1.498], [25, 1.723], [30, 2.003]])
+STAGE_TUNE["REFINERY"].update(speed_curve=[[0, 1.0], [5, 1.078], [10, 1.117], [15, 1.187], [20, 1.342], [25, 1.52], [30, 1.743]])
+STAGE_TUNE["WRECK"].update(speed_curve=[[0, 1.0], [5, 1.035], [10, 1.04], [15, 1.063], [20, 1.115], [25, 1.175], [30, 1.25]])
 # Hordes sit between the bosses and events: nominal starts 675, 825, ..., 1575 (every 150 s) shifted off every timed boss (7:30, 12:30,
 # 17:30, 22:30, Kade 27:30 Flats / 26:30 Mines) and event start (Signal Tower 1260, Lumen Surge 1440, Beacon Flats 1560, Collapse Mines 1405-1430).
 
@@ -583,7 +681,7 @@ HYDRO_ENEMIES = {
 }
 ENEMIES.update(HYDRO_ENEMIES)
 HYDRO_UNIQUES = {
-    "ROOTMINDS_HEARTWOOD": ("NECK", "Rootmind's Heartwood", "unique_ashen_heartwood",
+    "ROOTMINDS_HEARTWOOD": ("NECK", "Rootmind's Heartwood", "unique_rootminds_heartwood",  # v1.5 B6: own icon
                             {"healMul": 0.25, "heartVacuum": 0.25}, "ROOTMIND"),
 }
 UNIQUES.update(HYDRO_UNIQUES)
@@ -731,7 +829,7 @@ WRECK_RULES = dict(padR=70, padChannel=0.5, padCooldown=12, padShockR=140, padSh
                    wellFlicker=1, wellPullHero=40, wellPullEnemy=70, wellPullPickup=120, coreR=24, coreEnemyDps=40,
                    coreEliteDps=15, coreHeroDps=15, breachLen=25, breachTele=2, breachR0=260, breachR1=140, breachDrift=40,
                    breachHeroDps=4, breachRamp=0.5, breachEnemyPct=0.03, gateAt=1650, gateUntil=1770)
-ECHO_OF_THE_PILLAR = dict(name="Echo of the Pillar", slot="NECK", icon="unique_heart_of_lumen",
+ECHO_OF_THE_PILLAR = dict(name="Echo of the Pillar", slot="NECK", icon="unique_echo_of_the_pillar",  # v1.5 B6: own icon
                           values={"padRecharge": 6, "padShock": 0.5}, unique=True, source="THE_PILLAR")
 
 
@@ -830,6 +928,9 @@ def main():
     data["equipment"] = eq
     data["equipmentRules"] = EQUIPMENT_RULES
     add_wreck(data)   # v1.4 chunk D: Meridian Wreck roster, rows, timed bosses, events, rules, the Echo of the Pillar
+    data["weapons"] = V15_WEAPONS   # v1.5 B5
+    for key, (slot, name, icon, values, source) in V15_UNIQUES.items():
+        data["equipment"][key] = dict(name=name, slot=slot, icon=icon, values=values, unique=True, source=source)
     data["fusions"] = {k: dict(name=FUSIONS[k]["name"], description=FUSIONS[k]["description"],
                                parents=FUSIONS[k]["parents"], rarity=1, rows=fusion_rows(FUSIONS[k])) for k in FUSION_KEYS}
     ov = json.loads(os.environ.get("TUNE_JSON") or "{}").get("*", {})   # experiments: hero_tune / main_tune over the tables above
@@ -855,6 +956,14 @@ def main():
         st["rules"] = dict(st.get("rules", {}), **tn["rules"])
     for hero, text in HERO_TEXT.items():
         data["heroes"][hero]["description"] = text
+    # v1.5 B7 item 62: the first timed boss (and so the first boss chest and the first evolution) comes first_boss_shift seconds later; the later ones stay
+    for key in ("FLATS", "MINES", "HYDRO", "REFINERY", "WRECK"):
+        shift = tune_of(key)["first_boss_shift"]
+        tb = data["stages"][key].get("timedBosses")
+        if shift and tb:
+            tb[0]["t"] += shift
+        if tune_of(key)["spawn_ahead"]:
+            data["stages"][key]["spawnAhead"] = tune_of(key)["spawn_ahead"]
     lighting = data.setdefault("lighting", {})
     lighting["FLATS"] = dict(ambient=0.65, radius=240)
     lighting["MINES"] = dict(ambient=0.78, radius=200)

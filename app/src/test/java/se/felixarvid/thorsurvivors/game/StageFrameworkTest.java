@@ -48,6 +48,7 @@ public class StageFrameworkTest {
         GameData d = StageSoak.data();
         Sim s = new Sim(d, d.stages.get(stage), null, new HashMap<String, Double>(), "BASTION", seed);
         s.rules.addonsEnabled = addons;
+        s.vacNext = Double.MAX_VALUE; // v1.5 B5: the Vacuum Gem is a new feature; this test pins everything else
         s.time = from;
         Random rng = new Random(seed * 31 + 5);
         Input in = new Input();
@@ -80,7 +81,7 @@ public class StageFrameworkTest {
                 s.hp = s.maxHp;
             }
             while (s.pendingLevelUps > 0) {
-                List<Offer> o = OfferGenerator.generate(s.inv, d.weapons.values(), s.stats.luck, rng,
+                List<Offer> o = OfferGenerator.generate(s.inv, Batch5ContentTest.withoutB5(d), s.stats.luck, rng,
                         s.main == null ? null : s.main.def, s.main == null ? null : s.main.tier, s.level);
                 s.applyOffer(o.get(0));
                 s.pendingLevelUps--;
@@ -110,19 +111,23 @@ public class StageFrameworkTest {
     }
 
     /**
-     * State hashes of seeded runs (recorded on main v1.3.1 before the framework; re-recorded at the v1.4 merge, when the harder data
+     * State hashes of seeded runs (recorded on main v1.3.1 before the framework; re-recorded at the v1.4 merge and again for v1.5 batch 7 (hero HP, Arms Crate time, late HP ramp, offer weights), when the harder data
      * (curves, hordes, heroes) replaced the v1.3.1 numbers; the framework itself had matched the old hashes bit for bit): five minutes of each old stage, and a window
      * over the Flats ash storm (12:00) so the moved storm code is covered. Any change to Flats or Mines behaviour moves them.
      * Chunk E: these are recorded with the add-ons OFF ({@code StageRules.addonsEnabled = false}), which is how they still prove that
      * the framework and the hooks changed nothing; the add-ons' own behaviour is in FlatsAddonTest / MinesAddonTest, and the test below
      * pins that switching them on changes the runs.
+     * v1.5 B6 re-recorded all four: chasers fan out in big packs (flank), ranged enemies lead, elites roll from nine modifiers.
      */
     @Test
     public void flatsAndMinesRunsAreBitIdenticalToBefore() throws Exception {
-        assertEquals("FLATS 5 min", -17717800225745701L, stateHash("FLATS", 12345L, 0, 300));
-        assertEquals("MINES 5 min", 8133837233524524462L, stateHash("MINES", 12345L, 0, 300));
-        assertEquals("FLATS storm window", 5816888918436928257L, stateHash("FLATS", 777L, 705, 60));
-        assertEquals("MINES same window", 3075974996198938137L, stateHash("MINES", 777L, 705, 60));
+        // v1.5 integration: re-recorded once after all eight batches were merged (B5 weapons, B6 AI, B7 balance, B3 aim and
+        // run stats, the curse/ascension HP path all change the seeded five minutes); v1.5 final: re-recorded once more for the survival
+        // re-tune (Flats HP / damage / speed curves, all stage speed curves, Spectre and Bastion HP)
+        assertEquals("FLATS 5 min", -2640578925019621882L, stateHash("FLATS", 12345L, 0, 300));
+        assertEquals("MINES 5 min", -5729074467392402798L, stateHash("MINES", 12345L, 0, 300));
+        assertEquals("FLATS storm window", -7832791603953090752L, stateHash("FLATS", 777L, 705, 60));
+        assertEquals("MINES same window", 626577960464793227L, stateHash("MINES", 777L, 705, 60));
     }
 
     @Test

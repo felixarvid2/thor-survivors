@@ -5,7 +5,9 @@ import se.felixarvid.thorsurvivors.game.Engine;
 /** Which music track belongs to the game state. Pure, so it can be tested. */
 public final class MusicDirector {
     public static final String MENU = "menu", FOREST = "forest", LIBRARY = "library", BOSS = "boss", FINAL = "final",
-            GAMEOVER = "gameover", VICTORY = "victory";
+            GAMEOVER = "gameover", VICTORY = "victory",
+            // v1.5 B8 (75): one calm track per stage (from the CC0 library), and the shared combat layer (74)
+            HYDRO = "hydro", REFINERY = "refinery", WRECK = "wreck", COMBAT = "combat";
 
     private MusicDirector() {
     }
@@ -20,6 +22,9 @@ public final class MusicDirector {
         switch (phase) {
             case Engine.PH_MENU:
             case Engine.PH_SHOP:
+            case Engine.PH_OPTIONS: // v1.5 B3
+            case Engine.PH_CODEX:
+            case Engine.PH_REMAP:
                 return MENU;
             case Engine.PH_RESULT:
                 return win ? VICTORY : GAMEOVER;
@@ -30,9 +35,34 @@ public final class MusicDirector {
         }
     }
 
+    /** The calm track of a stage: every stage has its own (Flats, Mines, Hydro, Refinery, Wreck). */
     public static String stageTrack(String stageKey) {
-        // no tracks of their own yet: the Vaults share the Mines track, the Refinery and the Wreck the Flats track
+        if (stageKey != null) {
+            switch (stageKey) {
+                case "MINES":
+                case "LIBRARY":
+                    return LIBRARY;
+                case "HYDRO":
+                    return HYDRO;
+                case "REFINERY":
+                    return REFINERY;
+                case "WRECK":
+                    return WRECK;
+                default:
+            }
+        }
+        return FOREST;
+    }
+
+    /** What played before v1.5 for the stage; used when the stage's own file is missing. */
+    public static String legacyStageTrack(String stageKey) {
         return "MINES".equals(stageKey) || "LIBRARY".equals(stageKey) || "HYDRO".equals(stageKey) ? LIBRARY : FOREST;
+    }
+
+    /** A stage track (not menu, boss, final or a stinger): the ones the combat layer may play over. */
+    public static boolean isStageTrack(String track) {
+        return FOREST.equals(track) || LIBRARY.equals(track) || HYDRO.equals(track) || REFINERY.equals(track)
+                || WRECK.equals(track);
     }
 
     /** Stingers play once; every other track loops. */

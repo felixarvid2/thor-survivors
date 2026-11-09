@@ -438,7 +438,7 @@ public class EventsTest {
             for (int i = 0; i < n; i++) step(s, 1f / 60f);
             long per = (Alloc.bytes() - a0) / n;
             System.out.println("PERF events " + cs[0] + " " + cs[1] + ": " + per + " B/step, active=" + s.events.active);
-            assertTrue(cs[1] + " still running", s.events.active != Events.NONE);
+            assertTrue(cs[1] + " still running: ended=" + s.ended + " t=" + s.time + " beaconHp=" + s.events.beaconHp + " enemies=" + s.enemyN + " pick=" + s.pickN, s.events.active != Events.NONE);
             assertTrue(cs[0] + " " + cs[1] + " allocates " + per + " B per step", per < 4096);
         }
     }

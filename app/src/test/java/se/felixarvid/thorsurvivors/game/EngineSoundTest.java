@@ -175,10 +175,10 @@ public class EngineSoundTest {
         e.advance(1f / 60f);
         assertEquals(page + 6, e.focus);
         e.focus = 2; // tap NEXT, then PREV
-        e.input.post(Input.CMD_TAP, Engine.PH_SHOP, n + 2, 0);
+        e.input.post(Input.CMD_TAP, Engine.PH_SHOP, n + 3, 0); // v1.5 B4: n+1 REFUND, n+2 PREV, n+3 NEXT
         e.advance(1f / 60f);
         assertEquals(2 + page, e.focus);
-        e.input.post(Input.CMD_TAP, Engine.PH_SHOP, n + 1, 0);
+        e.input.post(Input.CMD_TAP, Engine.PH_SHOP, n + 2, 0);
         e.advance(1f / 60f);
         assertEquals(2, e.focus);
     }

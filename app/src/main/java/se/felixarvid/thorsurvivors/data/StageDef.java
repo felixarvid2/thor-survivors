@@ -52,6 +52,8 @@ public final class StageDef {
     public java.util.Map<String, Double> eliteOv = new java.util.HashMap<>();
     /** v1.4: ranged enemies alive at once (Sim.RANGED_CAP when 0). */
     public int rangedCap;
+    /** v1.5 B7 item 67: share of normal spawns placed in a cone ahead of the hero's heading (0 = all around; ashfall_data.json {@code spawnAhead}). */
+    public float spawnAhead;
     /**
      * Horde bursts (phase 13): {start s, length s, minimum alive, frequency ms}; while one runs the wave minimum is raised to
      * {@code minimum}, the spawn tick shortened to {@code frequency} and the top-up picks from {@link #hordeTypes}.
@@ -114,6 +116,7 @@ public final class StageDef {
         d.speedCurve = speedCurve;
         d.eliteOv = eliteOv;
         d.rangedCap = rangedCap;
+        d.spawnAhead = spawnAhead;
         d.hordes = hordes;
         d.hordeTypes = hordeTypes;
         d.rules = rules;
