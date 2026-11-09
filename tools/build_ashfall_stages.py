@@ -343,6 +343,8 @@ TUNE_DEFAULT = dict(
     boss_row_mul=0.85, elites={}, ranged_cap=0, extra_types=[[1, "SGT"]],
     wave_mul=[[0, 1.0]],   # v1.4 (Hydro / Refinery / Wreck only): [minute, factor] on the finished rows' minimum, linear between points
     rules={},              # v1.4 (Hydro / Refinery / Wreck only): overrides of the stage's rules params (StageDef.rules)
+    spawn_ahead=0.0,       # v1.5 B7 item 67: share of normal spawns placed in a 50 degree cone ahead of the hero's heading (anti line-kite)
+    first_boss_shift=0,    # v1.5 B7 item 62: seconds the first timed boss (7:30) and its chest are delayed
 )
 STAGE_TUNE = {
     # the new stages inherit TUNE_DEFAULT and list only what differs; their own rows carry their roster (no extra Sergeants)
@@ -855,6 +857,14 @@ def main():
         st["rules"] = dict(st.get("rules", {}), **tn["rules"])
     for hero, text in HERO_TEXT.items():
         data["heroes"][hero]["description"] = text
+    # v1.5 B7 item 62: the first timed boss (and so the first boss chest and the first evolution) comes first_boss_shift seconds later; the later ones stay
+    for key in ("FLATS", "MINES", "HYDRO", "REFINERY", "WRECK"):
+        shift = tune_of(key)["first_boss_shift"]
+        tb = data["stages"][key].get("timedBosses")
+        if shift and tb:
+            tb[0]["t"] += shift
+        if tune_of(key)["spawn_ahead"]:
+            data["stages"][key]["spawnAhead"] = tune_of(key)["spawn_ahead"]
     lighting = data.setdefault("lighting", {})
     lighting["FLATS"] = dict(ambient=0.65, radius=240)
     lighting["MINES"] = dict(ambient=0.78, radius=200)

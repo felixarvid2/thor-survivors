@@ -100,6 +100,7 @@ public final class OfferGenerator {
             System.arraycopy(weight, pick + 1, weight, pick, left - pick - 1);
             left--;
         }
+        guard(out, pool, weight, left, !branches.isEmpty(), rng); // v1.5 B7 item 64
         if (out.isEmpty() && branches.isEmpty()) {
             out.add(new Offer(Offer.HEAL, null, 0));
             out.add(new Offer(Offer.GOLD, null, 0));
@@ -108,10 +109,95 @@ public final class OfferGenerator {
         return out;
     }
 
+    // ------------------------------------------------------------------ v1.5 B7 item 64: offer-quality guard
+
+    /** True for a card that is something new or an upgrade of an owned weapon (a passive level-up alone is a dead level). */
+    static boolean isFresh(Offer o) {
+        return o.kind == Offer.NEW_WEAPON || o.kind == Offer.NEW_PASSIVE || o.kind == Offer.WEAPON_LEVEL
+                || o.kind == Offer.BRANCH || o.kind == Offer.FUSE;
+    }
+
+    /** The stat a passive card raises (its stat keys at the last level, sorted and joined); "" for a non-passive. */
+    static String statOf(Offer o) {
+        if (o.def == null || !o.def.powerUp) return "";
+        java.util.TreeSet<String> keys = new java.util.TreeSet<>(o.def.statsAt(o.def.maxLevel()).keySet());
+        return keys.toString();
+    }
+
+    /** Index in [0, left) of a weighted draw among the cards that satisfy {@code want}, or -1. */
+    private static int drawWhere(List<Offer> pool, double[] weight, int left, Random rng, java.util.function.Predicate<Offer> want) {
+        double total = 0;
+        for (int i = 0; i < left; i++) if (want.test(pool.get(i))) total += weight[i];
+        if (total <= 0) return -1;
+        double r = rng.nextDouble() * total;
+        int last = -1;
+        for (int i = 0; i < left; i++) {
+            if (!want.test(pool.get(i))) continue;
+            last = i;
+            r -= weight[i];
+            if (r < 0) return i;
+        }
+        return last;
+    }
+
+    /**
+     * Item 64: of the cards drawn, at least one must be fresh (new, a weapon level, a branch or a fusion; skipped when nothing
+     * fresh is left in the pool), and never three passive cards with the same stat. A failing card (the last drawn) is replaced
+     * by a weighted draw from what is left, so a normal draw keeps its random sequence.
+     */
+    static void guard(List<Offer> out, List<Offer> pool, double[] weight, int left, boolean hasBranch, Random rng) {
+        if (out.isEmpty()) return;
+        if (!hasBranch) {
+            boolean fresh = false;
+            for (Offer o : out) if (isFresh(o)) fresh = true;
+            if (!fresh) {
+                int k = drawWhere(pool, weight, left, rng, OfferGenerator::isFresh);
+                if (k >= 0) out.set(out.size() - 1, pool.remove(k));
+                else return;
+                System.arraycopy(weight, k + 1, weight, k, left - k - 1);
+                left--;
+            }
+        }
+        for (int guardLoop = 0; guardLoop < 4; guardLoop++) {
+            int bad = -1;
+            for (int i = 0; i < out.size() && bad < 0; i++) {
+                String st = statOf(out.get(i));
+                if (st.isEmpty()) continue;
+                int n = 0;
+                for (Offer o : out) if (st.equals(statOf(o))) n++;
+                if (n >= 3) bad = i;
+            }
+            if (bad < 0) return;
+            final String st = statOf(out.get(bad));
+            int k = drawWhere(pool, weight, left, rng, o -> !st.equals(statOf(o)));
+            if (k < 0) return;
+            out.set(bad, pool.remove(k));
+            System.arraycopy(weight, k + 1, weight, k, left - k - 1);
+            left--;
+        }
+    }
+
+    /**
+     * Item 62: weight multiplier of passive cards while no weapon you own has reached level {@link #EARLY_WEAPON_LEVEL}.
+     * Default 1 = off: measured (skilled bot, 20 seeds x 3 heroes) 0.6 moved the first evolution EARLIER (Flats 627 s -> 531 s, Refinery 564 -> 530),
+     * because the weapons reach level 8 before the first boss chest; the lever is therefore the chest time ({@code first_boss_shift}), not this.
+     */
+    public static double earlyPassiveMul = 1.0;
+    public static final int EARLY_WEAPON_LEVEL = 5;
+
+    private static boolean weaponReachedEarlyLevel(Inventory inv) {
+        for (int i = 0; i < inv.weaponCount; i++) {
+            Inventory.Slot s = inv.weapons[i];
+            if (!s.def.evolution && !s.def.fusion && s.level >= EARLY_WEAPON_LEVEL) return true;
+        }
+        return false;
+    }
+
     /** Draw weight of a card: the def's rarity, x3 for the synergy passive of a maxed weapon you own, x1.5 for a new weapon whose fusion partner you own (design v1.3 1.6). */
     static double weightOf(Inventory inv, Collection<WeaponDef> defs, Offer o) {
         double w = o.def.rarity;
         if (o.def.powerUp) {
+            if (earlyPassiveMul != 1.0 && !weaponReachedEarlyLevel(inv)) w *= earlyPassiveMul; // v1.5 B7 item 62
             for (int i = 0; i < inv.weaponCount; i++) {
                 Inventory.Slot s = inv.weapons[i];
                 if (s.def.evolution || s.def.fusion || s.level < s.def.maxLevel()) continue;
