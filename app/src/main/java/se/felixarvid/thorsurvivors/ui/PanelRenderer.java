@@ -11,7 +11,6 @@ import android.view.MotionEvent;
 
 import se.felixarvid.thorsurvivors.data.EquipDef;
 import se.felixarvid.thorsurvivors.data.HeroDef;
-import se.felixarvid.thorsurvivors.data.PowerUpDef;
 import se.felixarvid.thorsurvivors.data.WeaponDef;
 import se.felixarvid.thorsurvivors.game.Describe;
 import se.felixarvid.thorsurvivors.game.Elites;
@@ -26,6 +25,7 @@ import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.Offer;
+import se.felixarvid.thorsurvivors.game.RunMods;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.TelegraphPalette;
 import se.felixarvid.thorsurvivors.render.SpriteAtlas;
@@ -1324,7 +1324,8 @@ public final class PanelRenderer {
         float x = cl[0], cw = cl[1];
         heading(c, w, "LEVEL UP", Skin.ORANGE, s != null ? cs(80, "LEVEL ", s.level, "   -   CHOOSE AN UPGRADE") : "CHOOSE AN UPGRADE", 90f * u, 80f * u, u);
         int n = offers.size();
-        float top = 176f * u, avail = h - top - 80f * u, gap = 16f * u;
+        boolean tools = eng.levelUpTools(); // v1.5 B4: REROLL and BANISH below the cards
+        float top = 176f * u, avail = h - top - (tools ? 160f : 80f) * u, gap = 16f * u;
         float ch = Math.min(250f * u, (avail - (n - 1) * gap) / Math.max(1, n));
         for (int i = 0; i < n; i++) {
             Offer o = offers.get(i);
@@ -1406,7 +1407,25 @@ public final class PanelRenderer {
                 k.text(c, "EVOLVES!", bx + bw / 2f, byy + 29f * u, 26f * u, GOLD, Paint.Align.CENTER);
             }
         }
-        k.body(c, "TAP A CARD    |    D-PAD / STICK + A", w / 2f, h - 30f * u, 24f * u, DIM, Paint.Align.CENTER);
+        if (tools) levelUpTools(c, x, cw, h - 152f * u, n, u);
+        k.body(c, eng.banishMode ? "BANISH: TAP THE CARD TO STRIKE FROM THIS RUN    |    B = CANCEL" : "TAP A CARD    |    D-PAD / STICK + A", w / 2f, h - 30f * u,
+                24f * u, eng.banishMode ? Skin.DANGER : DIM, Paint.Align.CENTER);
+    }
+
+    /** v1.5 B4: the REROLL and BANISH buttons of the level-up screen (ids n and n+1); dimmed when no charge is left. */
+    private void levelUpTools(Canvas c, float x, float cw, float y, int n, float u) {
+        float bh = 76f * u, gap = 16f * u, bw = (cw - gap) / 2f;
+        for (int i = 0; i < 2; i++) {
+            boolean rr = i == 0;
+            int left = rr ? eng.rerollsLeft : eng.banishesLeft;
+            float bx = x + i * (bw + gap);
+            boolean f = eng.focus == n + i, on = left > 0, mode = !rr && eng.banishMode;
+            k.plate(c, bx, y, bx + bw, y + bh, mode ? 0x66E0402A : f ? 0x44FF8A2A : 0x18000000, mode ? Skin.DANGER : f ? Skin.ORANGE : Skin.EDGE, f || mode ? 4f * u : 2f * u);
+            if (f) k.focusMarks(c, bx, y, bx + bw, y + bh);
+            k.text(c, rr ? cs(156, "REROLL   x", left, "") : cs(157, "BANISH   x", left, ""), bx + bw / 2f, y + bh * 0.68f, 38f * u,
+                    on ? (mode ? Skin.DANGER : TEXT) : 0xFF5A524C, Paint.Align.CENTER);
+            hit(bx, y, bx + bw, y + bh, n + i, 0);
+        }
     }
 
     private final Offer[] descOffer = new Offer[8];
@@ -1633,9 +1652,11 @@ public final class PanelRenderer {
 
     private void buildMenuLabels() {
         int key = eng.stageIdx | eng.meta.heroIdx << 4 | eng.weaponIdx << 8 | eng.meta.musicVol << 14 | eng.meta.sfxVol << 16 | eng.meta.lighting << 18
-                | (eng.stageOverride != null ? 1 << 20 : 0) | (eng.meta.unlocked(eng.stage().key) ? 0 : 1 << 21);
+                | (eng.stageOverride != null ? 1 << 20 : 0) | (eng.meta.unlocked(eng.stage().key) ? 0 : 1 << 21)
+                | eng.ascTier << 22 | (eng.dailyPick ? 1 << 26 : 0) | eng.meta.ascMax(eng.stage().key) << 27 | (eng.meta.dailyBonusOpen(eng.today()) ? 1 << 30 : 0);
         if (key == menuKey) return;
         menuKey = key;
+        ascValueTxt = eng.ascLabel();
         menuLabels = new String[]{
                 "START RUN",
                 "STAGE   <  " + eng.stage().name + "  >" + (eng.meta.unlocked(eng.stage().key) ? "" : "   LOCKED"),
@@ -1644,7 +1665,8 @@ public final class PanelRenderer {
                 "POWER-UPS",
                 "MUSIC   <  " + VOLUME[eng.meta.musicVol] + "  >",
                 "SOUND EFFECTS   <  " + VOLUME[eng.meta.sfxVol] + "  >",
-                "LIGHTING   <  " + LIGHTING[eng.meta.lighting] + "  >"};
+                "LIGHTING   <  " + LIGHTING[eng.meta.lighting] + "  >",
+                "ASCENSION   <  " + ascValueTxt + "  >"};
     }
 
     private String heroName() {
@@ -1730,7 +1752,7 @@ public final class PanelRenderer {
         settingRow(c, m, w - m, ry, Engine.MENU_MUSIC, "MUSIC", VOLUME[eng.meta.musicVol], eng.meta.musicVol, 3, u);
         settingRow(c, m, w - m, ry + 54f * u, Engine.MENU_SFX, "SOUND EFFECTS", VOLUME[eng.meta.sfxVol], eng.meta.sfxVol, 3, u);
         settingRow(c, m, w - m, ry + 108f * u, Engine.MENU_LIGHT, "LIGHTING", LIGHTING[eng.meta.lighting], eng.meta.lighting, 2, u);
-        k.body(c, "A / TAP: SELECT      D-PAD: NAVIGATE", w / 2f, ry + 156f * u + 22f * u, 22f * u, DIM, Paint.Align.CENTER);
+        ascRow(c, m, w - m, ry + 162f * u, u); // v1.5 B4
     }
 
     // ---- stage select: the card of the selected stage and the strip of all of them
@@ -1997,6 +2019,26 @@ public final class PanelRenderer {
         hit(l + (rr - l) * 0.3f, t, rr, b, row, 1);
     }
 
+    /** v1.5 B4: the ascension / daily row: pips for the open tiers, the text of the choice on the right. */
+    private void ascRow(Canvas c, float l, float rr, float t, float u) {
+        boolean f = eng.focus == Engine.MENU_ASC;
+        float b = t + 48f * u;
+        k.plate(c, l, t, rr, b, f ? 0x40FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
+        if (f) k.focusMarks(c, l, t, rr, b);
+        k.text(c, "ASCENSION", l + 28f * u, t + 34f * u, 30f * u, TEXT, Paint.Align.LEFT);
+        int open = eng.meta.ascMax(eng.stage().key), cur = eng.dailyPick ? -1 : Math.min(eng.ascTier, open);
+        for (int i = 0; i < RunMods.MAX_TIER; i++) k.pip(c, l + 260f * u + i * 36f * u, t + 12f * u, 0f, i < cur, i < open ? Skin.ORANGE : 0xFF4A423C, 28f * u, 24f * u);
+        k.fit(c, ascValue(), rr - 28f * u, t + 34f * u, 28f * u, rr - l - 560f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
+        hit(l, t, l + (rr - l) * 0.3f, b, Engine.MENU_ASC, -1);
+        hit(l + (rr - l) * 0.3f, t, rr, b, Engine.MENU_ASC, 1);
+    }
+
+    private String ascValueTxt = "";
+
+    private String ascValue() {
+        return ascValueTxt;
+    }
+
     /** The single-screen overlay: a short column of steel buttons in the lower half. */
     private void compactMenu(Canvas c, int w, int h, float u) {
         float cw = Math.min(w * 0.9f, 900f * u * 1.3f);
@@ -2020,98 +2062,11 @@ public final class PanelRenderer {
 
     // ---- shop: a salvage terminal
 
-    private void shop(Canvas c, int w, int h) {
-        float u = k.u;
-        float[] cl = column(w, h, 1200f * u);
-        float x = cl[0], cw = cl[1];
-        // terminal header with faint scan lines
-        k.plate(c, x, 16f * u, x + cw, 150f * u, 0x28104030, Skin.EDGE, 3f * u);
-        fill.setColor(0x0E39FF88);
-        for (float ly = 22f * u; ly < 146f * u; ly += 6f * u) c.drawRect(x + 6f * u, ly, x + cw - 6f * u, ly + 2f * u, fill);
-        k.rivets(c, x, 16f * u, x + cw, 150f * u, 11f * u, 3f * u);
-        k.text(c, "SALVAGE TERMINAL", x + 30f * u, 84f * u, 62f * u, Skin.ORANGE, Paint.Align.LEFT);
-        k.body(c, "CONVERT GOLD INTO PERMANENT UPGRADES", x + 30f * u, 124f * u, 24f * u, DIM, Paint.Align.LEFT);
-        k.well(c, x + cw - 320f * u, 34f * u, x + cw - 24f * u, 134f * u, 6f * u);
-        k.body(c, "GOLD", x + cw - 40f * u, 62f * u, 22f * u, DIM, Paint.Align.RIGHT);
-        k.text(c, cs(92, "", eng.meta.gold, ""), x + cw - 40f * u, 120f * u, 58f * u, GOLD, Paint.Align.RIGHT);
-        int n = eng.shopKeys.size();
-        int pages = (n + Engine.SHOP_PAGE - 1) / Engine.SHOP_PAGE;
-        int page = eng.focus >= 0 && eng.focus < n ? eng.focus / Engine.SHOP_PAGE : Math.min(pages - 1, eng.shopPage);
-        int first = page * Engine.SHOP_PAGE, last = Math.min(n, first + Engine.SHOP_PAGE);
-        float stripH = 190f * u;
-        float top = 166f * u, gap = 12f * u, bottom = h - 132f * u - stripH - gap;
-        float rh = Math.min(136f * u, (bottom - top - 3 * gap) / 4f);
-        float cwid = (cw - gap) / 2f;
-        for (int i = first; i < last; i++) {
-            String key = eng.shopKeys.get(i);
-            PowerUpDef d = eng.data.powerUps.get(key);
-            int l = i - first;
-            float cx = x + (l % 2) * (cwid + gap), cy = top + (l / 2) * (rh + gap);
-            boolean f = eng.focus == i;
-            k.plate(c, cx, cy, cx + cwid, cy + rh, f ? 0x44FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
-            if (f) k.focusMarks(c, cx, cy, cx + cwid, cy + rh);
-            hit(cx, cy, cx + cwid, cy + rh, i, 0);
-            int rank = eng.meta.rank(key);
-            boolean max = eng.meta.isMaxed(key);
-            float is = rh - 24f * u;
-            k.slotWell(c, cx + 12f * u, cy + 12f * u, is);
-            atlas.drawIcon(c, null, key, cx + 12f * u + is / 2, cy + 12f * u + is / 2, is * 0.8f);
-            frame(c, rank > 0 ? "frame_rare" : "frame_common", cx + 12f * u, cy + 12f * u, is);
-            float tx = cx + 12f * u + is + 14f * u, tw = cx + cwid - tx - 14f * u;
-            int mr = d.maxRank();
-            // name (44), effect per rank (30), then rank and price on the last line
-            k.fit(c, d.name, tx, cy + 44f * u, 44f * u, tw, TEXT, Paint.Align.LEFT);
-            Describe.PowerUpText pt = eng.shopText.get(key);
-            if (pt != null) k.fit(c, pt.perRank, tx, cy + 82f * u, 30f * u, tw, DIM, Paint.Align.LEFT);
-            int price = eng.meta.nextPrice(key);
-            k.text(c, cs(130 + Math.min(i, 20), "", rank, "/", mr, ""), tx, cy + rh - 14f * u, 38f * u,
-                    max ? GOLD : TEXT, Paint.Align.LEFT);
-            k.text(c, max ? "MAX" : cs(104 + Math.min(i, 20), "", price, ""), cx + cwid - 14f * u, cy + rh - 14f * u, 40f * u,
-                    max ? GOLD : eng.meta.gold >= price ? Skin.GOOD : Skin.BAD, Paint.Align.RIGHT);
-        }
-        // detail strip: what the focused upgrade does
-        float sy = bottom + gap;
-        k.plate(c, x, sy, x + cw, sy + stripH, 0x28104030, Skin.EDGE, 3f * u);
-        if (eng.focus >= 0 && eng.focus < n) {
-            String key = eng.shopKeys.get(eng.focus);
-            PowerUpDef d = eng.data.powerUps.get(key);
-            Describe.PowerUpText pt = eng.shopText.get(key);
-            int rank = eng.meta.rank(key), mr = d.maxRank();
-            boolean max = eng.meta.isMaxed(key);
-            float px = x + 24f * u;
-            k.fit(c, d.name, px, sy + 52f * u, 50f * u, cw * 0.6f, Skin.ORANGE, Paint.Align.LEFT);
-            k.text(c, cs(128, "RANK ", rank, "/", mr, ""), x + cw - 24f * u, sy + 50f * u, 40f * u, TEXT, Paint.Align.RIGHT);
-            if (pt != null) {
-                k.fit(c, pt.perRank, px, sy + 104f * u, 34f * u, cw - 48f * u, TEXT, Paint.Align.LEFT);
-                k.fit(c, pt.totals[Math.min(rank, mr)], px, sy + 154f * u, 34f * u, cw * 0.56f, DIM, Paint.Align.LEFT);
-            }
-            int price = eng.meta.nextPrice(key);
-            k.text(c, max ? "MAX" : cs(129, "", price, " GOLD"), x + cw - 24f * u, sy + 164f * u, 44f * u,
-                    max ? GOLD : eng.meta.gold >= price ? Skin.GOOD : Skin.BAD, Paint.Align.RIGHT);
-        } else {
-            k.body(c, "RETURN TO THE MENU", x + 24f * u, sy + 110f * u, 36f * u, DIM, Paint.Align.LEFT);
-        }
-        // bottom row: BACK, then < PREV, the page, NEXT >
-        float by = h - 112f * u, bh = 92f * u;
-        float backW = cw * 0.34f, pw = (cw - backW - 3f * gap) / 3f;
-        k.button(c, x, by, x + backW, by + bh, "BACK", eng.focus == n);
-        hit(x, by, x + backW, by + bh, n, 0);
-        float p0 = x + backW + gap;
-        pageButton(c, p0, by, p0 + pw, by + bh, "< PREV", page > 0, n + 1);
-        k.plate(c, p0 + pw + gap, by, p0 + 2 * pw + gap, by + bh, 0x28104030, Skin.EDGE, 3f * u);
-        k.text(c, cs(155, "PAGE ", page + 1, "/", pages, ""), p0 + pw * 1.5f + gap, by + bh * 0.68f, 40f * u, TEXT, Paint.Align.CENTER);
-        pageButton(c, p0 + 2 * (pw + gap), by, p0 + 3 * pw + 2 * gap, by + bh, "NEXT >", page < pages - 1, n + 2);
-    }
+    private final ShopPanel shopPanel = new ShopPanel(k, atlas, this::hit); // v1.5 B4: the terminal lives in ShopPanel
 
-    /** A page button: a live button, or a dimmed plate (no tap) when there is no page that way. */
-    private void pageButton(Canvas c, float l, float t, float r, float b, String label, boolean on, int id) {
-        if (on) {
-            k.button(c, l, t, r, b, label, false);
-            hit(l, t, r, b, id, 0);
-        } else {
-            k.plate(c, l, t, r, b, 0x18000000, Skin.EDGE, 2f * k.u);
-            k.text(c, label, (l + r) / 2f, t + (b - t) * 0.68f, 36f * k.u, 0xFF5A524C, Paint.Align.CENTER);
-        }
+    private void shop(Canvas c, int w, int h) {
+        float[] cl = column(w, h, 1200f * k.u);
+        shopPanel.draw(c, w, h, cl[0], cl[1]);
     }
 
     // ---- pause, chest, result
@@ -2270,8 +2225,8 @@ public final class PanelRenderer {
                 case 2: v = cs(88, "", eng.resultLevel, ""); break;
                 case 3: v = cs(89, "", eng.resultGold, ""); col = GOLD; break;
                 default:
-                    v = eng.resultNewBest ? "NEW BEST TIME" : eng.meta.bestTimeSec > 0 ? tcs(7, eng.meta.bestTimeSec) : "--:--";
-                    col = eng.resultNewBest ? Skin.ORANGE : TEXT;
+                    v = eng.resultRecord ? "NEW RECORD" : eng.resultNewBest ? "NEW BEST TIME" : eng.meta.bestTimeSec > 0 ? tcs(7, eng.meta.bestTimeSec) : "--:--"; // v1.5 B4
+                    col = eng.resultNewBest || eng.resultRecord ? Skin.ORANGE : TEXT;
             }
             k.text(c, v, vx, y, 40f * u, col, Paint.Align.RIGHT);
             if (i < 4) {
@@ -2305,6 +2260,12 @@ public final class PanelRenderer {
                     for (int p = 0; p < 3; p++) k.pip(c, cx + p * 14f * u, iy + bs * 0.8f + 8f * u, 11f * u, p < t, GOLD);
                 }
             }
+        }
+        String[] ach = eng.resultAch; // v1.5 B4: achievements unlocked by this run, one line each (the first three)
+        for (int i = 0; i < ach.length; i++) {
+            float ay = lb + 14f * u + i * 46f * u;
+            k.plate(c, x, ay, x + cw, ay + 40f * u, 0x30FFD84A, GOLD, 2f * u);
+            k.fit(c, ach[i], w / 2f, ay + 30f * u, 28f * u, cw - 40f * u, GOLD, Paint.Align.CENTER);
         }
         float by = h - 190f * u;
         float bw2 = Math.min(w * 0.85f, 900f * u);

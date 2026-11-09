@@ -151,6 +151,8 @@ public final class Sim {
     public final int[] toastColor = new int[MAX_TOASTS];
     /** Elites (design section 5): when the next one is due, how many came, how many were killed, the one alive (or null). */
     public float nextEliteAt;
+    /** v1.5 B4: the modifiers of this run (ascension tier, daily modifier, bought charges); set by {@link #applyMods} right after the constructor. */
+    public RunMods mods = RunMods.NONE;
     public int eliteSpawned, eliteKilled;
     public Enemy eliteNow;
     /** The boss shown in the HUD (the first alive; The First before the others), the 2 s spawn banner, and The First's end. */
@@ -332,6 +334,12 @@ public final class Sim {
      */
     public Sim(GameData data, StageDef stage, String starterKey, Map<String, Double> meta, String heroKey) {
         this(data, stage, starterKey, meta, heroKey, 0L); // deterministic by default; the game passes a fresh seed
+    }
+
+    /** v1.5 B4: gives the run its modifiers (the first elite comes earlier with the Elites modifier). */
+    public void applyMods(RunMods m) {
+        mods = m == null ? RunMods.NONE : m;
+        if (mods.eliteEarlySec() > 0f) nextEliteAt = Math.max(30f, nextEliteAt - mods.eliteEarlySec());
     }
 
     /** Same, with the random generator seeded before the first spawns (headless runs and soaks are then reproducible). */
@@ -1446,13 +1454,15 @@ public final class Sim {
                 * (1 + stats.curse) * (boss && !t.def.ashfallBoss ? 3.0 : 1.0);
         if (boss && t.def.ashfallBoss) hp *= bossHpRamp(t.def.param("hpRamp", 0f), time);
         if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= stage.hpMul(time); // phase 13: the HP of wave enemies grows with the run time
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) hp *= mods.hpMult(); // v1.5 B4: ascension
         e.hp = e.maxHp = (float) Math.max(1, hp);
         e.speed = (float) (t.def.speed * ENEMY_SPEED_K * stage.enemySpeed * (1 + stats.curse * 0.5) * stats.enemySpeed);
         e.power = (float) t.def.power;
         e.radius = t.radius * (boss ? 1.8f : 1f);
         e.xp = (float) (t.def.xp * stage.xpFade(time)); // Ashfall: the late-game XP fade (stage data)
         if (t.arch != EnemyDef.ARCH_CHASER) ai.init(e);
-        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) e.speed *= (float) stage.speedMul(time); // v1.4: wave enemies get quicker with the run time
+        if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) e.speed *= (float) stage.speedMul(time) * mods.speedMult(); // v1.4; v1.5 B4: ascension
+        if (false) ; //: wave enemies get quicker with the run time
         if (!boss && t.arch != EnemyDef.ARCH_TENTACLE) { // phase 13: contact and bolt damage grow with the run time too
             float dm = (float) stage.dmgMul(time);
             e.power *= dm;
@@ -2310,7 +2320,7 @@ public final class Sim {
                 break;
             case Entities.K_ROAST:
                 sound.emit(SoundEvents.FOOD_HEAL);
-                heal(30f);
+                heal(30f * mods.healMult()); // v1.5 B4: ascension cuts healing drops
                 break;
             case Entities.K_VACUUM:
                 sound.emit(SoundEvents.COIN);
@@ -2490,7 +2500,8 @@ public final class Sim {
 
     /** Gold the run pays out: doubled when The First was killed. */
     public int endGold() {
-        return firstKilled ? gold * 2 : gold;
+        int g = firstKilled ? gold * 2 : gold;
+        return mods == RunMods.NONE ? g : Math.round(g * mods.goldMult()); // v1.5 B4: +15% per ascension tier, x1.5 on the first daily
     }
 
     /** The hero picks an item up: an empty slot equips it, a better one waits for a choice, anything else is salvaged. */

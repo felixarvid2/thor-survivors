@@ -98,6 +98,13 @@ public class PanelCostTest {
         h.eng.phase = Engine.PH_SHOP;
         h.eng.focus = 2;
         measure("shop", p, c, 1240, 1080, null);
+        for (int pg = 1; pg < h.eng.catalog.pages(); pg++) { // v1.5 B4: the Run, Cosmetics and Awards pages, refund mode on
+            h.eng.focus = h.eng.catalog.pageStart[pg];
+            h.eng.shopRefund = pg % 2 == 0;
+            h.eng.advance(1f / 60f);
+            measure("shop page " + pg, p, c, 1240, 1080, null);
+        }
+        h.eng.shopRefund = false;
 
         // the HUD with a full build, an elite, a boss and its banner, hero statuses
         h.eng.phase = Engine.PH_MENU;
