@@ -39,6 +39,9 @@ public final class PlayerStats {
     public boolean burnImmune, ashTrail, cloudHeal;
     /** Rootmind's Heartwood (v1.4): multiplier on all healing (1 = none) and the chance a Bloom Heart drops a Vacuum (0 = the stage's 10%). */
     public double healMul = 1, heartVacuum;
+    /** v1.5 B5 uniques: Cinder Band (burning trail), Echo Bell (bonus on the hit after a 10-gem streak), Lumen Ward (seconds between absorbed hits, 0 = none). */
+    public boolean cinderTrail;
+    public double echoBell, wardEvery;
 
     public static PlayerStats compute(Inventory inv, Map<String, Double> meta, double extraLuck) {
         return compute(inv, meta, extraLuck, null, 1);
@@ -112,6 +115,9 @@ public final class PlayerStats {
         p.cloudHeal = g(sum, "cloudHeal") > 0;
         p.healMul = 1 + g(sum, "healMul");
         p.heartVacuum = g(sum, "heartVacuum");
+        p.cinderTrail = g(sum, "cinderTrail") > 0; // v1.5 B5
+        p.echoBell = g(sum, "echoBell");
+        p.wardEvery = g(sum, "lumenWard");
         if (hero != null) {
             p.baseHp = hero.hp;
             p.armor += hero.armor;

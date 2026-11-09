@@ -118,7 +118,7 @@ public class StageSoakTest {
             assertTrue(k + " was fought", worst.containsKey(k));
         }
         for (java.util.Map.Entry<String, Double> e : worst.entrySet()) assertTrue(e.getKey() + " took " + e.getValue() + " s", e.getValue() < 90.0);
-        assertTrue("The First reached in " + first.size() + " runs", first.size() >= 2); // v1.5 B6: was 3; lead-shot, flanking packs and the new elites kill the mid bot a little earlier (batch 7 retunes) // v1.4: the mid bot dies earlier (harder stages, Mines add-ons), so fewer of 24 runs reach 28:00
+        assertTrue("The First reached in " + first.size() + " runs", first.size() >= 2); // v1.5 B5+B6: was 3; the new weapons dilute the mid bot's offers, and lead-shot, flanking packs and the new elites kill the mid bot a little earlier (batch 7 retunes) // v1.4: the mid bot dies earlier (harder stages, Mines add-ons), so fewer of 24 runs reach 28:00
         assertTrue("The First: median projected kill time " + median, median < 150.0);
         assertTrue("The First is killable: " + firstKills, firstKills >= 1);
     }

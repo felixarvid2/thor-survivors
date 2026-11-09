@@ -5529,6 +5529,39 @@
    },
    "unique": true,
    "source": "THE_PILLAR"
+  },
+  "CINDER_BAND": {
+   "name": "Cinder Band",
+   "slot": "RING",
+   "icon": "unique_cinder_band",
+   "values": {
+    "cinderTrail": 1,
+    "statusChance_burn": 0.05
+   },
+   "unique": true,
+   "source": "COMMANDANT_HALE"
+  },
+  "ECHO_BELL": {
+   "name": "Echo Bell",
+   "slot": "NECK",
+   "icon": "unique_echo_bell",
+   "values": {
+    "echoBell": 0.3,
+    "magnet": 0.15
+   },
+   "unique": true,
+   "source": "OVERSEER_UNIT_7"
+  },
+  "LUMEN_WARD": {
+   "name": "Lumen Ward",
+   "slot": "BODY",
+   "icon": "unique_lumen_ward",
+   "values": {
+    "lumenWard": 45,
+    "armor": 1
+   },
+   "unique": true,
+   "source": "FROZEN_WELDER"
   }
  },
  "equipmentRules": {
@@ -5875,6 +5908,272 @@
   "REVIVAL": {
    "price": 18000,
    "exp": 1.0
+  }
+ },
+ "weapons": {
+  "ARC_LANCE": {
+   "name": "Arc Lance",
+   "evoInto": "STORM_LANCE",
+   "evoSynergy": [
+    "OVERCHARGE",
+    "SPEED"
+   ],
+   "rarity": 60,
+   "description": "A straight lance of charged plasma at the nearest enemy. Pierces 3, one more every second level.",
+   "rows": [
+    {
+     "interval": 1400,
+     "repeatInterval": 120,
+     "power": 4.0,
+     "area": 1,
+     "speed": 1,
+     "amount": 1,
+     "penetrating": 3,
+     "knockback": 0.3,
+     "critChance": 0.1,
+     "critMul": 2
+    },
+    {
+     "power": 0.5
+    },
+    {
+     "penetrating": 1
+    },
+    {
+     "power": 0.5
+    },
+    {
+     "penetrating": 1
+    },
+    {
+     "amount": 1
+    },
+    {
+     "penetrating": 1
+    },
+    {
+     "power": 0.5
+    }
+   ]
+  },
+  "STORM_LANCE": {
+   "name": "Storm Lance",
+   "evolution": true,
+   "description": "Twin lances that pierce six and electrify. Every hit arcs half its damage to a neighbour.",
+   "rows": [
+    {
+     "interval": 1200,
+     "repeatInterval": 140,
+     "power": 6.0,
+     "area": 1.3,
+     "speed": 1.2,
+     "amount": 2,
+     "penetrating": 6,
+     "knockback": 0.3,
+     "critChance": 0.2,
+     "critMul": 2
+    }
+   ]
+  },
+  "SLAG_MORTAR": {
+   "name": "Slag Mortar",
+   "evoInto": "MAGMA_HOWITZER",
+   "evoSynergy": [
+    "SCRAP_MAGNET",
+    "AREA"
+   ],
+   "rarity": 60,
+   "description": "Lobs a shell that leaves a burning slag puddle. Strong on a crowd that stands still, useless against one you kite.",
+   "rows": [
+    {
+     "interval": 2200,
+     "repeatInterval": 260,
+     "power": 0.3,
+     "area": 1,
+     "speed": 1,
+     "amount": 1,
+     "duration": 3000,
+     "hitBoxDelay": 500,
+     "knockback": 0
+    },
+    {
+     "power": 0.1
+    },
+    {
+     "amount": 1
+    },
+    {
+     "duration": 500
+    },
+    {
+     "power": 0.1
+    },
+    {
+     "area": 0.15
+    },
+    {
+     "amount": 1
+    },
+    {
+     "power": 0.1
+    }
+   ]
+  },
+  "MAGMA_HOWITZER": {
+   "name": "Magma Howitzer",
+   "evolution": true,
+   "description": "Two heavy shells. Each lands with a blast and leaves a wide, long-lived magma pool.",
+   "rows": [
+    {
+     "interval": 2200,
+     "repeatInterval": 300,
+     "power": 0.8,
+     "area": 1.35,
+     "speed": 1,
+     "amount": 2,
+     "duration": 4500,
+     "hitBoxDelay": 450,
+     "knockback": 0
+    }
+   ]
+  },
+  "TETHER_DRONE": {
+   "name": "Tether Drone",
+   "evoInto": "LEASH_ARRAY",
+   "evoSynergy": [
+    "GLASS_CORE",
+    "COOLDOWN"
+   ],
+   "rarity": 60,
+   "description": "A drone circles you and tethers the weakest enemy within reach every 0.6 s. Short range: it cannot cover everything.",
+   "rows": [
+    {
+     "interval": 1000,
+     "repeatInterval": 0,
+     "power": 1.4,
+     "area": 1,
+     "speed": 1,
+     "amount": 1,
+     "beamEvery": 600,
+     "range": 150,
+     "knockback": 0.1,
+     "critChance": 0.05,
+     "critMul": 2
+    },
+    {
+     "power": 0.25
+    },
+    {
+     "amount": 1
+    },
+    {
+     "range": 20
+    },
+    {
+     "power": 0.25
+    },
+    {
+     "amount": 1
+    },
+    {
+     "range": 20
+    },
+    {
+     "power": 0.25
+    }
+   ]
+  },
+  "LEASH_ARRAY": {
+   "name": "Leash Array",
+   "evolution": true,
+   "description": "Three drones, each tethering the two weakest enemies in reach, slowing them.",
+   "rows": [
+    {
+     "interval": 1000,
+     "repeatInterval": 0,
+     "power": 2.6,
+     "area": 1.2,
+     "speed": 1.2,
+     "amount": 3,
+     "beamEvery": 480,
+     "range": 220,
+     "knockback": 0.1,
+     "critChance": 0.1,
+     "critMul": 2
+    }
+   ]
+  },
+  "OVERCHARGE": {
+   "name": "Overcharge",
+   "powerUp": true,
+   "rarity": 60,
+   "description": "+6% projectile speed and +4% effect duration per level.",
+   "rows": [
+    {
+     "speed": 0.06,
+     "duration": 0.04
+    },
+    {
+     "speed": 0.06,
+     "duration": 0.04
+    },
+    {
+     "speed": 0.06,
+     "duration": 0.04
+    },
+    {
+     "speed": 0.06,
+     "duration": 0.04
+    },
+    {
+     "speed": 0.06,
+     "duration": 0.04
+    }
+   ]
+  },
+  "SCRAP_MAGNET": {
+   "name": "Scrap Magnet",
+   "powerUp": true,
+   "rarity": 60,
+   "description": "+25% pickup range and +3% gold per level. Not a combat stat: it pays for the kiter.",
+   "rows": [
+    {
+     "magnet": 0.25,
+     "greed": 0.03
+    },
+    {
+     "magnet": 0.25,
+     "greed": 0.03
+    },
+    {
+     "magnet": 0.25,
+     "greed": 0.03
+    },
+    {
+     "magnet": 0.25,
+     "greed": 0.03
+    }
+   ]
+  },
+  "GLASS_CORE": {
+   "name": "Glass Core",
+   "powerUp": true,
+   "rarity": 40,
+   "description": "+20% might per level, but -15% max HP per level. For those who do not get hit.",
+   "rows": [
+    {
+     "power": 0.2,
+     "maxHp": -0.15
+    },
+    {
+     "power": 0.2,
+     "maxHp": -0.15
+    },
+    {
+     "power": 0.2,
+     "maxHp": -0.15
+    }
+   ]
   }
  }
 }

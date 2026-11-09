@@ -52,6 +52,10 @@ public final class Sim {
         /** Fusions.* id when this slot holds a weapon fusion (0 = none) and a timer for it. */
         public int fusion;
         public float aux;
+        /** v1.5 B5: Arsenal.* id of a new weapon (0 = none), its beam timer / range (Tether Drone), and Overdrive (maxed, passive owned, not yet evolved). */
+        public int arsenal;
+        public float beamEvery, range;
+        public boolean overdrive;
     }
 
     public final GameData data;
@@ -126,6 +130,7 @@ public final class Sim {
     final BossAi boss = new BossAi(this, ai);
     final Elites elites = new Elites(this);
     final Fusions fusions = new Fusions(this);
+    final Arsenal arsenal = new Arsenal(this); // v1.5 B5
     /** Hero statuses from enemy hazards (design section 7): seconds left of Burn, Slow and Decay. */
     public float heroBurnT, heroSlowT, heroDecayT;
     private float statusAcc;
@@ -367,6 +372,8 @@ public final class Sim {
         merchant.init(seed == null ? 0L : seed, hasFinds());
         events.init(seed == null ? 0L : seed);
         pois.init(seed == null ? 0L : seed, hasFinds());
+        vacRng.setSeed((seed == null ? 0L : seed) ^ 0x7ACC0F00DL); // v1.5 B5: the Vacuum Gem has its own random
+        vacNext = 150.0 + vacRng.nextDouble() * 90.0;
         destCx = Integer.MIN_VALUE; // list the destructibles again: the places add their own
         refreshDestructibles();
     }
@@ -534,6 +541,8 @@ public final class Sim {
     }
 
     private static int behaviorOf(String key) {
+        int ar = Arsenal.behaviorOf(Arsenal.idOf(key)); // v1.5 B5
+        if (ar >= 0) return ar;
         switch (key) {
             case "STORMLASH": return B_WHIP;
             case "FOUNDRY_SPILL": return B_WATER;
@@ -564,6 +573,7 @@ public final class Sim {
         w.behavior = behaviorOf(s.def.key);
         w.evo = s.def.evolution;
         w.fusion = Fusions.idOf(s.def.key);
+        w.arsenal = Arsenal.idOf(s.def.key);
         Map<String, Double> m = s.def.statsAt(s.level);
         w.dmg = g(m, "power", 1) * 10f * (float) stats.might;
         w.interval = (float) Math.max(50, g(m, "interval", 1000)) / 1000f * (float) stats.cooldownMul;
@@ -574,18 +584,43 @@ public final class Sim {
         w.hasHitDelay = m.containsKey("hitBoxDelay");
         w.hitDelay = Math.max(0.05f, g(m, "hitBoxDelay", 500) / 1000f);
         w.auraRadius = 50f * w.area;
-        w.endless = s.def.key.equals("VESPERS") || w.fusion == Fusions.CENSER || w.fusion == Fusions.FARADAY;
+        w.endless = s.def.key.equals("VESPERS") || w.fusion == Fusions.CENSER || w.fusion == Fusions.FARADAY
+                || w.arsenal == Arsenal.TETHER || w.arsenal == Arsenal.LEASH;
+        w.beamEvery = g(m, "beamEvery", 600) / 1000f * (float) stats.cooldownMul;
+        w.range = g(m, "range", 150);
         w.knock = g(m, "knockback", 0.3f);
         w.critChance = (g(m, "critChance", 0) + (float) stats.critBonus) * (1f + (float) stats.luck);
         w.critMul = g(m, "critMul", 2);
         w.amount = Math.max(1, Math.round(g(m, "amount", 1)) + stats.amountBonus);
         w.pierce = Math.max(1, Math.round(g(m, "penetrating", 1)));
         w.dependsOnDuration = g(m, "intervalDependsOnDuration", 0) > 0 || s.def.key.equals("HOLYBOOK");
+        // v1.5 B5 Overdrive: a maxed base weapon whose evolution passive is owned (the boss chest has not come yet) gets +1 projectile and -10% cooldown
+        boolean od = overdriveOf(s);
+        if (od) {
+            w.amount += 1;
+            w.interval *= OVERDRIVE_COOLDOWN;
+            w.beamEvery *= OVERDRIVE_COOLDOWN;
+        }
+        if (od && !w.overdrive && !fresh) toast("OVERDRIVE: " + s.def.name, 0xFFFFB347);
+        w.overdrive = od;
         if (fresh) {
             w.cd = 0.4f + 0.15f * i;
             w.pending = 0;
             w.side = 1;
         }
+    }
+
+    /** Overdrive: -10% cooldown (and +1 projectile) while a maxed weapon waits for its evolution. */
+    public static final float OVERDRIVE_COOLDOWN = 0.9f;
+
+    /** True when the slot holds a base weapon at max level that has an evolution and one of its synergy passives is owned. */
+    boolean overdriveOf(Inventory.Slot s) {
+        WeaponDef d = s.def;
+        if (d.evolution || d.fusion || d.evoInto == null || s.level < d.maxLevel()) return false;
+        WeaponDef target = data.weapons.get(d.evoInto);
+        if (target == null || !target.evolution) return false;
+        for (String p : d.evoSynergy) if (inv.hasPassive(p)) return true;
+        return false;
     }
 
     private static float g(Map<String, Double> m, String k, double d) {
@@ -635,6 +670,7 @@ public final class Sim {
             condenseFar();
         }
         updatePickups(dt);
+        updateVacuumGem();
         updateFinds();
         updateFusionReady(dt);
         merchant.update();
@@ -643,6 +679,7 @@ public final class Sim {
         if (freezeTimer > 0) freezeTimer -= dt;
         if (invuln > 0) invuln -= dt;
         if (guardT > 0) guardT -= dt;
+        if (wardT > 0) wardT -= dt;
         if (hitShake > 0) hitShake -= dt;
         if (pylonCd > 0) pylonCd -= dt;
         if (screenFlash > 0) screenFlash -= dt;
@@ -689,6 +726,9 @@ public final class Sim {
     }
 
     static final float ASH_EVERY = 50f;
+    /** v1.5 B5 Cinder Band: a patch every 48 u, radius 40, 6 damage per second. */
+    static final float CINDER_EVERY = 48f, CINDER_R = 40f, CINDER_DPS = 6f;
+    private float cinderDist;
     /**
      * Hazard slots kept free for telegraphs and boss attacks: the hero's ash trail stops filling the pool this many slots
      * short of it, elite trails and Slagborn's trail fewer ({@link #HAZ_RESERVE_TRAIL}).
@@ -719,6 +759,13 @@ public final class Sim {
             float pw = rules.pushWeight(StageRules.PUSH_HERO, null) * sp * dt;
             px += pushV[0] * pw;
             py += pushV[1] * pw;
+        }
+        if (stats.cinderTrail && len > 0.05f) { // v1.5 B5 Cinder Band: burning ground behind the hero, 6 dps to enemies in 40 u
+            cinderDist += len * sp * dt;
+            if (cinderDist >= CINDER_EVERY) {
+                cinderDist = 0f;
+                if (hazN < MAX_HAZ - HAZ_RESERVE_ASH) ai.addHazard(Entities.HZ_ASH, px, py + 6f, CINDER_R, 2.2f, CINDER_DPS, 0f);
+            }
         }
         if (stats.ashTrail && len > 0.05f) { // Ashwalker Treads: a patch of ash every 40 units, enemies in it move at 80%
             ashDist += len * sp * dt;
@@ -1794,7 +1841,23 @@ public final class Sim {
     public static final int DMG_CONTACT = 0, DMG_BOLT = 1, DMG_AREA = 2, DMG_BLAST = 3;
     public final float[] dmgBy = new float[4];
 
+    /** v1.5 B5 Echo Bell: gems in a row (each within GEM_CHAIN of the last) that arm the bonus; whether the next hit carries it. */
+    static final int BELL_STREAK = 10;
+    private int bellStreak;
+    boolean bellReady;
+    /** v1.5 B5 Lumen Ward: seconds until the next hit can be absorbed (0 = ready). */
+    public float wardT;
+
     void hurtHero(float taken, float inv, boolean shake, int source) {
+        if (stats.wardEvery > 0.0 && wardT <= 0f) { // v1.5 B5 Lumen Ward: absorbs one hit per wardEvery seconds
+            wardT = (float) stats.wardEvery;
+            invuln = Math.max(invuln, Math.min(inv, 0.5f));
+            sound.emit(SoundEvents.EVOLUTION);
+            addFx(Entities.FX_FLASH, px, py - 20f, 110f, 0f, 0.3f, 0, false);
+            spark(px, py - 16f, 0xFF5AE0FF, 10);
+            toast("LUMEN WARD ABSORBED THE HIT", 0xFF5AE0FF);
+            return;
+        }
         taken *= (float) stats.damageTaken; // Riot Shield
         heroHits++;
         dmgBy[source] += taken;
@@ -1863,6 +1926,11 @@ public final class Sim {
 
     public void hurt(Enemy e, float dmg, float chance, float critMul, float kx, float ky, float knock) {
         if (e.dead || e.dormant) return;
+        if (bellReady) { // v1.5 B5 Echo Bell: the first hit after a 10-gem streak
+            bellReady = false;
+            dmg *= 1f + (float) stats.echoBell;
+            sound.emit(SoundEvents.COIN);
+        }
         boolean crit = chance > 0 && rng.nextFloat() < chance;
         lastCrit = crit;
         if (crit) dmg *= critMul;
@@ -2142,6 +2210,37 @@ public final class Sim {
         }
     }
 
+    // ------------------------------------------------------------------ v1.5 B5: the Vacuum Gem
+
+    /** Pickup value of a floor Vacuum Gem (a Vacuum dropped by an enemy has 0): it also pulls coins, and shows a toast. */
+    public static final float VACUUM_GEM = 2f;
+    private final Random vacRng = new Random();
+    /** Run time of the next Vacuum Gem (a rare floor pickup about every 4 minutes, 180 to 300 s apart, at most one live). */
+    public double vacNext;
+
+    public boolean vacuumGemLive() {
+        for (int i = 0; i < pickN; i++) if (picks[i].kind == Entities.K_VACUUM && picks[i].value >= VACUUM_GEM) return true;
+        return false;
+    }
+
+    private void updateVacuumGem() {
+        if (!pois.enabled || time < vacNext || vacuumGemLive()) return;
+        if (time > vacNext + 30.0) { // the clock jumped (a test or tool set the time): schedule from here instead of dropping a gem at once
+            vacNext = time + 180.0 + vacRng.nextDouble() * 120.0;
+            return;
+        }
+        for (int attempt = 0; attempt < 8; attempt++) {
+            float a = vacRng.nextFloat() * 6.2831855f, d = 280f + vacRng.nextFloat() * 200f;
+            float x = px + (float) Math.cos(a) * d, y = py + (float) Math.sin(a) * d;
+            if (map.blocked(x, y)) continue;
+            addPickup(Entities.K_VACUUM, x, y, VACUUM_GEM);
+            vacNext = time + 180.0 + vacRng.nextDouble() * 120.0;
+            toast("A VACUUM GEM LANDED NEARBY", 0xFF39FF88);
+            return;
+        }
+        vacNext = time + 10.0; // no free spot round the hero right now
+    }
+
     private void updatePickups(float dt) {
         float magnet = 70f * (float) stats.magnetMul;
         for (int i = pickN - 1; i >= 0; i--) {
@@ -2189,6 +2288,12 @@ public final class Sim {
     private void collect(Pickup p) {
         switch (p.kind) {
             case Entities.K_GEM:
+                bellStreak = tNow - lastGemT < SoundEvents.GEM_CHAIN ? bellStreak + 1 : 1; // v1.5 B5 Echo Bell
+                if (bellStreak >= BELL_STREAK && stats.echoBell > 0) {
+                    bellStreak = 0;
+                    bellReady = true;
+                    toast("ECHO BELL: NEXT HIT +" + Math.round(stats.echoBell * 100) + "%", 0xFFFFD85A);
+                }
                 gemChain = tNow - lastGemT < SoundEvents.GEM_CHAIN ? Math.min(SoundEvents.GEM_MAX_CHAIN, gemChain + 1) : 0;
                 lastGemT = tNow;
                 sound.emit(SoundEvents.GEM, gemChain);
@@ -2209,7 +2314,14 @@ public final class Sim {
                 break;
             case Entities.K_VACUUM:
                 sound.emit(SoundEvents.COIN);
-                for (int i = 0; i < pickN; i++) if (picks[i].kind == Entities.K_GEM) picks[i].pulled = true;
+                boolean gemVac = p.value >= VACUUM_GEM; // v1.5 B5: the floor Vacuum Gem pulls coins and bags too
+                for (int i = 0; i < pickN; i++) {
+                    if (picks[i].kind == Entities.K_GEM || (gemVac && (picks[i].kind == Entities.K_COIN || picks[i].kind == Entities.K_COINBAG))) picks[i].pulled = true;
+                }
+                if (gemVac) {
+                    addFx(Entities.FX_RING, px, py, 260f, 0f, 0.5f, 0, false);
+                    toast("VACUUM GEM", 0xFF39FF88);
+                }
                 break;
             case Entities.K_OROLOGION:
                 sound.emit(SoundEvents.COIN);
@@ -2851,6 +2963,7 @@ public final class Sim {
         p.evo = w.evo || w.fusion != 0;
         p.fusion = w.fusion;
         p.aux = p.aux2 = p.blastR = 0f;
+        p.tag = 0;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 2f;
         p.radius = 10f;
@@ -2883,6 +2996,7 @@ public final class Sim {
         p.slot = 255;
         p.evo = false;
         p.fusion = 0;
+        p.tag = 0;
         p.x = px; p.y = py; p.vx = p.vy = 0; p.angle = 0; p.spin = 0;
         p.life = p.maxLife = 1f;
         p.radius = 8f;
@@ -2908,6 +3022,7 @@ public final class Sim {
         switch (w.behavior) {
             case B_WHIP: whip(w); break;
             case B_MISSILE: {
+                if (w.arsenal == Arsenal.LANCE || w.arsenal == Arsenal.STORM) { arsenal.fireLance(w, slot); break; }
                 // nearest enemy at fire time, then a straight line: no homing
                 Enemy t = nearest(1000f);
                 Projectile p = newProj(Entities.P_MISSILE, slot, w);
@@ -2999,6 +3114,7 @@ public final class Sim {
                 break;
             }
             case B_WATER: {
+                if (w.arsenal == Arsenal.MORTAR || w.arsenal == Arsenal.HOWITZER) { arsenal.fireMortar(w, slot); break; }
                 Projectile p = newProj(Entities.P_PUDDLE, slot, w);
                 if (p == null) return;
                 // a flask lands within ~250 u of the player, biased toward enemies
@@ -3154,6 +3270,7 @@ public final class Sim {
             p.x = px + (float) Math.cos(p.orbitAngle) * p.orbitRadius;
             p.y = py + (float) Math.sin(p.orbitAngle) * p.orbitRadius;
             if (w.fusion != 0) fusions.setupBook(w, p, i);
+            if (w.arsenal != 0) arsenal.setupDrone(w, p, i); // v1.5 B5
         }
     }
 
@@ -3219,6 +3336,7 @@ public final class Sim {
                     break;
             }
             if (p.fusion != 0 && fusions.update(p, dt)) { removeProj(i); continue; }
+            if (p.tag != 0 && arsenal.update(p, dt)) { removeProj(i); continue; } // v1.5 B5
             // off-screen culling (books and puddles stay; the cross dies by lifetime)
             if (p.kind != Entities.P_BOOK && p.kind != Entities.P_PUDDLE && p.kind != Entities.P_CROSS) {
                 float dx = p.x - px, dy = p.y - py;
@@ -3244,11 +3362,12 @@ public final class Sim {
                 }
                 hurt(e, p.dmg, p.critChance, p.critMul, dx / d, dy / d, p.knock);
                 if (p.kind == Entities.P_FIRE) applyStatus(e, Entities.ST_BURN, p.evo ? 2 : 1, p.dmg, 0f); // Slag Cannon / Furnace Burst
-                else if (p.kind == Entities.P_PUDDLE) { // Corrosive Flask: Decay, and a one-stack slow
+                else if (p.kind == Entities.P_PUDDLE && p.tag == 0) { // Corrosive Flask: Decay, and a one-stack slow
                     applyStatus(e, Entities.ST_DECAY, 1, p.dmg, 0f);
                     applyStatus(e, Entities.ST_FROST, e.frost < 1 ? 1 : 0, p.dmg, 0f);
                 }
                 if (p.fusion != 0) fusions.onHit(p, e);
+                if (p.tag != 0) arsenal.onHit(p, e); // v1.5 B5
                 if (main != null && (p.kind == Entities.P_MAIN || p.sub != Entities.SUB_NONE)) main.onHit(p, e);
                 if (p.kind == Entities.P_FIRE || p.kind == Entities.P_AXE) { // a small burst where it hits
                     addFx(Entities.FX_BLAST, e.x, e.y, p.kind == Entities.P_FIRE ? 34f : 24f, p.kind == Entities.P_FIRE ? 1f : 0f, 0.28f, 0, p.evo);

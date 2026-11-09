@@ -55,7 +55,7 @@ public class EliteTest {
             StageSoak.Result r;
             StageSoak.withEvents = false; // the plain schedule: the Tide's extra elites are EventsTest's
             try {
-                r = StageSoak.run(stage, "BASTION", "immortal", 3, 1800);
+                r = StageSoak.run(stage, "BASTION", "immortal", 4, 1800); // v1.5 B5: seed 4 (seed 3 now meets a full enemy pool at one elite time with the new offers)
             } finally {
                 StageSoak.withEvents = true;
             }

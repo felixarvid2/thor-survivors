@@ -120,6 +120,8 @@ public class AshfallAssetsTest {
         assertEquals("Deep Mines", ashfall.stages.get("LIBRARY").name);
         java.util.Set<String> keys = new java.util.HashSet<>(ashfall.weapons.keySet());
         for (WeaponDef f : ashfall.fusions) keys.remove(f.key); // the fusions are new weapons of the overlay
+        for (String k : new String[]{"ARC_LANCE", "STORM_LANCE", "SLAG_MORTAR", "MAGMA_HOWITZER", "TETHER_DRONE", "LEASH_ARRAY",
+                "OVERCHARGE", "SCRAP_MAGNET", "GLASS_CORE"}) keys.remove(k); // v1.5 B5: new weapons and passives of the overlay
         assertEquals(base.weapons.keySet(), keys);
         for (String k : base.weapons.keySet()) {
             WeaponDef a = ashfall.weapons.get(k), b = base.weapons.get(k);

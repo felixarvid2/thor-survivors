@@ -7,7 +7,7 @@ Survivors stages FOREST and LIBRARY), so the XP and gold curves stay familiar. D
 x1.25 and speed x1.05 on top of the LIBRARY mods (it is the second stage).
 
 Run from thor-survivors/:  python3 tools/build_ashfall_stages.py
-Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `powerups`, `equipment`, `equipmentRules` and `fusions`
+Only the keys `enemies`, `stages` (FLATS, MINES), `lighting` (FLATS, MINES), `elites`, `powerups`, `equipment`, `equipmentRules`, `fusions` and `weapons` (v1.5 B5)
 are touched, plus the balance numbers listed in HERO_TUNE and MAIN_TUNE (design phase 12: they are applied on top of the
 heroes and mainWeapons that are already in the file; names, texts and branches stay as they are).
 """
@@ -267,6 +267,76 @@ def fusion_rows(f):
             d["interval"] = -round(l1["interval"] * 0.05)
         rows.append(d)
     return rows
+
+
+# --------------------------------------------------------------------------- v1.5 B5: new weapons, passives and uniques
+# The overlay block "weapons" (GameData.applyOverlay): three base weapons with an evolution each, three passives. Same row
+# layout as game_data.json (row 0 the full block, later rows deltas); `evoSynergy` lists the passives that evolve the weapon
+# at max level (any of them), `evoInto` the evolution (evolution=True, one row). `rarity` is the offer weight (the VS weapons
+# weigh 70 to 100). Behaviours live in game/Arsenal.java (ARC_LANCE, SLAG_MORTAR, TETHER_DRONE and their evolutions), the
+# passives use existing PlayerStats keys only (speed, duration, magnet, greed, power, maxHp).
+def _rows(first, *deltas):
+    return [first] + [dict(d) for d in deltas]
+
+
+V15_WEAPONS = {
+    "ARC_LANCE": dict(
+        name="Arc Lance", evoInto="STORM_LANCE", evoSynergy=["OVERCHARGE", "SPEED"], rarity=60,
+        description="A straight lance of charged plasma at the nearest enemy. Pierces 3, one more every second level.",
+        rows=_rows(dict(interval=1400, repeatInterval=120, power=4.0, area=1, speed=1, amount=1, penetrating=3, knockback=0.3,
+                        critChance=0.1, critMul=2),
+                   dict(power=0.5), dict(penetrating=1), dict(power=0.5), dict(penetrating=1), dict(amount=1),
+                   dict(penetrating=1), dict(power=0.5))),
+    "STORM_LANCE": dict(
+        name="Storm Lance", evolution=True,
+        description="Twin lances that pierce six and electrify. Every hit arcs half its damage to a neighbour.",
+        rows=[dict(interval=1200, repeatInterval=140, power=6.0, area=1.3, speed=1.2, amount=2, penetrating=6, knockback=0.3,
+                   critChance=0.2, critMul=2)]),
+    "SLAG_MORTAR": dict(
+        name="Slag Mortar", evoInto="MAGMA_HOWITZER", evoSynergy=["SCRAP_MAGNET", "AREA"], rarity=60,
+        description="Lobs a shell that leaves a burning slag puddle. Strong on a crowd that stands still, useless against one you kite.",
+        rows=_rows(dict(interval=2200, repeatInterval=260, power=0.3, area=1, speed=1, amount=1, duration=3000, hitBoxDelay=500,
+                        knockback=0),
+                   dict(power=0.1), dict(amount=1), dict(duration=500), dict(power=0.1), dict(area=0.15), dict(amount=1),
+                   dict(power=0.1))),
+    "MAGMA_HOWITZER": dict(
+        name="Magma Howitzer", evolution=True,
+        description="Two heavy shells. Each lands with a blast and leaves a wide, long-lived magma pool.",
+        rows=[dict(interval=2200, repeatInterval=300, power=0.8, area=1.35, speed=1, amount=2, duration=4500, hitBoxDelay=450,
+                   knockback=0)]),
+    "TETHER_DRONE": dict(
+        name="Tether Drone", evoInto="LEASH_ARRAY", evoSynergy=["GLASS_CORE", "COOLDOWN"], rarity=60,
+        description="A drone circles you and tethers the weakest enemy within reach every 0.6 s. Short range: it cannot cover everything.",
+        rows=_rows(dict(interval=1000, repeatInterval=0, power=1.4, area=1, speed=1, amount=1, beamEvery=600, range=150,
+                        knockback=0.1, critChance=0.05, critMul=2),
+                   dict(power=0.25), dict(amount=1), dict(range=20), dict(power=0.25), dict(amount=1), dict(range=20),
+                   dict(power=0.25))),
+    "LEASH_ARRAY": dict(
+        name="Leash Array", evolution=True,
+        description="Three drones, each tethering the two weakest enemies in reach, slowing them.",
+        rows=[dict(interval=1000, repeatInterval=0, power=2.6, area=1.2, speed=1.2, amount=3, beamEvery=480, range=220,
+                   knockback=0.1, critChance=0.1, critMul=2)]),
+    # passives (powerUp): the keys are the stat keys PlayerStats already sums
+    "OVERCHARGE": dict(
+        name="Overcharge", powerUp=True, rarity=60,
+        description="+6% projectile speed and +4% effect duration per level.",
+        rows=_rows(dict(speed=0.06, duration=0.04), *[dict(speed=0.06, duration=0.04)] * 4)),
+    "SCRAP_MAGNET": dict(
+        name="Scrap Magnet", powerUp=True, rarity=60,
+        description="+25% pickup range and +3% gold per level. Not a combat stat: it pays for the kiter.",
+        rows=_rows(dict(magnet=0.25, greed=0.03), *[dict(magnet=0.25, greed=0.03)] * 3)),
+    "GLASS_CORE": dict(
+        name="Glass Core", powerUp=True, rarity=40,
+        description="+20% might per level, but -15% max HP per level. For those who do not get hit.",
+        rows=_rows(dict(power=0.20, maxHp=-0.15), *[dict(power=0.20, maxHp=-0.15)] * 2)),
+}
+
+# three more uniques (fixed values), dropped by the timed bosses that carried none: slot, name, icon, values, source
+V15_UNIQUES = {
+    "CINDER_BAND": ("RING", "Cinder Band", "unique_cinder_band", {"cinderTrail": 1, "statusChance_burn": 0.05}, "COMMANDANT_HALE"),
+    "ECHO_BELL": ("NECK", "Echo Bell", "unique_echo_bell", {"echoBell": 0.30, "magnet": 0.15}, "OVERSEER_UNIT_7"),
+    "LUMEN_WARD": ("BODY", "Lumen Ward", "unique_lumen_ward", {"lumenWard": 45, "armor": 1}, "FROZEN_WELDER"),
+}
 
 
 # --------------------------------------------------------------------------- wave tables (design 9.3)
@@ -830,6 +900,9 @@ def main():
     data["equipment"] = eq
     data["equipmentRules"] = EQUIPMENT_RULES
     add_wreck(data)   # v1.4 chunk D: Meridian Wreck roster, rows, timed bosses, events, rules, the Echo of the Pillar
+    data["weapons"] = V15_WEAPONS   # v1.5 B5
+    for key, (slot, name, icon, values, source) in V15_UNIQUES.items():
+        data["equipment"][key] = dict(name=name, slot=slot, icon=icon, values=values, unique=True, source=source)
     data["fusions"] = {k: dict(name=FUSIONS[k]["name"], description=FUSIONS[k]["description"],
                                parents=FUSIONS[k]["parents"], rarity=1, rows=fusion_rows(FUSIONS[k])) for k in FUSION_KEYS}
     ov = json.loads(os.environ.get("TUNE_JSON") or "{}").get("*", {})   # experiments: hero_tune / main_tune over the tables above
