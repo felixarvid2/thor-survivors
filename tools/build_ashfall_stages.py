@@ -150,14 +150,15 @@ ELITES = dict(first=120, interval=90, min=45, shrinkPerMin=0.02, hpMul=6, damage
 # Applied on top of the heroes / mainWeapons already in ashfall_data.json: dotted path -> value. Measured with StageSoak (see the
 # thor-survivors-balance skill): a main weapon is strong but no longer replaces the VS build, Spectre survives like the others.
 HERO_TUNE = {
+    # v1.5 final hero spread (Spectre 26 points above Bastion and Xenomant on Flats): Spectre HP 126 -> 118 (-6 %), Bastion HP 154 -> 162 (+5 %)
     # v1.5 B7 item 61 hero parity (skilled bot, 30 seeds x 5 stages; spread per stage up to 43 points before): HP Bastion 140 -> 154, Spectre 115 -> 126, Xenomant 115 -> 105 (+-10 %)
     # glass cannon, but not made of glass: HP 80 -> 105, armor 1, regen 0.5, and every level takes 0.7% less damage (-35% at level 50)
-    "SPECTRE.hp": 126, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
+    "SPECTRE.hp": 118, "SPECTRE.armor": 2, "SPECTRE.regen": 0.7, "SPECTRE.perLevel.maxHp": 0.004,
     "SPECTRE.perLevel.damageTaken": -0.009,
     "BASTION.regen": 0.7,   # v1.4 (was 0.3): chronic attrition from bolts and slag is what kills the slow tank, see "Svårighet (v1.4)"
     # v1.3.1 hero parity (mid bot, 32 seeds): Spectre and Xenomant died of contact late (the damage curve makes a Colonist hit 96 at 30:00, Xenomant
     # had 95 HP and no armor), Bastion survived 3 in 4. Defence now grows with the level for all three.
-    "BASTION.hp": 154, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
+    "BASTION.hp": 162, "BASTION.armor": 4, "BASTION.perLevel.maxHp": 0.007,                                               # was 0.010
     "SPECTRE.perLevel.power": 0.006, "SPECTRE.perLevel.maxHp": 0.005,              # new / was 0.004 (damageTaken stays -0.007)
     "XENOMANT.hp": 105, "XENOMANT.armor": 1,                                       # v1.4: 100 -> 115 (a third of the skilled Xenomants died at 5-10 min on Flats)
     "XENOMANT.perLevel.maxHp": 0.004, "XENOMANT.perLevel.damageTaken": -0.0015,    # new
@@ -446,6 +447,18 @@ STAGE_TUNE["FLATS"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10
 STAGE_TUNE["HYDRO"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.2], [15, 1.348], [20, 1.586], [25, 1.851], [30, 2.18]])
 STAGE_TUNE["REFINERY"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.15], [15, 1.24], [20, 1.439], [25, 1.667], [30, 1.952]])
 STAGE_TUNE["WRECK"].update(spawn_ahead=0.2, speed_curve=[[0, 1.0], [5, 1.1], [10, 1.113], [15, 1.18], [20, 1.329], [25, 1.5], [30, 1.714]])
+# v1.5 final re-tune (after B5 weapons/passives and B6 elites/flanking/enrage landed on top of B7's numbers: 30:00 survival with the skilled bot
+# was Flats 7, Mines 21, Hydro 26, Refinery 20, Wreck 15 %, 80 seeds x 3 heroes per stage). Targets 45 / 40 / 35 / 30 / 25. The speed curve is
+# still the strong knob (the whole excess over 1.0 scaled to Flats x0.35, Mines x0.5 [of the default curve], Hydro x0.85, Refinery x0.78 and
+# Wreck x0.35 of B7's values); Flats also takes HP and damage x0.75 from minute 10 (the speed cut alone could not reach 45 without making
+# the enemies stand still). Elites x0.6 HP and damage did nothing for survival, density x0.75 gave 5 points.
+STAGE_TUNE["FLATS"].update(speed_curve=[[0, 1.0], [5, 1.035], [10, 1.044], [15, 1.07], [20, 1.114], [25, 1.161], [30, 1.219]],
+                           hp_curve=[[0, 1], [10, 0.9], [15, 1.2], [20, 1.8], [25, 3.75], [30, 6.75]],
+                           dmg_curve=[[0, 1.35], [3, 1.4], [6, 1.35], [10, 1.237], [13, 1.485], [16, 1.98], [20, 2.625], [24, 3.75], [30, 5.625]])
+STAGE_TUNE["MINES"].update(speed_curve=[[0, 1.0], [5, 1.05], [10, 1.125], [15, 1.2], [20, 1.325], [25, 1.46], [30, 1.625]])
+STAGE_TUNE["HYDRO"].update(speed_curve=[[0, 1.0], [5, 1.085], [10, 1.17], [15, 1.296], [20, 1.498], [25, 1.723], [30, 2.003]])
+STAGE_TUNE["REFINERY"].update(speed_curve=[[0, 1.0], [5, 1.078], [10, 1.117], [15, 1.187], [20, 1.342], [25, 1.52], [30, 1.743]])
+STAGE_TUNE["WRECK"].update(speed_curve=[[0, 1.0], [5, 1.035], [10, 1.04], [15, 1.063], [20, 1.115], [25, 1.175], [30, 1.25]])
 # Hordes sit between the bosses and events: nominal starts 675, 825, ..., 1575 (every 150 s) shifted off every timed boss (7:30, 12:30,
 # 17:30, 22:30, Kade 27:30 Flats / 26:30 Mines) and event start (Signal Tower 1260, Lumen Surge 1440, Beacon Flats 1560, Collapse Mines 1405-1430).
 
