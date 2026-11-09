@@ -34,7 +34,8 @@ public final class Achievements {
     }
 
     static {
-        String[] st = {"Cinder Flats", "Deep Mines", "Hydro Works", "Refinery", "Wreck Yard"};
+        // the names of the StageDefs in ashfall_data.json (kept here because this runs before any data is loaded; AchievementsTest checks them)
+        String[] st = {"Cinder Flats", "Deep Mines", "Hydroponic Vaults", "Refinery District", "Meridian Wreck"};
         for (int i = 0; i < 5; i++) def(WIN_FLATS + i, "Cleared: " + st[i], "Win " + st[i], 500 + 250 * i);
         String[] heroes = {"Bastion", "Spectre", "Xenomant"};
         for (int i = 0; i < 3; i++) {
