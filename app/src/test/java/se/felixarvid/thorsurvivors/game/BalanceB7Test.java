@@ -172,7 +172,7 @@ public class BalanceB7Test {
     }
 
     @Test
-    public void stillBotDiesEarlierWithThePenaltyThanWithout() throws Exception {
+    public void stillBotTakesMoreDamageWithThePenalty() throws Exception {
         GameData d = TestData.load();
         double on = 0, off = 0;
         int n = 3;
@@ -181,12 +181,22 @@ public class BalanceB7Test {
                 Sim s = new Sim(d, d.stages.get("MINES"), "WHIP", new HashMap<>(), "BASTION", seed);
                 s.standStillPenalty = pass == 0;
                 Input in = new Input();
-                while (s.ended == 0 && s.time < 900) s.update(1f / 60f, in);
-                if (pass == 0) on += s.time;
-                else off += s.time;
+                // v1.5 integration: a still Bastion dies after ~17 s either way (the penalty starts at 6 s), so time to death was
+                // a coin toss once the other batches moved the seeded runs. Measure what it costs instead: the damage a
+                // never-dying still hero takes in 90 s, which the extra spawns and the drift must raise.
+                double taken = 0;
+                while (s.time < 90) {
+                    float h0 = s.hp;
+                    s.update(1f / 60f, in);
+                    taken += Math.max(0f, h0 - s.hp);
+                    s.hp = s.maxHp;
+                    s.ended = 0;
+                }
+                if (pass == 0) on += taken;
+                else off += taken;
             }
         }
-        assertTrue("penalty " + on / n + " s vs none " + off / n + " s", on < off);
+        assertTrue("damage with the penalty " + on / n + " vs none " + off / n, on > off);
     }
 
     // ------------------------------------------------------------------ 67

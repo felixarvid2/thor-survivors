@@ -52,6 +52,13 @@ final class Shots {
         mp.unlockAll = true; // every stage open: the harness starts MINES and the new stages directly (StageSelectShotsTest closes them)
         eng.init(d, mp);
         eng.meta = mp;
+        // v1.5 integration: Engine and Settings are JVM-wide singletons. Start every harness from the default options and
+        // with the first-run hints already done, or a hint banner over the bottom screen depends on which test ran first
+        // (MenusB3ShotsTest resets the tutorial itself where it wants the hints).
+        se.felixarvid.thorsurvivors.game.Settings.get().load(null);
+        MemStore tut = new MemStore();
+        tut.putInt("tut_done", 1);
+        eng.tutorial.load(tut);
         SpriteAtlas.get().load(path -> new FileInputStream("src/main/assets/" + path));
         se.felixarvid.thorsurvivors.ui.UiArt.get().ensure(new File("src/main/assets"));
         eng.input.clearMovement();

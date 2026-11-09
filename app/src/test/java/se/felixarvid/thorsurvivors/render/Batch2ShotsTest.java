@@ -197,8 +197,8 @@ public class Batch2ShotsTest {
         Shots.save(one, "b2_elite_one.png");
         Shots.save(many, "b2_elite_many.png");
         assertTrue("more modifiers, more chips", diff(one, many, 580, 516, 1210, 560) > 500);
-        // six modifiers are alive: four chips and a "+2"
-        assertEquals(6, Elites.COUNT);
+        // six modifiers are alive: four chips and a "+2" (v1.5 integration: B6 made it nine modifiers in all)
+        assertEquals(9, Elites.COUNT);
     }
 
     @Test
