@@ -122,11 +122,12 @@ public class StageFrameworkTest {
     @Test
     public void flatsAndMinesRunsAreBitIdenticalToBefore() throws Exception {
         // v1.5 integration: re-recorded once after all eight batches were merged (B5 weapons, B6 AI, B7 balance, B3 aim and
-        // run stats, the curse/ascension HP path all change the seeded five minutes)
-        assertEquals("FLATS 5 min", 1653716227443812018L, stateHash("FLATS", 12345L, 0, 300));
-        assertEquals("MINES 5 min", 3325286861457397267L, stateHash("MINES", 12345L, 0, 300));
-        assertEquals("FLATS storm window", -4515178975800703282L, stateHash("FLATS", 777L, 705, 60));
-        assertEquals("MINES same window", 4043183821010351557L, stateHash("MINES", 777L, 705, 60));
+        // run stats, the curse/ascension HP path all change the seeded five minutes); v1.5 final: re-recorded once more for the survival
+        // re-tune (Flats HP / damage / speed curves, all stage speed curves, Spectre and Bastion HP)
+        assertEquals("FLATS 5 min", -2640578925019621882L, stateHash("FLATS", 12345L, 0, 300));
+        assertEquals("MINES 5 min", -5729074467392402798L, stateHash("MINES", 12345L, 0, 300));
+        assertEquals("FLATS storm window", -7832791603953090752L, stateHash("FLATS", 777L, 705, 60));
+        assertEquals("MINES same window", 626577960464793227L, stateHash("MINES", 777L, 705, 60));
     }
 
     @Test
