@@ -610,7 +610,7 @@ public final class PanelRenderer {
             float gx = x0 + 14f * u, gr = boss ? 12f * u : 15f * u;
             int nm = Elites.bits(el.mods);
             for (int n = 0; n < nm; n++) { // an icon per modifier in its colour
-                k.glyph(c, Elites.indexOf(el.mods, n), gx, y + gr + 2f * u, gr, Elites.colorOf(el.mods, n));
+                k.glyph(c, Elites.glyphOf(Elites.indexOf(el.mods, n)), gx, y + gr + 2f * u, gr, Elites.colorOf(el.mods, n));
                 gx += gr * 2 + 6f * u;
             }
             int mask = el.mods & 63;

@@ -116,13 +116,14 @@ public class StageFrameworkTest {
      * Chunk E: these are recorded with the add-ons OFF ({@code StageRules.addonsEnabled = false}), which is how they still prove that
      * the framework and the hooks changed nothing; the add-ons' own behaviour is in FlatsAddonTest / MinesAddonTest, and the test below
      * pins that switching them on changes the runs.
+     * v1.5 B6 re-recorded all four: chasers fan out in big packs (flank), ranged enemies lead, elites roll from nine modifiers.
      */
     @Test
     public void flatsAndMinesRunsAreBitIdenticalToBefore() throws Exception {
-        assertEquals("FLATS 5 min", -17717800225745701L, stateHash("FLATS", 12345L, 0, 300));
-        assertEquals("MINES 5 min", 8133837233524524462L, stateHash("MINES", 12345L, 0, 300));
-        assertEquals("FLATS storm window", 5816888918436928257L, stateHash("FLATS", 777L, 705, 60));
-        assertEquals("MINES same window", 3075974996198938137L, stateHash("MINES", 777L, 705, 60));
+        assertEquals("FLATS 5 min", 2557693173208608407L, stateHash("FLATS", 12345L, 0, 300));
+        assertEquals("MINES 5 min", -3190897404612269926L, stateHash("MINES", 12345L, 0, 300));
+        assertEquals("FLATS storm window", -4008795852715061867L, stateHash("FLATS", 777L, 705, 60));
+        assertEquals("MINES same window", -1992787712634495628L, stateHash("MINES", 777L, 705, 60));
     }
 
     @Test

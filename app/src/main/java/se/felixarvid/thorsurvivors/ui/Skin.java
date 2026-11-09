@@ -21,7 +21,8 @@ public final class Skin {
             COOL = 0xFF40D8FF;
 
     /** Glyph kinds: the six elite modifiers in {@code Elites} order, then the hero statuses that are not one of them. */
-    public static final int G_FIRE = 0, G_FROST = 1, G_BARRAGE = 2, G_VOLCANO = 3, G_RAISER = 4, G_ARMORED = 5, G_DECAY = 6, G_BOLT = 7;
+    public static final int G_FIRE = 0, G_FROST = 1, G_BARRAGE = 2, G_VOLCANO = 3, G_RAISER = 4, G_ARMORED = 5, G_DECAY = 6, G_BOLT = 7,
+            G_SHIELD = 8, G_SPLIT = 9, G_BLAST = 10; // v1.5 B6: elite modifiers Shielded, Splitter, Volatile
 
     public final UiArt art = UiArt.get();
     public final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -371,6 +372,21 @@ public final class Skin {
                 path.lineTo(cx + q * 0.05f, cy - q * 0.2f);
                 path.close();
                 c.drawPath(path, fill);
+                break;
+            case G_SHIELD: // v1.5 B6: a round shield with a bar across it
+                c.drawCircle(cx, cy, q * 1.15f, fill);
+                fill.setColor(0xFF0C0908);
+                c.drawRect(cx - q * 1.2f, cy - q * 0.15f, cx + q * 1.2f, cy + q * 0.15f, fill);
+                fill.setColor(color);
+                break;
+            case G_SPLIT: // v1.5 B6: one blob becoming two
+                c.drawCircle(cx - q * 0.75f, cy, q * 0.65f, fill);
+                c.drawCircle(cx + q * 0.75f, cy, q * 0.65f, fill);
+                break;
+            case G_BLAST: // v1.5 B6: a ring with a dot
+                stroke.setStrokeWidth(Math.max(2f, rad * 0.14f));
+                c.drawCircle(cx, cy, q * 1.15f, stroke);
+                c.drawCircle(cx, cy, q * 0.4f, fill);
                 break;
             default: // decay: a drop
                 path.moveTo(cx, cy - q * 1.35f);

@@ -97,7 +97,77 @@ public final class BossAi {
         }
     }
 
+    // ------------------------------------------------------------------ v1.5 B6: phase shield and enrage (every boss pattern)
+
+    /** A boss that has been alive this long (s) enrages: +25% speed, +15% damage (contact, bolts and ground attacks it makes from then on). */
+    public static final float ENRAGE_AT = 90f, ENRAGE_SPEED = 1.25f, ENRAGE_DAMAGE = 1.15f;
+    /** The shield after a phase change: seconds, and the radius of the add-clearing pulse (it never touches the hero). */
+    public static final float PHASE_SHIELD = 1.0f, PULSE_R = 320f;
+
+    /** Public flag for the HUD (batch 2): the boss has been alive {@link #ENRAGE_AT} s and is enraged. */
+    public static boolean enraged(Enemy e) {
+        return e != null && e.timeEnrage;
+    }
+
+    /** Public flag for the HUD: seconds of phase shield left (0 = none; the boss takes no damage meanwhile), to draw a ring. */
+    public static float phaseShield(Enemy e) {
+        return e == null ? 0f : Math.max(0f, e.shieldT);
+    }
+
+    /** Seconds until the enrage (0 once enraged), for a countdown next to the boss bar. */
+    public static float enrageIn(Enemy e) {
+        return e == null || e.timeEnrage ? 0f : Math.max(0f, ENRAGE_AT - e.bossAge);
+    }
+
+    /** True for the archetypes a phase pulse may clear: plain adds, never a place's guards, tentacles or a stage's own creatures. */
+    private static boolean isAdd(Enemy a) {
+        switch (a.type.arch) {
+            case EnemyDef.ARCH_CHASER: case EnemyDef.ARCH_PACK: case EnemyDef.ARCH_CHARGER: case EnemyDef.ARCH_RANGED:
+            case EnemyDef.ARCH_FLIER: case EnemyDef.ARCH_EXPLODER: case EnemyDef.ARCH_TANK: case EnemyDef.ARCH_SUMMONER:
+                return !a.boss && !a.elite && a.poi < 0 && !a.dormant;
+            default:
+                return false;
+        }
+    }
+
+    /** One step of a boss: age and enrage, the pattern, then the phase shield if the pattern just changed phase. */
     void update(Enemy e, float dt, boolean moving, float dx, float dy, float d) {
+        if (e.shieldT > 0f) e.shieldT -= dt;
+        e.bossAge += dt;
+        if (!e.timeEnrage && e.bossAge >= ENRAGE_AT) {
+            e.timeEnrage = true;
+            e.speed *= ENRAGE_SPEED;
+            e.power *= ENRAGE_DAMAGE;
+            e.shotMul *= ENRAGE_DAMAGE;
+            s.toast("ENRAGED", 0xFFFF4020);
+            s.screenShake(0.3f);
+        }
+        int phase0 = e.phase, id0 = s.nextEnemyId(), haz0 = s.hazN, proj0 = s.eprojN;
+        updatePattern(e, dt, moving, dx, dy, d);
+        if (e.timeEnrage) { // what the pattern just made hits 15% harder (patterns read def params, so scale the new bolts and hazards)
+            for (int i = haz0; i < s.hazN; i++) s.hazards[i].dps *= ENRAGE_DAMAGE;
+            for (int i = proj0; i < s.eprojN; i++) s.eprojs[i].dmg *= ENRAGE_DAMAGE;
+        }
+        if (e.phase > phase0 && !e.dead) phaseShield(e, id0);
+    }
+
+    /** 1.0 s of shield and a pulse that sweeps the adds that existed before the change (without kills, drops or any hero damage). */
+    void phaseShield(Enemy e, int idBefore) {
+        e.shieldT = PHASE_SHIELD;
+        for (int i = 0; i < s.enemyN; i++) {
+            Enemy a = s.enemies[i];
+            if (a.dead || a.id >= idBefore || !isAdd(a)) continue;
+            float ax = a.x - e.x, ay = a.y - e.y;
+            if (ax * ax + ay * ay > PULSE_R * PULSE_R) continue;
+            a.silent = true; // leaves without a kill or drops, so the pulse cannot be farmed
+            a.dead = true;
+            a.hp = 0f;
+            s.spark(a.x, a.y - 6f, 0xFFB0E0FF, 3);
+        }
+        s.addFx(Entities.FX_SLAM, e.x, e.y, PULSE_R * 0.8f, 0f, 0.6f, 0, false);
+    }
+
+    private void updatePattern(Enemy e, float dt, boolean moving, float dx, float dy, float d) {
         switch (e.type.pattern) {
             case 1: cargo(e, dt, moving, dx, dy, d); break;
             case 2: slagborn(e, dt, moving, dx, dy, d); break;

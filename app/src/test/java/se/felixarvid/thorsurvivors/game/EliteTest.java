@@ -64,11 +64,12 @@ public class EliteTest {
             for (int i = 1; i < r.eliteAt.size(); i++) {
                 double gap = r.eliteAt.get(i) - r.eliteAt.get(i - 1);
                 double want = Elites.interval(d, r.eliteAt.get(i - 1));
-                assertTrue(stage + " gap " + gap + " wanted " + want + " +-10 s", Math.abs(gap - want) <= 10.0);
-                assertTrue("never over 90 s + 10 s, never under the 45 s floor - 10 s: " + gap, gap <= 100 && gap >= 35);
+                // v1.5 B6: a Shielded elite takes longer to kill, and the next one waits until it dies (never two alive): up to 90 s late
+                assertTrue(stage + " gap " + gap + " wanted " + want + " (never early by over 10 s, at most 90 s late)", gap >= want - 10.0 && gap <= want + 90.0);
+                assertTrue("never under the 45 s floor - 10 s: " + gap, gap >= 35);
             }
             // v1.4: 120, then 90 s less 2% per minute down to the 45 s floor: about 24 to 34 elites in 30 minutes
-            assertTrue(stage + " elites " + r.eliteAt.size(), r.eliteAt.size() >= 24 && r.eliteAt.size() <= 34);
+            assertTrue(stage + " elites " + r.eliteAt.size(), r.eliteAt.size() >= 18 && r.eliteAt.size() <= 34);
             assertTrue("they die too: " + r.eliteKilled, r.eliteKilled >= r.eliteAt.size() - 2);
         }
     }
@@ -171,7 +172,7 @@ public class EliteTest {
             assertEquals("three distinct modifiers", 3, Elites.bits(m));
             seen |= m;
         }
-        assertEquals("all six are in the pool", 63, seen);
+        assertEquals("v1.5 B6: all nine are in the pool", 511, seen);
         // and the scheduler uses it
         for (int[] c : new int[][]{{200, 1}, {800, 2}, {1500, 3}}) {
             Sim s = sim("FLATS", c[0]);

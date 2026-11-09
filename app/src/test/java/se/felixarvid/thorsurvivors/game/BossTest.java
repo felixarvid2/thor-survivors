@@ -347,7 +347,7 @@ public class BossTest {
         v.hp = v.maxHp * 0.32f;
         step(t, 0.1);
         assertEquals(2, v.phase);
-        assertEquals("four more at 33%", 8, countEnemies(t, "SPORE_CARRIER"));
+        assertEquals("v1.5 B6: the 33% phase pulse clears the first four carriers and brings four new ones", 4, countEnemies(t, "SPORE_CARRIER"));
     }
 
     // ------------------------------------------------------------------ Smelter Foreman

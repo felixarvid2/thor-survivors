@@ -5511,7 +5511,7 @@
   "ROOTMINDS_HEARTWOOD": {
    "name": "Rootmind's Heartwood",
    "slot": "NECK",
-   "icon": "unique_ashen_heartwood",
+   "icon": "unique_rootminds_heartwood",
    "values": {
     "healMul": 0.25,
     "heartVacuum": 0.25
@@ -5522,7 +5522,7 @@
   "ECHO_OF_THE_PILLAR": {
    "name": "Echo of the Pillar",
    "slot": "NECK",
-   "icon": "unique_heart_of_lumen",
+   "icon": "unique_echo_of_the_pillar",
    "values": {
     "padRecharge": 6,
     "padShock": 0.5

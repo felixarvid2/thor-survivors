@@ -445,7 +445,7 @@ public final class Events {
             WaveRow row = s.stage.rows.get(WaveSelector.indexAt(s.stage.rows, s.time));
             if (row.enemies.length > 0) {
                 EnemyType t = s.type(row.enemies[er.nextInt(row.enemies.length)]);
-                s.spawnElite(t, Elites.roll(er, Elites.modCount(s.data, s.time)));
+                s.spawnElite(t, Elites.roll(er, Elites.modCount(s.data, s.time), s.time));
             }
         }
     }
