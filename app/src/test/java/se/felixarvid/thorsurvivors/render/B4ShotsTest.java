@@ -75,6 +75,11 @@ public class B4ShotsTest {
         h.eng.advance(1f / 60f);
         Shots.save(h.renderBottom(), "b4_menu_daily.png");
         h.eng.dailyPick = false;
+        h.eng.meta.stepCurse(2); // v1.5 final: the CURSE row at 20 percent
+        h.eng.focus = Engine.MENU_CURSE;
+        h.eng.advance(1f / 60f);
+        Shots.save(h.renderBottom(), "final_menu_curse.png");
+        h.eng.dailyPick = false;
         h.eng.meta.addGold(20000);
         h.eng.meta.buyReroll();
         h.eng.meta.buyReroll();

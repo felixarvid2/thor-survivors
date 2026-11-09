@@ -25,6 +25,8 @@ public final class MetaProgress {
     /** Lighting quality: 0 OFF, 1 LOW (static vignette), 2 FULL (lightmap). */
     public static final int LIGHT_OFF = 0, LIGHT_LOW = 1, LIGHT_FULL = 2;
     public volatile int lighting = LIGHT_FULL;
+    /** v1.5 final: the selected curse step (index into {@link CurseMod#STEPS}), stored as "set_curse". */
+    public volatile int curseStep;
     /** Selected hero: index into {@link GameData#HERO_ORDER} among the heroes the data defines (0 = Bastion, also for old saves). */
     public volatile int heroIdx;
     private String[] heroKeys;
@@ -49,6 +51,7 @@ public final class MetaProgress {
         musicVol = Math.max(0, Math.min(VOL_MAX, store.getInt("volMusic", 2)));
         sfxVol = Math.max(0, Math.min(VOL_MAX, store.getInt("volSfx", 3)));
         lighting = Math.max(0, Math.min(LIGHT_FULL, store.getInt("lighting", LIGHT_FULL)));
+        curseStep = Math.max(0, Math.min(CurseMod.STEPS.length - 1, store.getInt("set_curse", 0)));
         unlockAll = store.getInt("unlockAll", 0) != 0;
         heroIdx = Math.max(0, Math.min(Math.max(0, data.heroes.size() - 1), store.getInt("hero", 0)));
         for (String k : data.powerUps.keySet()) ranks.put(k, store.getInt("pu_" + k, 0));
@@ -502,5 +505,16 @@ public final class MetaProgress {
     public void stepLighting(int delta) {
         lighting = (lighting + delta + LIGHT_FULL + 1) % (LIGHT_FULL + 1);
         store.putInt("lighting", lighting);
+    }
+
+    /** v1.5 final: steps the pre-run curse (0/10/20/30 percent, wrapping) and stores it. */
+    public void stepCurse(int delta) {
+        int n = CurseMod.STEPS.length;
+        curseStep = (curseStep + delta % n + n) % n;
+        store.putInt("set_curse", curseStep);
+    }
+
+    public double curse() {
+        return CurseMod.STEPS[curseStep];
     }
 }

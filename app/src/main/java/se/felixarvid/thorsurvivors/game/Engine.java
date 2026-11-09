@@ -21,7 +21,7 @@ public final class Engine {
     // v1.5 B3: CODEX and OPTIONS sit beside POWER-UPS on one row (left/right moves between the three)
     public static final int MENU_START = 0, MENU_STAGE = 1, MENU_HERO = 2, MENU_WEAPON = 3, MENU_SHOP = 4,
             MENU_CODEX = 5, MENU_OPTIONS = 6, MENU_MUSIC = 7, MENU_SFX = 8, MENU_LIGHT = 9,
-            MENU_ASC = 10, MENU_COUNT = 11; // v1.5 B4: MENU_ASC = ascension tier / daily challenge (after B3's rows)
+            MENU_ASC = 10, MENU_CURSE = 11, MENU_COUNT = 12; // v1.5 B4: MENU_ASC = ascension tier / daily challenge (after B3's rows)
     /** Rows of the options screen (v1.5 B3): music, SFX and lighting are the same settings as the menu rows. */
     public static final int OPT_MUSIC = 0, OPT_SFX = 1, OPT_LIGHT = 2, OPT_SHAKE = 3, OPT_NUMBERS = 4, OPT_TELE = 5, OPT_TEXT = 6,
             OPT_AIM = 7, OPT_HAPTICS = 8, OPT_REMAP = 9, OPT_BACK = 10, OPT_COUNT = 11;
@@ -376,6 +376,7 @@ public final class Engine {
         }
         if (daily != null) runMods = RunMods.daily(daily.mod, meta.dailyBonusOpen(today()), meta.rerollCharges(), meta.banishCharges());
         else runMods = RunMods.ascension(Math.min(ascTier, meta.ascMax(stage().key)), meta.rerollCharges(), meta.banishCharges());
+        CurseMod.set(daily != null ? 0.0 : meta.curse()); // v1.5 final: the menu's curse (the daily challenge is the same for everyone, so no curse there)
         CurseMod.setTierHpMul(runMods.hpMult()); // v1.5 integration: B4's tier HP feeds B7's capped curse HP; Sim snapshots it
         sim = new Sim(data, stage(), starters.get(weaponIdx), meta.bonuses(), heroKey, seed);
         CurseMod.setTierHpMul(1.0); // the static stays neutral for anything that builds a Sim outside a run start
@@ -539,6 +540,12 @@ public final class Engine {
     }
 
     /** v1.5 B4: the text of the ascension row on the menu: the tier and what it adds, or the daily challenge. Built when the row changes. */
+    /** v1.5 final: the CURSE row's value, e.g. "OFF" or "20%  GOLD +20%". */
+    public String curseLabel() {
+        int p = (int) Math.round(meta.curse() * 100);
+        return p == 0 ? "OFF" : p + "%  GOLD +" + p + "%";
+    }
+
     public String ascLabel() {
         if (dailyPick) {
             RunMods.Daily d = dailyToday();
@@ -751,7 +758,7 @@ public final class Engine {
     /** Menu rows whose value is stepped with left/right (stage, hero, weapon, volumes, lighting). */
     public static boolean isCycleRow(int f) {
         return f == MENU_STAGE || f == MENU_HERO || f == MENU_WEAPON || f == MENU_MUSIC || f == MENU_SFX
-                || f == MENU_LIGHT || f == MENU_ASC;
+                || f == MENU_LIGHT || f == MENU_ASC || f == MENU_CURSE;
     }
 
     /** Step a menu row's value; true if it changed (a one-entry list or a clamped setting does not). */
@@ -765,6 +772,7 @@ public final class Engine {
         else if (item == MENU_MUSIC) meta.stepMusic(delta);
         else if (item == MENU_SFX) meta.stepSfx(delta);
         else if (item == MENU_LIGHT) meta.stepLighting(delta);
+        else if (item == MENU_CURSE) meta.stepCurse(delta); // v1.5 final
         else if (item == MENU_ASC) { // v1.5 B4: tiers 0..max of the stage, then the daily challenge
             int max = meta.ascMax(stage().key);
             int pos = dailyPick ? max + 1 : Math.min(ascTier, max);
@@ -782,6 +790,7 @@ public final class Engine {
         if (item == MENU_MUSIC) return meta.musicVol;
         if (item == MENU_SFX) return meta.sfxVol;
         if (item == MENU_LIGHT) return meta.lighting;
+        if (item == MENU_CURSE) return meta.curseStep;
         if (item == MENU_ASC) return (dailyPick ? 100 : 0) + ascTier;
         return weaponIdx;
     }

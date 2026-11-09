@@ -25,6 +25,7 @@ import se.felixarvid.thorsurvivors.game.MainWeapon;
 import se.felixarvid.thorsurvivors.game.Merchant;
 import se.felixarvid.thorsurvivors.game.Pois;
 import se.felixarvid.thorsurvivors.game.Offer;
+import se.felixarvid.thorsurvivors.game.CurseMod;
 import se.felixarvid.thorsurvivors.game.RunMods;
 import se.felixarvid.thorsurvivors.game.Sim;
 import se.felixarvid.thorsurvivors.game.TelegraphPalette;
@@ -1692,15 +1693,16 @@ public final class PanelRenderer {
     private static final String[] LIGHTING = {"OFF", "LOW", "FULL"};
 
     private String[] menuLabels = new String[Engine.MENU_COUNT];
-    private int menuKey = -1;
+    private long menuKey = -1;
 
     private void buildMenuLabels() {
-        int key = eng.stageIdx | eng.meta.heroIdx << 4 | eng.weaponIdx << 8 | eng.meta.musicVol << 14 | eng.meta.sfxVol << 16 | eng.meta.lighting << 18
+        long key = eng.stageIdx | eng.meta.heroIdx << 4 | eng.weaponIdx << 8 | eng.meta.musicVol << 14 | eng.meta.sfxVol << 16 | eng.meta.lighting << 18
                 | (eng.stageOverride != null ? 1 << 20 : 0) | (eng.meta.unlocked(eng.stage().key) ? 0 : 1 << 21)
-                | eng.ascTier << 22 | (eng.dailyPick ? 1 << 26 : 0) | eng.meta.ascMax(eng.stage().key) << 27 | (eng.meta.dailyBonusOpen(eng.today()) ? 1 << 30 : 0);
+                | eng.ascTier << 22 | (eng.dailyPick ? 1 << 26 : 0) | eng.meta.ascMax(eng.stage().key) << 27 | (eng.meta.dailyBonusOpen(eng.today()) ? 1 << 30 : 0) | (long) eng.meta.curseStep << 32;
         if (key == menuKey) return;
         menuKey = key;
         ascValueTxt = eng.ascLabel();
+        curseValueTxt = eng.curseLabel();
         menuLabels = new String[]{
                 "START RUN",
                 "STAGE   <  " + eng.stage().name + "  >" + (eng.meta.unlocked(eng.stage().key) ? "" : "   LOCKED"),
@@ -1712,7 +1714,8 @@ public final class PanelRenderer {
                 "MUSIC   <  " + VOLUME[eng.meta.musicVol] + "  >",
                 "SOUND EFFECTS   <  " + VOLUME[eng.meta.sfxVol] + "  >",
                 "LIGHTING   <  " + LIGHTING[eng.meta.lighting] + "  >",
-                "ASCENSION   <  " + ascValueTxt + "  >"};
+                "ASCENSION   <  " + ascValueTxt + "  >",
+                "CURSE   <  " + eng.curseLabel() + "  >"};
     }
 
     private String heroName() {
@@ -1773,20 +1776,20 @@ public final class PanelRenderer {
         }
         // START RUN
         boolean fs = eng.focus == Engine.MENU_START;
-        k.plate(c, m, 272f * u, w - m, 352f * u, fs ? 0x88FF8A2A : 0x55FF8A2A, Skin.ORANGE, fs ? 5f * u : 3f * u);
-        k.rivets(c, m, 272f * u, w - m, 352f * u, 12f * u, 3.5f * u);
-        k.shadowed(c, "START RUN", w / 2f, 330f * u, 64f * u, 0xFFFFF1DC, Paint.Align.CENTER);
-        if (fs) k.focusMarks(c, m, 272f * u, w - m, 352f * u);
-        hit(m, 272f * u, w - m, 352f * u, Engine.MENU_START, 0);
+        k.plate(c, m, 272f * u, w - m, 342f * u, fs ? 0x88FF8A2A : 0x55FF8A2A, Skin.ORANGE, fs ? 5f * u : 3f * u);
+        k.rivets(c, m, 272f * u, w - m, 342f * u, 12f * u, 3.5f * u);
+        k.shadowed(c, "START RUN", w / 2f, 322f * u, 64f * u, 0xFFFFF1DC, Paint.Align.CENTER);
+        if (fs) k.focusMarks(c, m, 272f * u, w - m, 342f * u);
+        hit(m, 272f * u, w - m, 342f * u, Engine.MENU_START, 0);
         // stage and hero cards (the stage card carries the strip of all stages, so the row is taller than before)
-        float cy = 368f * u, ch = 292f * u, half = (cw - 16f * u) / 2f; // v1.5 integration: 316 -> 292 so ASCENSION and the tip fit
+        float cy = 352f * u, ch = 282f * u, half = (cw - 16f * u) / 2f; // v1.5 integration: 316 -> 292 so ASCENSION and the tip fit
         stageCard(c, m, cy, m + half, cy + ch, u, stageKey);
         heroCard(c, m + half + 16f * u, cy, w - m, cy + ch, u);
         // weapon row
-        float wy = cy + ch + 12f * u;
-        weaponCard(c, m, wy, w - m, wy + 96f * u, u);
+        float wy = cy + ch + 10f * u;
+        weaponCard(c, m, wy, w - m, wy + 84f * u, u);
         // salvage terminal
-        float sy = wy + 96f * u + 12f * u;
+        float sy = wy + 84f * u + 10f * u;
         float tg = 10f * u, tw3 = (cw - 2 * tg) / 3f; // v1.5 B3: POWER-UPS, CODEX and OPTIONS share the row
         for (int i = 0; i < 3; i++) {
             int row = Engine.MENU_SHOP + i;
@@ -1798,18 +1801,19 @@ public final class PanelRenderer {
             hit(tl, sy, tl + tw3, sy + 78f * u, row, 0);
         }
         // settings
-        float ry = sy + 78f * u + 10f * u;
+        float ry = sy + 78f * u + 8f * u;
         settingRow(c, m, w - m, ry, Engine.MENU_MUSIC, "MUSIC", VOLUME[eng.meta.musicVol], eng.meta.musicVol, 3, u);
         settingRow(c, m, w - m, ry + ROW_P * u, Engine.MENU_SFX, "SOUND EFFECTS", VOLUME[eng.meta.sfxVol], eng.meta.sfxVol, 3, u);
         settingRow(c, m, w - m, ry + 2 * ROW_P * u, Engine.MENU_LIGHT, "LIGHTING", LIGHTING[eng.meta.lighting], eng.meta.lighting, 2, u);
         // v1.5 integration: B4's ASCENSION row and B3's tip line both fit below the three setting rows (rows are 42 high, 46 apart)
         ascRow(c, m, w - m, ry + 3 * ROW_P * u, u); // v1.5 B4
+        curseRow(c, m, w - m, ry + 4 * ROW_P * u, u); // v1.5 final
         String tip = eng.tip(); // v1.5 B3: a tip for the selected stage in place of the controls hint
         if (tip != tipSrc) {
             tipSrc = tip;
             tipLine = "TIP: " + tip;
         }
-        k.body(c, tipLine, w / 2f, ry + 4 * ROW_P * u + 20f * u, 22f * u, DIM, Paint.Align.CENTER);
+        k.body(c, tipLine, w / 2f, ry + 5 * ROW_P * u + 18f * u, 22f * u, DIM, Paint.Align.CENTER);
     }
 
     // ---- stage select: the card of the selected stage and the strip of all of them
@@ -2064,17 +2068,17 @@ public final class PanelRenderer {
         arrow(c, rr - 36f * u, t + 36f * u, 14f * u, true, col);
     }
 
-    /** v1.5 integration: height and pitch of the main menu setting rows (four rows now: MUSIC, SFX, LIGHTING, ASCENSION). */
-    private static final float ROW_H = 42f, ROW_P = 46f;
+    /** v1.5 integration: height and pitch of the main menu setting rows (five rows now: MUSIC, SFX, LIGHTING, ASCENSION, CURSE). */
+    private static final float ROW_H = 40f, ROW_P = 44f;
 
     private void settingRow(Canvas c, float l, float rr, float t, int row, String label, String value, int level, int max, float u) {
         boolean f = eng.focus == row;
         float b = t + ROW_H * u;
         k.plate(c, l, t, rr, b, f ? 0x40FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
         if (f) k.focusMarks(c, l, t, rr, b);
-        k.text(c, label, l + 28f * u, t + 31f * u, 28f * u, TEXT, Paint.Align.LEFT);
-        for (int i = 0; i < max; i++) k.pip(c, rr - 330f * u + i * 36f * u, t + 10f * u, 0f, i < level, Skin.ORANGE, 26f * u, 22f * u);
-        k.text(c, value, rr - 28f * u, t + 31f * u, 28f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
+        k.text(c, label, l + 28f * u, t + 30f * u, 28f * u, TEXT, Paint.Align.LEFT);
+        for (int i = 0; i < max; i++) k.pip(c, rr - 330f * u + i * 36f * u, t + 9f * u, 0f, i < level, Skin.ORANGE, 26f * u, 22f * u);
+        k.text(c, value, rr - 28f * u, t + 30f * u, 28f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
         arrow(c, rr - 360f * u, t + 21f * u, 11f * u, false, f ? Skin.ORANGE : 0xFF6F655A);
         hit(l, t, l + (rr - l) * 0.3f, b, row, -1);
         hit(l + (rr - l) * 0.3f, t, rr, b, row, 1);
@@ -2086,15 +2090,28 @@ public final class PanelRenderer {
         float b = t + ROW_H * u;
         k.plate(c, l, t, rr, b, f ? 0x40FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
         if (f) k.focusMarks(c, l, t, rr, b);
-        k.text(c, "ASCENSION", l + 28f * u, t + 31f * u, 28f * u, TEXT, Paint.Align.LEFT);
+        k.text(c, "ASCENSION", l + 28f * u, t + 30f * u, 28f * u, TEXT, Paint.Align.LEFT);
         int open = eng.meta.ascMax(eng.stage().key), cur = eng.dailyPick ? -1 : Math.min(eng.ascTier, open);
-        for (int i = 0; i < RunMods.MAX_TIER; i++) k.pip(c, l + 260f * u + i * 36f * u, t + 10f * u, 0f, i < cur, i < open ? Skin.ORANGE : 0xFF4A423C, 26f * u, 22f * u);
-        k.fit(c, ascValue(), rr - 28f * u, t + 31f * u, 26f * u, rr - l - 560f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
+        for (int i = 0; i < RunMods.MAX_TIER; i++) k.pip(c, l + 260f * u + i * 36f * u, t + 9f * u, 0f, i < cur, i < open ? Skin.ORANGE : 0xFF4A423C, 26f * u, 22f * u);
+        k.fit(c, ascValue(), rr - 28f * u, t + 30f * u, 26f * u, rr - l - 560f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
         hit(l, t, l + (rr - l) * 0.3f, b, Engine.MENU_ASC, -1);
         hit(l + (rr - l) * 0.3f, t, rr, b, Engine.MENU_ASC, 1);
     }
 
-    private String ascValueTxt = "";
+    private String ascValueTxt = "", curseValueTxt = "";
+
+    /** v1.5 final: the curse row: pips for the three steps, "20%  GOLD +20%" on the right. */
+    private void curseRow(Canvas c, float l, float rr, float t, float u) {
+        boolean f = eng.focus == Engine.MENU_CURSE;
+        float b = t + ROW_H * u;
+        k.plate(c, l, t, rr, b, f ? 0x40FF8A2A : 0, f ? Skin.ORANGE : Skin.EDGE, f ? 4f * u : 2f * u);
+        if (f) k.focusMarks(c, l, t, rr, b);
+        k.text(c, "CURSE", l + 28f * u, t + 30f * u, 28f * u, TEXT, Paint.Align.LEFT);
+        for (int i = 1; i < CurseMod.STEPS.length; i++) k.pip(c, l + 260f * u + (i - 1) * 36f * u, t + 9f * u, 0f, i <= eng.meta.curseStep, 0xFFB04CE0, 26f * u, 22f * u);
+        k.fit(c, curseValueTxt, rr - 28f * u, t + 30f * u, 26f * u, rr - l - 560f * u, f ? Skin.ORANGE : TEXT, Paint.Align.RIGHT);
+        hit(l, t, l + (rr - l) * 0.3f, b, Engine.MENU_CURSE, -1);
+        hit(l + (rr - l) * 0.3f, t, rr, b, Engine.MENU_CURSE, 1);
+    }
 
     private String ascValue() {
         return ascValueTxt;
