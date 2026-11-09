@@ -698,23 +698,23 @@
     ],
     [
      10,
-     1.25
+     1.125
     ],
     [
      15,
-     1.4
+     1.2
     ],
     [
      20,
-     1.65
+     1.325
     ],
     [
      25,
-     1.92
+     1.46
     ],
     [
      30,
-     2.25
+     1.625
     ]
    ],
    "hordes": {
@@ -835,7 +835,8 @@
     "convoyAt0": 495,
     "convoyAt1": 990,
     "convoyAt2": 1485
-   }
+   },
+   "spawnAhead": 0.2
   },
   "MINES": {
    "name": "Deep Mines",
@@ -2126,23 +2127,23 @@
     ],
     [
      10,
-     1.25
+     1.2
     ],
     [
      15,
-     1.435
+     1.348
     ],
     [
      20,
-     1.732
+     1.586
     ],
     [
      25,
-     2.064
+     1.851
     ],
     [
      30,
-     2.475
+     2.18
     ]
    ],
    "hordes": {
@@ -2252,7 +2253,8 @@
    "unlock": {
     "key": "MINES",
     "seconds": 900
-   }
+   },
+   "spawnAhead": 0.2
   },
   "REFINERY": {
    "name": "Refinery District",
@@ -2799,23 +2801,23 @@
     ],
     [
      10,
-     1.25
+     1.15
     ],
     [
      15,
-     1.4
+     1.24
     ],
     [
      20,
-     1.732
+     1.439
     ],
     [
      25,
-     2.112
+     1.667
     ],
     [
      30,
-     2.587
+     1.952
     ]
    ],
    "hordes": {
@@ -2939,7 +2941,8 @@
    "unlock": {
     "key": "HYDRO",
     "seconds": 1200
-   }
+   },
+   "spawnAhead": 0.2
   },
   "WRECK": {
    "name": "Meridian Wreck",
@@ -3529,23 +3532,23 @@
     ],
     [
      10,
-     1.25
+     1.113
     ],
     [
      15,
-     1.4
+     1.18
     ],
     [
      20,
-     1.732
+     1.329
     ],
     [
      25,
-     2.112
+     1.5
     ],
     [
      30,
-     2.587
+     1.714
     ]
    ],
    "hordes": {
@@ -3691,7 +3694,8 @@
    "unlock": {
     "key": "REFINERY",
     "seconds": 1500
-   }
+   },
+   "spawnAhead": 0.2
   }
  },
  "lighting": {
@@ -3729,7 +3733,7 @@
    "name": "Bastion",
    "role": "Tank, melee",
    "description": "Hydraulic Hammer swings in a cone and slams every third swing. Tough and slow. Each level: +1% might, +0.7% max HP.",
-   "hp": 140,
+   "hp": 154,
    "armor": 4,
    "regen": 0.7,
    "moveSpeed": 0.92,
@@ -3746,7 +3750,7 @@
    "name": "Spectre",
    "role": "Glass cannon, kiter",
    "description": "Twin Pistols fire a volley down the aim line. Fragile and fast. Each level: +1% crit chance, +0.5% move speed, +0.6% might, +0.5% max HP, -0.7% damage taken.",
-   "hp": 115,
+   "hp": 126,
    "armor": 2,
    "regen": 0.7,
    "moveSpeed": 1.1,
@@ -3766,7 +3770,7 @@
    "name": "Xenomant",
    "role": "Caster, controller",
    "description": "Lumen Caster sends a piercing bolt and a Spore Burst every fourth cast. Each level: +1% area, +1% pickup range, +0.4% max HP, -0.15% damage taken.",
-   "hp": 115,
+   "hp": 105,
    "armor": 1,
    "regen": 0.2,
    "moveSpeed": 1.0,
@@ -3787,14 +3791,14 @@
    "name": "Hydraulic Hammer",
    "description": "Cone swing in the aim direction. Every 3rd swing is a Slam: a circle around you that stuns.",
    "kind": "CONE",
-   "power": 1.5,
+   "power": 1.65,
    "interval": 1200,
    "knockback": 2.0,
    "params": {
     "arc": 100,
     "radius": 80,
     "slamEvery": 3,
-    "slamPower": 2.2,
+    "slamPower": 2.42,
     "slamRadius": 90,
     "slamStun": 0.4,
     "slamRadiusMul": 0,
@@ -3931,7 +3935,7 @@
    "name": "Twin Pistols",
    "description": "Volley of 3 bullets with a small spread in the aim direction. Crit chance 15%.",
    "kind": "VOLLEY",
-   "power": 0.6,
+   "power": 0.66,
    "interval": 900,
    "knockback": 0.6,
    "params": {
@@ -4081,7 +4085,7 @@
    "name": "Lumen Caster",
    "description": "A slow lumen bolt that pierces 2 enemies and applies Decay. Every 4th cast is a Spore Burst: a ring of 6 bolts.",
    "kind": "BOLT",
-   "power": 0.5,
+   "power": 0.45,
    "interval": 1000,
    "knockback": 0.5,
    "params": {
@@ -4091,7 +4095,7 @@
     "decay": 1,
     "burstEvery": 4,
     "burstCount": 6,
-    "burstPower": 0.3,
+    "burstPower": 0.27,
     "burstSpeed": 300,
     "burstRange": 210,
     "darts": 0,

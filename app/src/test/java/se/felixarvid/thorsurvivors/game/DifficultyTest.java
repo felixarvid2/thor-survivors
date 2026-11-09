@@ -41,8 +41,9 @@ public class DifficultyTest {
             assertEquals(3.5, st.dmgMul(20 * 60), 1e-9);
             assertEquals("speed: 1 at the start", 1.0, st.speedMul(0), 1e-9);
             assertEquals(1.1, st.speedMul(5 * 60), 1e-9);
-            assertEquals(1.65, st.speedMul(20 * 60), 1e-9);
-            assertEquals(2.25, st.speedMul(30 * 60), 1e-9);
+            // v1.5 B7 item 63: Flats' speed excess over 1.0 from minute 10 is halved (1.325 / 1.625), Mines keep the v1.4 curve
+            assertEquals(k.equals("FLATS") ? 1.325 : 1.65, st.speedMul(20 * 60), 1e-9);
+            assertEquals(k.equals("FLATS") ? 1.625 : 2.25, st.speedMul(30 * 60), 1e-9);
             assertEquals("Mines start harder (stage knob)", k.equals("FLATS") ? 1.35 : 1.4, st.dmgMul(0), 1e-9);
         }
         assertEquals("the old stages have no speed curve", 1.0, d.stages.get("FOREST").speedMul(25 * 60), 1e-9);
@@ -55,9 +56,9 @@ public class DifficultyTest {
         Enemy early = s.addEnemy("COLONIST", 0, 0, false);
         s.time = 30 * 60;
         Enemy late = s.addEnemy("COLONIST", 0, 0, false);
-        assertEquals(early.maxHp * 9.0f, late.maxHp, 0.01f);
+        assertEquals(early.maxHp * 9.0f * 1.15f, late.maxHp, 0.01f); // curve x9 and the v1.5 B7 late ramp (+3 %/min past 25:00 = x1.15)
         assertEquals("1.35 at the start, 7.5 at 30:00", early.power * 7.5f / 1.35f, late.power, 0.01f);
-        assertEquals("speed x2.25 at 30:00", early.speed * 2.25f, late.speed, 0.01f);
+        assertEquals("speed x1.625 at 30:00 (v1.5 B7: Flats eased from 2.25)", early.speed * 1.625f, late.speed, 0.01f);
         s.time = 0;
         Enemy bossEarly = s.addEnemy("SLAGBORN", 0, 0, true);
         s.time = 20 * 60;

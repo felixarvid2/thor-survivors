@@ -112,9 +112,10 @@ public final class WaveDirector {
     public static final float AHEAD_SPREAD = 0.9f;
 
     /**
-     * Item 62: run time (seconds) from which an elite drops an Arms Crate (fusion, evolution, levels; from the 2nd elite killed). It was 300 and
-     * was the main source of the first evolution (measured: first evolution at 7:47 to 9:00 in half of the skilled runs). Not final so a soak can
-     * try values ({@code ARMS_FROM}); the game never changes it.
+     * Item 62: run time (seconds) from which an elite drops an Arms Crate (fusion, evolution, levels; from the 2nd elite killed). It was 300 s
+     * and was the main source of the first evolution (skilled bot, 60 runs per stage: first evolution or fusion at median 9:24 to 11:49).
+     * Measured with 600 s: median 11:00 (Refinery) to 12:35 (Flats), so 660 s aims at the middle of the 11 to 14 minute target. Not final so a
+     * soak can try values ({@code ARMS_FROM}); the game never changes it.
      */
-    public static double armsCrateFrom = 300.0;
+    public static double armsCrateFrom = 660.0;
 }

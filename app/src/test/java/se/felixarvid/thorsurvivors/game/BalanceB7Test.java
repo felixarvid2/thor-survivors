@@ -100,7 +100,7 @@ public class BalanceB7Test {
         Inventory inv = new Inventory();
         inv.add(d.weapons.get("WHIP"));
         WeaponDef pass = null;
-        for (WeaponDef w : d.weapons.values()) if (w.powerUp) {
+        for (WeaponDef w : d.weapons.values()) if (w.powerUp && OfferGenerator.dominantMul(w.key) == 1.0) {
             pass = w;
             break;
         }
@@ -111,6 +111,20 @@ public class BalanceB7Test {
         assertEquals(pass.rarity, later, 1e-9);
         assertEquals(pass.rarity * OfferGenerator.earlyPassiveMul, early, 1e-9);
         assertTrue(early < later);
+    }
+
+    @Test
+    public void dominantPassivesWeighLessButAreNeverZero() throws Exception {
+        GameData d = TestData.load();
+        Inventory inv = new Inventory();
+        inv.add(d.weapons.get("WHIP"));
+        for (int i = 0; i < 4; i++) inv.levelUp("WHIP");
+        for (String k : new String[]{"COOLDOWN", "POWER", "AMOUNT"}) {
+            WeaponDef def = d.weapons.get(k);
+            double w = OfferGenerator.weightOf(inv, d.weapons.values(), new Offer(Offer.NEW_PASSIVE, def, 1));
+            assertTrue(k, w > 0 && w < def.rarity);
+        }
+        assertEquals(1.0, OfferGenerator.dominantMul("GROWTH"), 0);
     }
 
     // ------------------------------------------------------------------ 66
@@ -189,6 +203,50 @@ public class BalanceB7Test {
         double expect = 0.2 + 0.8 * (2 * WaveDirector.AHEAD_SPREAD) / (2 * Math.PI);
         assertEquals(expect, ahead / 10000.0, 0.02);
         assertEquals(2.5f, WaveDirector.spawnAngle(0f, heading, 0f, 0f, 2.5f / 6.2831855f), 1e-4f);
+    }
+
+    /** Share of newly spawned normal enemies that appear in front (x beyond the hero) of a hero walking right. */
+    private static double aheadShare(float bias) throws Exception {
+        GameData d = TestData.load();
+        Sim s = new Sim(d, d.stages.get("FLATS"), null, new HashMap<>(), "BASTION", 11);
+        s.spawnAheadBias = bias;
+        Input in = new Input();
+        in.stickX = 1f;
+        int lastId = -1, n = 0, ahead = 0;
+        for (int i = 0; i < 40 * 60; i++) {
+            s.hp = s.maxHp;
+            s.update(1f / 60f, in);
+            int maxId = lastId;
+            for (int k = 0; k < s.enemyN; k++) {
+                Entities.Enemy e = s.enemies[k];
+                if (e.id <= lastId) continue;
+                maxId = Math.max(maxId, e.id);
+                if (e.boss || e.elite) continue;
+                n++;
+                if (e.x > s.px) ahead++;
+            }
+            lastId = maxId;
+        }
+        assertTrue("spawns seen " + n, n >= 40);
+        return ahead / (double) n;
+    }
+
+    @Test
+    public void simPlacesSpawnsAheadOfTheHeadingWhenTheStageAsksForIt() throws Exception {
+        double with = aheadShare(1f), without = aheadShare(0f);
+        assertTrue("bias 1: " + with, with >= 0.8); // not 1.0: pack members, summons and horde rings are placed by other code
+        assertTrue("no bias: " + without, without < 0.75);
+    }
+
+    @Test
+    public void stageDataCarriesTheSpawnAheadShareAndTheArmsCrateTimeIsEleven() throws Exception {
+        GameData d = TestData.load();
+        assertEquals(0.2f, d.stages.get("FLATS").spawnAhead, 1e-6f);
+        assertEquals(0.2f, d.stages.get("HYDRO").spawnAhead, 1e-6f);
+        assertEquals(0.2f, d.stages.get("REFINERY").spawnAhead, 1e-6f);
+        assertEquals(0.2f, d.stages.get("WRECK").spawnAhead, 1e-6f);
+        assertEquals("Deep Mines: it cost 17 points, no bias", 0f, d.stages.get("MINES").spawnAhead, 0f);
+        assertEquals(660.0, WaveDirector.armsCrateFrom, 0.0);
     }
 
     // ------------------------------------------------------------------ 68

@@ -1183,6 +1183,11 @@ public final class Sim {
         }
     }
 
+    /** True while the stand-still penalty (item 66) is on: the renderer can tint the drift in the stage's colour. */
+    public boolean standStillActive() {
+        return standStillPenalty && stand.active();
+    }
+
     private void updateWaves(float dt) {
         if (noSpawns) return;
         int idx = se.felixarvid.thorsurvivors.data.WaveSelector.indexAt(stage.rows, time);

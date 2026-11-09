@@ -193,11 +193,26 @@ public final class OfferGenerator {
         return false;
     }
 
+    /**
+     * Item 65: passives taken in more than 70 % of the surviving skilled builds (measured, 90 runs: Cooldown 92 %, Power 79 %, Amount 76 %)
+     * weigh less in the draw. The per-level values live in game_data.json (never changed), so the price is paid in offer weight: 0.8 / 0.85 / 0.85.
+     * The x3 weight of the synergy passive of a maxed weapon still applies to the reduced weight.
+     */
+    static double dominantMul(String key) {
+        switch (key) {
+            case "COOLDOWN": return 0.8;
+            case "POWER":
+            case "AMOUNT": return 0.85;
+            default: return 1.0;
+        }
+    }
+
     /** Draw weight of a card: the def's rarity, x3 for the synergy passive of a maxed weapon you own, x1.5 for a new weapon whose fusion partner you own (design v1.3 1.6). */
     static double weightOf(Inventory inv, Collection<WeaponDef> defs, Offer o) {
         double w = o.def.rarity;
         if (o.def.powerUp) {
             if (earlyPassiveMul != 1.0 && !weaponReachedEarlyLevel(inv)) w *= earlyPassiveMul; // v1.5 B7 item 62
+            w *= dominantMul(o.def.key); // v1.5 B7 item 65
             for (int i = 0; i < inv.weaponCount; i++) {
                 Inventory.Slot s = inv.weapons[i];
                 if (s.def.evolution || s.def.fusion || s.level < s.def.maxLevel()) continue;
