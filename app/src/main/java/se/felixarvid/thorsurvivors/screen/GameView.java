@@ -165,7 +165,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
                     Sim before = eng.sim;
                     float hp0 = before == null ? 0f : before.hp;
                     int lv0 = before == null ? 0 : before.level;
-                    eng.advance(dt);
+                    eng.advance(renderer.filterDt(dt)); // v1.5 B1: hit-stop on elite and boss kills
                     Sim after = eng.sim;
                     if (after != null && after == before && eng.phase != Engine.PH_RESULT) {
                         if (after.hp < hp0) Haptics.hit(hp0 - after.hp, after.maxHp);

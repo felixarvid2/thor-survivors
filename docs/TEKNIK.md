@@ -499,3 +499,20 @@ Kopiera sedan `app/build/outputs/apk/debug/app-debug.apk` till `dist/`.
 - Vilken väg för nedre skärmen Thor faktiskt använder.
 - Gamepad-routing.
 - Balansen, och 60 fps med ungefär 300 fiender.
+
+## v1.5 batch 1: spelkänsla (render)
+
+Allt ligger i `render/Vfx.java` (ren Java, inga `android.*`, fasta pooler, ingen allokering) och ritas av `WorldRenderer`. Vfx *läser* bara Sim, Engine och `SoundEvents.emitted` en gång per ritad bildruta (`observe`), rör aldrig Sims rng och körs på väggklockan (`update`), så effekterna spelar vidare medan nivåkorten pausar Sim. Första `observe` mot en ny Sim tar bara en ögonblicksbild.
+
+1. **Hit-stop.** Elitdöd 40 ms, bossdöd och bossens fasbyte 70 ms, aldrig mer än 100 ms väntande (`hitStop`). `GameView` anropar `eng.advance(renderer.filterDt(dt))` (en markerad rad "v1.5 B1"); filtret äter början av bildrutan, så stoppet betalas exakt en gång. Rendering och styrning fortsätter.
+2. **Gnistor.** 3-5 partiklar ur en pool om 256, 0,18 s, färg efter fiendens status (brand orange, frost cyan, elektrisk gul, förfall grön, annars varmvit). Sim ger inte vilket vapen som träffade, så färgen läses av fienden. Träff = `Enemy.flash` steg sedan förra bildrutan.
+3. **Crit-siffror.** 1,4x skala, pop-in 1,0 till 1,25 till 1,0 på 0,12 s, gul kant; vanliga siffror lever 0,6 s, crit 0,8 s.
+4. **Siffror slås ihop.** Träffar på samma fiende inom 0,15 s summeras; max 24 levande, äldsta släpps. Siffrorna kopierar Sims `texts` (ny text = livet steg, ökad `total` = Sim slog ihop) till Vfx egen pool.
+5. **Nivåsprängning.** Ring 0 till 140 px på 0,4 s, 12 ädelstenar, 6 % vit blixt (`flash`) och ett kort varmt ljus i ljuskartan (`gatherVfxLights`).
+6. **Kistfanfar.** Fasövergång till `PH_CHEST`: locket (kistans övre del) flyger upp, 20 guldkorn bågar ut och söker sig till hjälten; en evolutions- eller fusionskista (`chestLines` börjar med EVOLUTION/FUSION) får en guldpelare i 3 s.
+7. **Hjälteträff.** 0,1 s vit sprite-blixt (ersätter röd tint) och röd kantpuls, alfa 0 till 35 % efter skadans andel av max-HP; under 25 % HP en långsam puls på 1,2 Hz.
+8. **Skakning som trauma.** `hitShake` som stiger ger trauma (x2,5, max 0,7); trauma avtar 1,6/s, skakning = trauma² x 10 px med mjukt värdebrus; kameran flyttas (inte duken), så markbitarna täcker skärmen. Skalas av `Vfx.settingShake()`.
+9. **Upplösning.** Fiender med radie 18 eller mer (ej boss) kör dödsklippet på 0,25 s medan de krymper och bleknar, plus 6 skärvor; små behåller den vanliga poppen.
+10. **Ädelstenar.** Magnetiserade (`pulled`) ädelstenar får 3 utsträckta svansbilder; vid upplockning (`emitted[GEM]` steg) visas "+1" vars storlek och färg följer samma kedja som ljudet (`GEM_CHAIN`, upp till 8 steg).
+
+**Settings-stubb.** `Vfx.settingShake()` (1,0) och `Vfx.settingDamageNumbers()` (true) ersätts med `Settings` när batch 3 landat. Tester: `VfxTest` (JUnit), `VfxShotsTest` (Robolectric, `build/screenshots/vfx_*.png`).

@@ -98,6 +98,15 @@ public final class WorldRenderer {
     private final Bitmap[] shadows = new Bitmap[321];
     private boolean shadowsReady;
     private final Lighting light = new Lighting();
+    /** v1.5 B1: hit-stop, shake, sparks, damage numbers and the other juice (see Vfx). */
+    final Vfx vfx = new Vfx();
+    /** Tests: a fixed wall-clock step for the effects instead of the real one (negative = real). */
+    float testDt = -1f;
+
+    /** v1.5 B1: the game loop's hit-stop hook. Returns the part of {@code dt} the world may advance (0 during a hit-stop). */
+    public float filterDt(float dt) {
+        return vfx.filterDt(dt);
+    }
 
     // colour filters (created once)
     private final ColorFilter fWhite = new PorterDuffColorFilter(0xFFFFFFFF, PorterDuff.Mode.SRC_ATOP);
@@ -275,8 +284,14 @@ public final class WorldRenderer {
             camX = s.px;
             camY = s.py;
             trackPlayer(s, realDt);
+            vfx.observe(s, e); // v1.5 B1
+            vfx.update(testDt >= 0f ? testDt : realDt);
         }
         int camPx = Math.round(camX * sc), camPy = Math.round(camY * sc);
+        if (!menu) { // v1.5 B1: trauma shake moves the camera itself, so the ground chunks still cover the screen
+            camPx += Math.round(vfx.shakeX * ks);
+            camPy += Math.round(vfx.shakeY * ks);
+        }
         ox = w / 2 - camPx;
         oy = h / 2 - camPy;
         String stage = e.stage().key;
@@ -319,6 +334,7 @@ public final class WorldRenderer {
         if (lightMode == MetaProgress.LIGHT_FULL) {
             if (!menu) {
                 gatherDynamicLights(s);
+                gatherVfxLights(s);
                 gatherFindLights(s);
                 gatherMerchantLight(s);
                 gatherPoiLights(s);
@@ -381,6 +397,12 @@ public final class WorldRenderer {
             float r = f.kind == Entities.FX_FLASH ? f.w : 70f;
             light.add(sx(f.x), sy(f.y), r * sc * (0.5f + 0.5f * k), Math.min(1f, k * 1.6f), Lighting.WARM);
         }
+    }
+
+    /** v1.5 B1: the level-up pulse and the evolution pillar light the ground around the hero. */
+    private void gatherVfxLights(Sim s) {
+        float st = vfx.lightStrength();
+        if (st > 0.01f && light.n < Lighting.MAX - 2) light.add(sx(s.px), sy(s.py) - 28f * ks, 230f * sc * (0.6f + 0.4f * st), Math.min(1f, st), Lighting.WARM);
     }
 
     /** Emergency lights (warm, flickering) and lumen growths (green pulse) among the props near the view. */
@@ -1339,6 +1361,8 @@ public final class WorldRenderer {
         gemCrowd = Math.max(0f, Math.min(1f, (gemsShown - GEM_CROWD_FROM) / GEM_CROWD_SPAN));
         gemHeroX = sx(s.px);
         gemHeroY = sy(s.py);
+        gemMagnet = 70f * (float) s.stats.magnetMul;
+        gemTrailLeft = 40; // a budget: a vacuum pull makes hundreds of gems fly at once
         for (int j = 0; j < np; j++) drawPickup(c, s.picks[sIdx[j]]);
 
         drawTelegraphs(c, s, t);
@@ -1461,6 +1485,7 @@ public final class WorldRenderer {
             if (f.life > 0) drawFx(c, f);
         }
         drawParticles(c, s);
+        drawVfx(c, s);
         drawPlayerBar(c, s, ppx, ppy);
         drawTexts(c, s);
     }
@@ -1610,9 +1635,17 @@ public final class WorldRenderer {
             float life = Sim.CORPSE_LIFE;
             float alpha = k.age < life - FADE ? 1f : Math.max(0f, (life - k.age) / FADE);
             float clipT = k.boss ? BOSS_DEATH_CLIP : DEATH_CLIP;
+            float shrink = 1f;
+            if (!k.boss && k.radius >= Vfx.LARGE_R) { // v1.5 B1: a large enemy dissolves: the fall squeezed into 0.25 s while it shrinks and fades
+                float u = Vfx.dissolve(k.age);
+                if (u >= 1f) continue;
+                alpha = 1f - u;
+                shrink = 1f - 0.4f * u;
+                clipT = Vfx.DISSOLVE_TIME;
+            }
             int hs = k.id & (STATE - 1);
             int dir = stId[hs] == k.id ? stDir[hs] : 0;
-            float s2 = ks * visualScale(k.type, k.boss, m) * (k.elite ? 1.4f : 1f) * (k.boss ? 1f : k.type.drawScale);
+            float s2 = ks * visualScale(k.type, k.boss, m) * (k.elite ? 1.4f : 1f) * (k.boss ? 1f : k.type.drawScale) * shrink;
             drawShadow(c, px, py, Math.round(k.radius * sc * 0.95f * (0.4f + 0.6f * alpha)));
             ColorFilter dcf = k.type.tint != 0 ? tintAt(k.type.tint, shadeIndex(px, py - 10f * ks, FLOOR_ENEMY * 0.8f)) : null;
             bmp.setColorFilter(dcf != null ? dcf : shadeAt(px, py - 10f * ks, FLOOR_ENEMY * 0.8f));
@@ -1627,7 +1660,7 @@ public final class WorldRenderer {
             }
             bmp.setColorFilter(null);
             bmp.setAlpha(255);
-            if (k.age < 0.4f) drawDeathBurst(c, k, px, py);
+            if (k.age < 0.4f && !(k.radius >= Vfx.LARGE_R && !k.boss && k.age >= Vfx.DISSOLVE_TIME)) drawDeathBurst(c, k, px, py);
         }
     }
 
@@ -1689,7 +1722,7 @@ public final class WorldRenderer {
         int dir = dirOf(dvx, dvy);
         if (dvx != 0f || dvy != 0f) playerDir = dir;
         else dir = playerDir;
-        ColorFilter cf = now < redUntil ? fRed : shadeAt(px, py - 30f * ks, FLOOR_PLAYER);
+        ColorFilter cf = vfx.heroFlash > 0f ? fWhite : shadeAt(px, py - 30f * ks, FLOOR_PLAYER); // v1.5 B1: a 0.1 s white flash
         bmp.setColorFilter(cf);
         bmp.setAlpha(255);
         float atk = s.hero != null ? s.lastMainAttack : s.lastAttack;
@@ -1755,7 +1788,9 @@ public final class WorldRenderer {
     /** Gems this close to the hero (world units) and the violet / red ones keep their full size and glow in a crowd. */
     private static final float GEM_NEAR = 190f;
     private float gemCrowd;
-    private int gemHeroX, gemHeroY;
+    private int gemHeroX, gemHeroY, gemTrailLeft;
+    /** v1.5 B1: the hero's magnet radius in world units (0 = no trails this frame). */
+    private float gemMagnet;
 
     private void drawPickup(Canvas c, Pickup p) {
         int px = sx(p.x), bob = Math.round((float) Math.sin(p.bob) * ks * 2f);
@@ -1783,6 +1818,17 @@ public final class WorldRenderer {
             }
             float k = size / Math.max(im.w(), im.h());
             bmp.setColorFilter(null);
+            if (gemMagnet > 0f && (p.pulled || gemTrailLeft > 0)) { // v1.5 B1: a magnetised gem leaves a 3-frame stretched trail behind it
+                float tx = px - gemHeroX, ty = py - gemHeroY, td = (float) Math.sqrt(tx * tx + ty * ty);
+                if (td > 24f * ks && (p.pulled || td < gemMagnet * sc)) {
+                    gemTrailLeft--;
+                    float ux = tx / td, uy = ty / td;
+                    for (int g = 1; g <= 3; g++) {
+                        bmp.setAlpha((int) (190 * (1f - crowd) / g));
+                        blit(c, im, Math.round(px + ux * g * 15f * ks), Math.round(py + uy * g * 15f * ks), k * (1f - 0.18f * g), bmp);
+                    }
+                }
+            }
             bmp.setAlpha((int) (255 * (1f - 0.4f * crowd)));
             blit(c, im, px, py, k, bmp);
             bmp.setAlpha(255);
@@ -2704,38 +2750,114 @@ public final class WorldRenderer {
         }
     }
 
+    /** v1.5 B1: the pooled damage numbers (Vfx): crits pop in 1.4x with a yellow rim, hits on one enemy within 0.15 s are summed, at most 24 live. */
     private void drawTexts(Canvas c, Sim s) {
-        // keep the newest few: a stable threshold on remaining life (crits always stay)
-        int live = 0;
-        for (int i = 0; i < Sim.MAX_TEXT; i++) {
-            DamageText d = s.texts[i];
-            if (d.life > 0 && !d.crit && !d.heal) lifeTmp[live++] = d.life;
-        }
-        float thresh = 0f;
-        int ties = MAX_TEXTS_DRAWN; // how many numbers with exactly the threshold life may still be drawn
-        if (live > MAX_TEXTS_DRAWN) {
-            for (int i = 1; i < live; i++) { // insertion sort ascending
-                float v = lifeTmp[i];
-                int j = i - 1;
-                while (j >= 0 && lifeTmp[j] > v) { lifeTmp[j + 1] = lifeTmp[j]; j--; }
-                lifeTmp[j + 1] = v;
-            }
-            thresh = lifeTmp[live - MAX_TEXTS_DRAWN];
-            for (int i = live - 1; i >= 0 && lifeTmp[i] > thresh; i--) ties--; // hits of one frame share a life
-        }
+        if (!Vfx.settingDamageNumbers()) return;
         text.setTextAlign(Paint.Align.CENTER);
         text.setShadowLayer(2f, 0f, 2f, 0xCC000000);
-        for (int i = 0; i < Sim.MAX_TEXT; i++) {
-            DamageText d = s.texts[i];
-            if (d.life <= 0) continue;
-            if (!d.crit && !d.heal && (d.life < thresh || (d.life == thresh && ties-- <= 0))) continue;
-            text.setTextSize((d.crit ? 24f : d.color != 0 ? 15f : 18f) * ks); // status numbers are small and coloured
-            int a = (int) (255 * Math.min(1f, d.life * 4f));
-            text.setColor((d.color != 0 ? d.color : d.heal ? 0x40FF60 : d.crit ? 0xFFD030 : 0xFFFFFF) | (a << 24));
-            c.drawText(d.digits, 0, d.len, sx(d.x), sy(d.y), text);
+        for (int i = 0; i < Vfx.MAX_NUM; i++) {
+            if (!vfx.nlive[i]) continue;
+            int kind = vfx.nkind[i];
+            boolean crit = vfx.ncrit[i];
+            float age = vfx.nage[i], left = vfx.nlife[i] - age;
+            float size = kind == Vfx.N_BLIP ? 13f + 1.5f * vfx.nval[i] : kind == Vfx.N_STATUS ? 15f : 18f;
+            size *= Vfx.popScale(crit, age); // a crit: 1.4x with the pop-in overshoot
+            text.setTextSize(size * ks);
+            int a = (int) (255 * Math.min(1f, left * 5f));
+            int col;
+            if (kind == Vfx.N_BLIP) col = BLIP_COLORS[Math.min(BLIP_COLORS.length - 1, vfx.nval[i])];
+            else col = vfx.ncolor[i] != 0 ? vfx.ncolor[i] : kind == Vfx.N_HEAL ? 0x40FF60 : crit ? 0xFFD030 : 0xFFFFFF;
+            int x = sx(vfx.nx[i]), y = sy(vfx.ny[i]);
+            if (kind == Vfx.N_BLIP) { // "+1": the plus is drawn as a char before the digits
+                text.setColor((col & 0x00FFFFFF) | (a << 24));
+                c.drawText("+1", x, y, text);
+                textsDrawn++;
+                continue;
+            }
+            if (crit) { // the yellow rim
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(Math.max(2f, 3.2f * ks));
+                stroke.setTextSize(size * ks);
+                stroke.setTextAlign(Paint.Align.CENTER);
+                stroke.setTypeface(text.getTypeface());
+                stroke.setColor(0x00FFC820 | (a << 24)); // yellow rim
+                c.drawText(vfx.ndig[i], 0, vfx.nlen[i], x, y, stroke);
+                stroke.setStyle(Paint.Style.STROKE);
+            }
+            text.setColor((col & 0x00FFFFFF) | (a << 24));
+            c.drawText(vfx.ndig[i], 0, vfx.nlen[i], x, y, text);
             textsDrawn++;
         }
         text.clearShadowLayer();
+    }
+
+    private static final int[] BLIP_COLORS = {0xA8FFC8, 0xA8FFE0, 0xA8FFF8, 0xB8F0FF, 0xC8E0FF, 0xD8D0FF, 0xE8C8FF, 0xFFC0F0};
+
+    /** v1.5 B1: sparks, shards, level-up gems and chest motes (all from the Vfx particle pool), then the ring, chest lid and pillar. */
+    private void drawVfx(Canvas c, Sim s) {
+        Img glowImg = atlas.img("vfx.energy_glow_1");
+        for (int i = 0; i < Vfx.MAX_PART; i++) {
+            float life = vfx.plife[i];
+            if (life <= 0f) continue;
+            int px = sx(vfx.ppx[i]), py = sy(vfx.ppy[i]);
+            if (px < -40 || px > scrW + 40 || py < -40 || py > scrH + 40) continue;
+            float f = Math.min(1f, life / vfx.pmax[i] * 1.6f);
+            int rgb = vfx.pcol[i] & 0x00FFFFFF;
+            int k = vfx.pkind[i];
+            if (k == Vfx.P_GEM || k == Vfx.P_MOTE) {
+                glow(c, glowImg, px, py, vfx.psize[i] * 4f * ks, 0f, k == Vfx.P_MOTE ? fGold : fCyan, (int) (230 * f));
+                fill.setColor(rgb | ((int) (255 * f) << 24));
+                int r = Math.max(2, Math.round(vfx.psize[i] * 0.5f * ks));
+                c.drawRect(px - r, py - r, px + r, py + r, fill);
+            } else {
+                fill.setColor(rgb | ((int) (255 * f) << 24));
+                int r = Math.max(1, Math.round(vfx.psize[i] * 0.5f * ks));
+                c.drawRect(px - r, py - r, px + r, py + r, fill);
+            }
+        }
+        for (int i = 0; i < Vfx.MAX_EFF; i++) {
+            if (!vfx.effectLive(i)) continue;
+            int px = sx(vfx.ex[i]), py = sy(vfx.ey[i]);
+            float age = vfx.eage[i], u = age / vfx.edur[i];
+            switch (vfx.ekind[i]) {
+                case Vfx.E_RING: {
+                    float r = Vfx.ringRadius(age) * ks;
+                    glow(c, atlas.img("vfx.energy_ring"), px, py - 26f * ks, r * 2f, 0f, fCyan, (int) (230 * (1f - u)));
+                    glow(c, atlas.img("vfx.energy_glow_0"), px, py - 26f * ks, r * 2.2f, 0f, fGreen, (int) (110 * (1f - u)));
+                    break;
+                }
+                case Vfx.E_LID: {
+                    Img im = atlas.img(PICK_KEYS[Entities.K_CHEST]);
+                    float hop = (float) Math.sin(Math.min(1f, u * 1.6f) * Math.PI) * 54f * ks;
+                    glow(c, atlas.img("vfx.energy_glow_0"), px, py - 20f * ks, (150f + 160f * u) * ks, 0f, fGold, (int) (220 * (1f - u)));
+                    if (im != null) { // the top half of the chest flies up and fades: the lid
+                        int top = Math.round(py - hop);
+                        c.save();
+                        c.clipRect(px - 200, top - 300, px + 200, top - Math.round(im.ay * ks * 0.5f) + Math.round(im.ay * ks * 0.2f));
+                        bmp.setColorFilter(null);
+                        bmp.setAlpha((int) (255 * (1f - u * u)));
+                        blit(c, im, px, top, ks * (1f + 0.3f * u), bmp);
+                        bmp.setAlpha(255);
+                        c.restore();
+                    }
+                    break;
+                }
+                default: { // the evolution pillar: a column of gold light, rising off the screen
+                    float al = Vfx.pillarAlpha(age);
+                    float wob = 0.85f + 0.15f * (float) Math.sin(age * 9f);
+                    Img g0 = atlas.img("vfx.energy_glow_0");
+                    int steps = 9;
+                    for (int k = 0; k < steps; k++) {
+                        float hk = (k + 0.5f) / steps;
+                        glow(c, g0, px, py - hk * scrH * 1.1f, (150f - 50f * hk) * ks * wob, 0f, fGold, (int) (190 * al * (1f - 0.6f * hk)));
+                    }
+                    fill.setColor(0xFFFFF0B0 & 0x00FFFFFF | ((int) (150 * al * wob) << 24));
+                    int hw = Math.max(2, Math.round(9f * ks * wob));
+                    c.drawRect(px - hw, 0, px + hw, py - Math.round(10f * ks), fill);
+                    break;
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ overlays (screen space)
@@ -2744,11 +2866,15 @@ public final class WorldRenderer {
     private void drawOverlay(Canvas c, int w, int h, Engine e, Sim s, boolean menu, boolean dual) {
         int ph = e.phase;
         if (s != null && !menu) {
-            float v = 1f - (float) ((now - hitAt) / (HIT_TINT * 3));
-            if (v > 0) {
+            float edge = vfx.edgeAlpha(s.maxHp > 0f ? s.hp / s.maxHp : 1f); // v1.5 B1: sized by the damage; a 1.2 Hz beat below 25 % HP
+            if (edge > 0.004f && s.ended == 0) {
                 ensureVignette(w, h);
-                vig.setAlpha((int) (255 * VIGNETTE * Math.min(1f, v)));
+                vig.setAlpha((int) (255 * edge));
                 c.drawRect(0, 0, w, h, vig);
+            }
+            if (vfx.flash > 0f) { // level-up: a 6 % white flash
+                fill.setColor(((int) (255 * Vfx.FLASH_ALPHA * vfx.flash / Vfx.FLASH_TIME) << 24) | 0xFFFFFF);
+                c.drawRect(0, 0, w, h, fill);
             }
             if (s.screenFlash > 0) { // never brighter than 0.25 alpha: the small screen shows a lot at once
                 fill.setColor(((int) (60 * Math.min(1f, s.screenFlash * 2)) << 24) | 0xFFFFFF);
