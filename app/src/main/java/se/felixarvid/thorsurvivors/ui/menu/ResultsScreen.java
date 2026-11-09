@@ -110,7 +110,8 @@ public final class ResultsScreen {
             if (d != null) tile(c, k, d, inv.weapons[i].level, bx + i * (ws + wg), by + 14f * u, ws, u);
         }
         float ps = 44f * u, py = by + 14f * u + ws + 16f * u;
-        for (int i = 0; i < inv.passiveCount; i++) {
+        if (py + ps > y1 - 8f * u) ps = 0f; // v1.5 integration: B4's achievement lines took the room, the weapons stay
+        for (int i = 0; ps > 0f && i < inv.passiveCount; i++) {
             WeaponDef d = inv.passives[i].def;
             if (d != null) tile(c, k, d, inv.passives[i].level, bx + i * (ps + wg), py, ps, u);
         }
@@ -119,7 +120,8 @@ public final class ResultsScreen {
         k.body(c, "DAMAGE DEALT", dx, by, 22f * u, Skin.DIM, Paint.Align.LEFT);
         k.body(c, totalText, dr, by, 22f * u, Skin.GOLD, Paint.Align.RIGHT);
         float rh = 34f * u;
-        for (int i = 0; i < topN; i++) {
+        int rows = Math.min(topN, Math.max(1, (int) ((y1 - 8f * u - by - 14f * u) / rh))); // v1.5 integration: what fits above y1
+        for (int i = 0; i < rows; i++) {
             float ry = by + 14f * u + i * rh;
             k.fill.setColor(0xFF1A1512);
             c.drawRect(dx, ry, dr, ry + rh - 6f * u, k.fill);

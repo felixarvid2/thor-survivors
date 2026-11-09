@@ -2324,11 +2324,13 @@ public final class PanelRenderer {
         }
         String[] ach = eng.resultAch; // v1.5 B4: achievements unlocked by this run, one line each (the first three)
         float by = h - 120f * u;
-        float achTop = by - 14f * u - ach.length * 46f * u; // v1.5 integration: below B3's results block, above CONTINUE
+        // v1.5 integration: below B3's results block, above CONTINUE, two to a row so the results block keeps its room
+        int achRows = (ach.length + 1) / 2;
+        float achTop = by - 14f * u - achRows * 40f * u, aw = (cw - 10f * u) / 2f;
         for (int i = 0; i < ach.length; i++) {
-            float ay = achTop + i * 46f * u;
-            k.plate(c, x, ay, x + cw, ay + 40f * u, 0x30FFD84A, GOLD, 2f * u);
-            k.fit(c, ach[i], w / 2f, ay + 30f * u, 28f * u, cw - 40f * u, GOLD, Paint.Align.CENTER);
+            float ay = achTop + (i / 2) * 40f * u, ax = ach.length == 1 ? x : x + (i % 2) * (aw + 10f * u), ar = ach.length == 1 ? x + cw : ax + aw;
+            k.plate(c, ax, ay, ar, ay + 34f * u, 0x30FFD84A, GOLD, 2f * u);
+            k.fit(c, ach[i], (ax + ar) / 2f, ay + 25f * u, 22f * u, ar - ax - 20f * u, GOLD, Paint.Align.CENTER);
         }
         float bw2 = Math.min(w * 0.85f, 900f * u);
         resultsScreen.draw(c, w, h, k, eng, lb + 16f * u, achTop - 6f * u); // v1.5 B3: cause of death, build, damage per weapon
