@@ -66,4 +66,4 @@ Teknisk dokumentation finns i [docs/TEKNIK.md](docs/TEKNIK.md) och designen i [d
 
 ## Om projektet
 
-ASHFALL: Lumen Tide är ett privat hobbyprojekt och är endast avsett för privat bruk. All grafik, musik och kod är skapad för projektet eller används under tillåtande licenser. Se [docs/TEKNIK.md](docs/TEKNIK.md) för en fullständig lista.
+ASHFALL: Lumen Tide är ett privat hobbyprojekt och är endast avsett för privat bruk. Se [docs/TEKNIK.md](docs/TEKNIK.md) för tredjepartsresurser, licenser och tekniska detaljer.
