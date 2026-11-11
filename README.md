@@ -1,40 +1,69 @@
-# ASHFALL: Lumen Tide
+<p align="center">
+  <img src="app/src/main/assets/ui/title.webp" alt="ASHFALL: Lumen Tide" width="100%">
+</p>
 
-Ett mörkt överlevnadsspel för AYN Thor, den handhållna Android-konsolen med två skärmar.
+<h1 align="center">ASHFALL: Lumen Tide</h1>
 
-Du har kraschat på en övergiven gruvkoloni där lumen, en lysande infektion, har tagit över allt levande. Kolonister, djur och maskiner väller fram i allt större vågor. Uppdraget är att hålla dig vid liv i 30 minuter.
+<p align="center">
+  <strong>Överlev 30 minuter i en gruvkoloni som tagits över av ljuset.</strong><br>
+  Ett mörkt överlevnadsspel för AYN Thor och andra Android-enheter.
+</p>
 
-Spelet är inspirerat av Vampire Survivors och Halls of Torment. Du styr bara hur hjälten rör sig, siktar och undviker. Vapnen skjuter av sig själva. Varje fiende du dödar lämnar kristaller. Med dem går du upp i nivå och väljer nya vapen, uppgraderingar och förmågor. När ett vapen är fullt uppgraderat och har rätt följeslagare kan det utvecklas till något mycket starkare, och två fullt uppgraderade vapen kan smälta samman till ett helt nytt. Varje runda bygger du upp en ny kombination. Mot slutet möter du bossar, och till sist det som väntar längst ner i mörkret.
+<p align="center">
+  <a href="https://github.com/felixarvid2/thor-survivors/releases/latest"><img src="https://img.shields.io/github/v/release/felixarvid2/thor-survivors?label=release&color=orange" alt="Senaste release"></a>
+  <img src="https://img.shields.io/badge/plattform-Android-3ddc84" alt="Android">
+  <img src="https://img.shields.io/badge/enhet-AYN%20Thor-4c6ef5" alt="AYN Thor">
+</p>
 
-Välj mellan tre hjältar som spelar helt olika: en tung närstridskämpe med hammare, en snabb skytt och en mystiker som förgiftar och sprider sporer. På banorna ligger dessutom gömda vapenlådor och utrustningsskåp, och minikartan visar var de finns. Ute i mörkret finns också övergivna utposter med sovande vakter, lumenbon som släpper hundflockar, reläterminaler som ger en kraftfull förstärkning mot ett pris, heta ventiler och ett förseglat valv som bara en sprängd tunna får upp. Då och då dyker en överlevande tekniker upp på banan och byter vapen, utrustning och förnödenheter mot guld, så länge du hinner fram till honom. Sent i rundan sätter dessutom särskilda händelser ditt tålamod på prov: ett torn att inta, ett ras som regnar ner, ett ljusutbrott, en fyr att försvara och till sist en flodvåg av fiender. Det guld du samlar ihop kan du lägga på bestående förbättringar mellan rundorna. Vill du ha mer motstånd finns fem ascension-nivåer per bana, ett curse-reglage som ger mer guld och en daglig utmaning, och achievements, rekord och en codex håller koll på vad du har klarat och mött.
+Du har kraschat på en övergiven gruvkoloni där **lumen**, en lysande infektion, har tagit över allt levande. Kolonister, djur och maskiner väller fram i allt större vågor. Uppdraget är enkelt att förstå och svårt att klara: håll dig vid liv i 30 minuter.
 
-## Fem banor
-
-Banorna låses upp en i taget när du klarar dig tillräckligt länge på den förra, och varje bana är svårare än den förra och har sina egna regler:
-
-- **Cinder Flats:** en öppen askslätt med åskstormar, konvojer att stoppa och lumenblommor att skörda.
-- **Deep Mines:** mörka gruvgångar där gruvvagnar dundrar fram, metanfickor kan explodera och vissa fiender bara syns i ljuset.
-- **Hydroponic Vaults:** övervuxna odlingskupoler där lysande hjärtan sprider en växtlighet som läker fienderna tills du bränner bort dem.
-- **Refinery District:** gator med löpband och smältugnar där värmen stiger om du står still.
-- **Meridian Wreck:** ett kraschat fraktskepp med teleportrar, gravitationsbrunnar och en säker zon som krymper när luften tar slut.
-
-## Två skärmar
-
-Den övre skärmen visar spelvärlden. Den nedre har allt annat: hälsa, vapen, utrustning, karta och menyer. Spelet fungerar också på vanliga Android-enheter med en skärm.
-
-## Kontroller
-
-- Vänster spak: gå
-- Höger spak: sikta
-- A eller B: undvik (X, Y och axelknapparna fungerar också)
-- Start: paus
-
-Knapparna kan bytas i Options, där du också ställer in skakning, skadesiffror, stor text, färgblindläge, sikthjälp och vibration.
+Spelet är inspirerat av *Vampire Survivors* och *Halls of Torment*. Du styr bara hur hjälten rör sig, siktar och undviker – vapnen skjuter av sig själva. Varje fiende lämnar kristaller som du använder för att gå upp i nivå och välja nya vapen, uppgraderingar och förmågor.
 
 ## Ladda ner
 
-Hämta APK:n under [Releases](https://github.com/felixarvid2/thor-survivors/releases) och installera den på enheten. Du behöver tillåta installation från okända källor.
+Hämta senaste APK:n under [Releases](https://github.com/felixarvid2/thor-survivors/releases/latest) och installera den på enheten. Du behöver tillåta installation från okända källor.
 
-Spelet är bara för privat bruk.
+Spelet är utvecklat för **AYN Thor** med två skärmar, men fungerar också på vanliga Android-enheter med en skärm.
 
-Teknisk dokumentation finns i [docs/TEKNIK.md](docs/TEKNIK.md) och designdokumentet i [docs/ASHFALL_DESIGN.md](docs/ASHFALL_DESIGN.md).
+## Det här gör du
+
+- **Välj bland tre hjältar** med helt olika spelstil: en tung närstridskämpe med hammare, en snabb skytt och en mystiker som förgiftar och sprider sporer.
+- **Bygg en ny kombination varje runda.** Vapen kan utvecklas med rätt följeslagare, och två fullt uppgraderade vapen kan smälta samman till ett helt nytt.
+- **Utforska fem banor** med egna regler, fiender och faror – från askslätten Cinder Flats till det kraschade fraktskeppet Meridian Wreck.
+- **Möt bossar** och till slut det som väntar längst ner i mörkret.
+- **Hitta hemligheter** som vapenlådor, utrustningsskåp, övergivna utposter, reläterminaler och ett förseglat valv.
+- **Bygg långsiktigt** med guld, bestående uppgraderingar, fem ascension-nivåer per bana, curse-reglage, dagliga utmaningar och achievements.
+
+## Två skärmar
+
+Den övre skärmen visar spelvärlden. Den nedre har hälsa, vapen, utrustning, karta och menyer – så att själva spelet får ta hela den övre skärmen.
+
+## Kontroller
+
+| Knapp | Gör |
+|---|---|
+| Vänster spak | Gå |
+| Höger spak | Sikta |
+| A eller B | Undvik |
+| Start | Paus |
+
+Knapparna kan bytas i **Options**, där du också ställer in skakning, skadesiffror, stor text, färgblindläge, sikthjälp och vibration.
+
+## För utvecklare
+
+<details>
+<summary>Bygg och testa</summary>
+
+Spelet är byggt i Java med Gradle och har ett eget verifieringsverktyg i `tools/`.
+
+```bash
+./gradlew assembleDebug
+```
+
+Teknisk dokumentation finns i [docs/TEKNIK.md](docs/TEKNIK.md) och designen i [docs/ASHFALL_DESIGN.md](docs/ASHFALL_DESIGN.md).
+
+</details>
+
+## Om projektet
+
+ASHFALL: Lumen Tide är ett privat hobbyprojekt och är endast avsett för privat bruk. All grafik, musik och kod är skapad för projektet eller används under tillåtande licenser. Se [docs/TEKNIK.md](docs/TEKNIK.md) för en fullständig lista.
